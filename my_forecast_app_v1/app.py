@@ -12,6 +12,7 @@ import io
 from models.ts_models import train_sarima, train_holtwinters
 from models.ml_models import train_linear_regression, train_random_forest
 from models.dl_models import train_rnn, train_lstm, prepare_data_dl
+from models.stat_tests import diebolt_mariano
 
 # Inicializamos la aplicación Flask
 app = Flask(__name__)
@@ -34,10 +35,15 @@ def index():
         df = get_data_from_yahoo(period=selected_period)
         # 4. Entrenamos los modelos y obtenemos predicciones + métricas
         test_size = max(1, int(len(df) * test_percent / 100))
-        metrics_df, forecast_values, train_series, test_series, predictions_dict = (
-            train_and_evaluate_all_models(
-                df, forecast_steps=test_size, test_size=test_size
-            )
+        (
+            metrics_df,
+            forecast_values,
+            train_series,
+            test_series,
+            predictions_dict,
+            dm_results,
+        ) = train_and_evaluate_all_models(
+            df, forecast_steps=test_size, test_size=test_size
         )
 
         # Determinar un ranking promedio considerando simultáneamente las
@@ -125,6 +131,7 @@ def index():
             train_series=train_series,
             test_series=test_series,
             predictions_dict=predictions_dict,
+            dm_results=dm_results,
             dates=dates,
             selected_period=None,
             selected_test_percent="",
@@ -137,6 +144,7 @@ def index():
             "index.html",
             selected_period="1mo",
             selected_test_percent=20,
+            dm_results=None,
         )
 
 
@@ -257,7 +265,34 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
         "LSTM": [None] * len(train_data) + lstm_pred.tolist(),
     }
 
-    return metrics_df, forecast_values, train_series, test_series, predictions_dict
+    # Resultados de la prueba Diebold-Mariano entre pares de modelos
+    dm_results = {}
+    model_preds = {
+        "SARIMA": sarima_pred,
+        "Holt-Winters": hw_pred,
+        "Regresión Lineal": linreg_pred,
+        "Random Forest": rf_pred,
+        "RNN": rnn_pred,
+        "LSTM": lstm_pred,
+    }
+    model_names = list(model_preds.keys())
+    for i in range(len(model_names)):
+        for j in range(i + 1, len(model_names)):
+            m1, m2 = model_names[i], model_names[j]
+            stat, p_val = diebolt_mariano(test_data, model_preds[m1], model_preds[m2])
+            dm_results[f"{m1} vs {m2}"] = {
+                "statistic": float(stat),
+                "p_value": float(p_val),
+            }
+
+    return (
+        metrics_df,
+        forecast_values,
+        train_series,
+        test_series,
+        predictions_dict,
+        dm_results,
+    )
 
 
 @app.route("/plot", methods=["POST"])

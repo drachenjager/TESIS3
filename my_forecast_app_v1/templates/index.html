@@ -63,6 +63,32 @@
             </ul>
         {% endif %}
 
+        {% if dm_results %}
+            <h2 class="mt-4">Diebold-Mariano</h2>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-sm text-center">
+                    <thead>
+                        <tr>
+                            <th>Modelos</th>
+                            <th>Estadístico</th>
+                            <th>p-valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for pair, res in dm_results.items() %}
+                        {% set significant = res.p_value < 0.05 %}
+                        <tr{% if significant %} class="table-warning"{% endif %}>
+                            <td>{{ pair }}</td>
+                            <td>{{ '%.4f'|format(res.statistic) }}</td>
+                            <td>{{ '%.4f'|format(res.p_value) }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                <p><small>Se resalta la fila cuando el p-valor es menor a 0.05.</small></p>
+            </div>
+        {% endif %}
+
         {% if metrics_table %}
         <!-- Formulario para seleccionar el modelo a graficar y enviar datos -->
         <form method="POST" action="{{ url_for('plot') }}" target="_blank" class="mt-4">

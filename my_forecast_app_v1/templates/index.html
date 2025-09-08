@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <title>Pronóstico USD/MXN</title>
+    <!-- Framework Bootstrap (tema Flatly) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.1.3/dist/flatly/bootstrap.min.css" />
+    <!-- Estilos para la tabla interactiva -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css" />
+    <!-- Hoja de estilos propia -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body class="p-4">
+    <!-- Contenedor principal con fondo blanco -->
+    <div class="container container-box">
+        <h1>Pronóstico de USD/MXN</h1>
+        <!-- Formulario para elegir periodo y porcentaje de testing -->
+        <form method="POST">
+            <label for="period_select">Selecciona el periodo:</label>
+            <select name="period_select" id="period_select" class="form-select" style="max-width:300px;">
+                <option value="" disabled {% if not selected_period %}selected{% endif %}>Selecciona un periodo</option>
+                <option value="5d" {% if selected_period == '5d' %}selected{% endif %}>5 días</option>
+                <option value="1mo" {% if selected_period == '1mo' %}selected{% endif %}>1 mes</option>
+                <option value="3mo" {% if selected_period == '3mo' %}selected{% endif %}>3 meses</option>
+                <option value="6mo" {% if selected_period == '6mo' %}selected{% endif %}>6 meses</option>
+                <option value="1y" {% if selected_period == '1y' %}selected{% endif %}>1 año</option>
+                <option value="ytd" {% if selected_period == 'ytd' %}selected{% endif %}>Año en curso</option>
+                <option value="2y" {% if selected_period == '2y' %}selected{% endif %}>2 años</option>
+                <option value="5y" {% if selected_period == '5y' %}selected{% endif %}>5 años</option>
+                <option value="10y" {% if selected_period == '10y' %}selected{% endif %}>10 años</option>
+                <option value="max" {% if selected_period == 'max' %}selected{% endif %}>Máx</option>
+            </select>
+            <label for="test_percent" class="mt-2">Porcentaje para testing:</label>
+            <input type="number" name="test_percent" id="test_percent" class="form-control" value="{{ selected_test_percent }}" min="1" max="80" style="max-width:150px;" />
+            <button type="submit" class="btn btn-primary mt-2">Consultar y pronosticar</button>
+        </form>
+
+        {% if display_period %}
+            <!-- Mensaje que muestra la última selección realizada -->
+            <div class="alert alert-info mt-3">
+                <strong>Última selección:</strong>
+                Periodo: {{ display_period }}, Porcentaje testing: {{ display_test_percent }}%
+            </div>
+        {% endif %}
+
+        {% if metrics_table %}
+            <!-- Tabla con métricas de evaluación de cada modelo -->
+            <h2 class="mt-4">Resultados de métricas</h2>
+            <div class="table-responsive">
+                <!-- Muestra el DataFrame de métricas -->
+                {{ metrics_table|safe }}
+            </div>
+        {% endif %}
+
+        {% if forecast_values %}
+            <!-- Lista con los valores pronosticados por cada modelo -->
+            <h2 class="mt-4">Pronóstico de los próximos puntos</h2>
+            <!-- forecast_values already holds comma-separated strings rounded to two decimals -->
+            <ul>
+            {% for model, fc_val in forecast_values.items() %}
+                <li><strong>{{ model }}:</strong> {{ fc_val }}</li>
+            {% endfor %}
+            </ul>
+        {% endif %}
+
+        {% if metrics_table %}
+        <!-- Formulario para seleccionar el modelo a graficar y enviar datos -->
+        <form method="POST" action="{{ url_for('plot') }}" target="_blank" class="mt-4">
+            <p>Selecciona el modelo que prefieras:</p>
+            {% for model in predictions_dict.keys() %}
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="model_choice" id="rb_{{ loop.index }}" value="{{ model }}" {% if loop.first %}checked{% endif %}>
+                <label class="form-check-label" for="rb_{{ loop.index }}">{{ model }}</label>
+            </div>
+            {% endfor %}
+
+            <!-- Series y predicciones se envían ocultas para la vista de gráficos -->
+            <input type="hidden" name="train_series" value='{{ train_series|tojson }}'>
+            <input type="hidden" name="test_series" value='{{ test_series|tojson }}'>
+            <input type="hidden" name="dates" value='{{ dates|tojson }}'>
+            {% for model, preds in predictions_dict.items() %}
+            <input type="hidden" name="pred_{{ model }}" value='{{ preds|tojson }}'>
+            {% endfor %}
+
+            <button type="submit" class="btn btn-success mt-2">Ejecutar</button>
+        </form>
+        {% endif %}
+    </div>
+    <!-- Bibliotecas JavaScript -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

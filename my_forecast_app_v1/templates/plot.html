@@ -16,6 +16,7 @@
         <p><strong>Entrenamiento:</strong> {{ train_display }}</p>
         <p><strong>Reales (test):</strong> {{ test_display }}</p>
         <p><strong>Pronosticados:</strong> {{ pred_display }}</p>
+        <p><strong>Residuales:</strong> {{ resid_display }}</p>
         <!-- Canvas donde se dibujará el gráfico con Chart.js -->
         <canvas id="chart" height="100"></canvas>
         <!-- Formulario para descargar los datos en Excel -->
@@ -24,6 +25,9 @@
             <input type="hidden" name="train_series" value='{{ train_series|tojson }}' />
             <input type="hidden" name="test_series" value='{{ test_series|tojson }}' />
             <input type="hidden" name="pred_series" value='{{ pred_series|tojson }}' />
+            <input type="hidden" name="resid_series" value='{{ resid_series|tojson }}' />
+            <input type="hidden" name="ci_lower" value='{{ ci_lower|tojson }}' />
+            <input type="hidden" name="ci_upper" value='{{ ci_upper|tojson }}' />
             <input type="hidden" name="dates" value='{{ dates|tojson }}' />
             <button type="submit" class="btn btn-primary">Guardar en Excel</button>
         </form>
@@ -36,8 +40,11 @@
         const train = {{ train_series|tojson }};
         const testReal = {{ test_series|tojson }};
         const testPred = {{ pred_series|tojson }};
+        const resid = {{ resid_series|tojson }};
+        const ciLow = {{ ci_lower|tojson }};
+        const ciHigh = {{ ci_upper|tojson }};
 
-        // Configura y renderiza el gráfico de líneas con las tres series
+        // Configura y renderiza el gráfico de líneas con las series y bandas de confianza
         new Chart(document.getElementById('chart'), {
             type: 'line',
             data: {
@@ -45,8 +52,17 @@
                 datasets: [
                     {label: 'Entrenamiento', data: train, borderColor: 'blue', fill:false},
                     {label: 'Real (test)', data: testReal, borderColor: 'green', fill:false},
-                    {label: 'Pronóstico', data: testPred, borderColor: 'red', fill:false}
+                    {label: 'Pronóstico', data: testPred, borderColor: 'red', fill:false},
+                    {label: 'Residual', data: resid, borderColor: 'purple', fill:false, yAxisID: 'y1'},
+                    {label: 'CI inferior', data: ciLow, borderColor: 'rgba(255,0,0,0.3)', fill:false},
+                    {label: 'CI superior', data: ciHigh, borderColor: 'rgba(255,0,0,0.3)', fill:false}
                 ]
+            },
+            options: {
+                scales: {
+                    y: {position: 'left'},
+                    y1: {position: 'right', grid: {drawOnChartArea: false}}
+                }
             }
         });
     </script>

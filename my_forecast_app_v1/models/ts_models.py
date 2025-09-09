@@ -54,11 +54,10 @@ def train_sarima(train_data, test_data, forecast_steps=1):
         else float("nan")
     )
 
-    # Pronóstico del siguiente punto
-    forecast_next = sarima_fit.predict(
-        start=len(train_data) + len(test_data),
-        end=len(train_data) + len(test_data) + forecast_steps - 1,
-    )
+    # Pronóstico hacia adelante usando ``get_forecast`` para mantener
+    # consistencia con el método empleado en ``get_prediction``.
+    forecast_res = sarima_fit.get_forecast(steps=forecast_steps)
+    forecast_next = forecast_res.predicted_mean
 
     metrics = {
         "Modelo": "SARIMA",
@@ -133,10 +132,8 @@ def train_holtwinters(train_data, test_data, forecast_steps=1):
         else float("nan")
     )
 
-    forecast_next = hw_fit.predict(
-        start=len(train_data) + len(test_data),
-        end=len(train_data) + len(test_data) + forecast_steps - 1,
-    )
+    # Pronóstico hacia adelante usando ``forecast`` del modelo ajustado
+    forecast_next = hw_fit.forecast(forecast_steps)
 
     metrics = {
         "Modelo": "Holt-Winters",

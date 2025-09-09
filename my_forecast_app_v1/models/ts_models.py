@@ -103,15 +103,21 @@ def train_holtwinters(train_data, test_data, forecast_steps=1):
 
     hw_fit = model.fit()
 
-    # Predicción sobre el conjunto de prueba
-    pred_res = hw_fit.get_prediction(
+    # ``HoltWintersResults`` no expone ``get_prediction`` en todas las versiones
+    # de statsmodels, por lo que usamos ``predict`` y construimos intervalos
+    # de manera aproximada a partir de la desviación estándar de los residuales
+    # de entrenamiento.
+    predictions = hw_fit.predict(
         start=len(train_data), end=len(train_data) + len(test_data) - 1
     )
-    predictions = pred_res.predicted_mean
-    try:
-        conf_int = np.asarray(pred_res.conf_int())
-    except Exception:
-        conf_int = np.array([[np.nan, np.nan]] * len(predictions))
+    # Desviación estándar de los residuales del ajuste para aproximar el IC
+    resid_std = np.std(hw_fit.resid)
+    conf_int = np.column_stack(
+        (
+            predictions - 1.96 * resid_std,
+            predictions + 1.96 * resid_std,
+        )
+    ) if len(predictions) > 0 else np.empty((0, 2))
     residuals = test_data - predictions
 
     mae = np.mean(np.abs(predictions - test_data))

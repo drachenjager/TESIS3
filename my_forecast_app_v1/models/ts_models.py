@@ -1,7 +1,6 @@
 """Modelos clásicos de series de tiempo."""
 
 import numpy as np
-import pandas as pd
 import math
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from statsmodels.tsa.holtwinters import ExponentialSmoothing

@@ -16,6 +16,9 @@
         <p><strong>Entrenamiento:</strong> {{ train_display }}</p>
         <p><strong>Reales (test):</strong> {{ test_display }}</p>
         <p><strong>Pronosticados:</strong> {{ pred_display }}</p>
+        {% if forecast_series %}
+        <p><strong>Pronóstico futuro:</strong> {{ forecast_display }}</p>
+        {% endif %}
         <!-- Canvas donde se dibujará el gráfico con Chart.js -->
         <canvas id="chart" height="100"></canvas>
         <!-- Formulario para descargar los datos en Excel -->
@@ -32,20 +35,85 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        const labels = {{ dates|tojson }};
+        const historicalLabels = {{ dates|tojson }};
+        const futureLabels = {{ future_dates|tojson }};
+        const labels = historicalLabels.concat(futureLabels);
+
         const train = {{ train_series|tojson }};
         const testReal = {{ test_series|tojson }};
         const testPred = {{ pred_series|tojson }};
+        const forecastFuture = {{ forecast_series|tojson }};
+        const forecastLower = {{ forecast_lower|tojson }};
+        const forecastUpper = {{ forecast_upper|tojson }};
 
-        // Configura y renderiza el gráfico de líneas con las tres series
+        const forecastPadding = Array(historicalLabels.length).fill(null);
+        const extension = Array(futureLabels.length).fill(null);
+
+        const trainPlot = train.concat(extension);
+        const testPlot = testReal.concat(extension);
+        const predPlot = testPred.concat(extension);
+        const forecastPlot = forecastPadding.concat(forecastFuture);
+        const lowerPlot = forecastPadding.concat(forecastLower);
+        const upperPlot = forecastPadding.concat(forecastUpper);
+
+        // Configura y renderiza el gráfico de líneas con todas las series
         new Chart(document.getElementById('chart'), {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [
-                    {label: 'Entrenamiento', data: train, borderColor: 'blue', fill:false},
-                    {label: 'Real (test)', data: testReal, borderColor: 'green', fill:false},
-                    {label: 'Pronóstico', data: testPred, borderColor: 'red', fill:false}
+                    {
+                        label: 'Entrenamiento',
+                        data: trainPlot,
+                        borderColor: 'blue',
+                        fill: false,
+                        spanGaps: true
+                    },
+                    {
+                        label: 'Real (test)',
+                        data: testPlot,
+                        borderColor: 'green',
+                        fill: false,
+                        spanGaps: true
+                    },
+                    {
+                        label: 'Pronóstico (test)',
+                        data: predPlot,
+                        borderColor: 'red',
+                        fill: false,
+                        spanGaps: true
+                    },
+                    {
+                        label: 'Pronóstico futuro',
+                        data: forecastPlot,
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderDash: [6, 6],
+                        fill: false,
+                        spanGaps: true
+                    },
+                    {
+                        label: 'IC 95% inferior',
+                        data: lowerPlot,
+                        borderColor: 'rgba(255, 99, 132, 0.4)',
+                        borderWidth: 1,
+                        pointRadius: 0,
+                        fill: false,
+                        spanGaps: true
+                    },
+                    {
+                        label: 'IC 95% superior',
+                        data: upperPlot,
+                        borderColor: 'rgba(255, 99, 132, 0.4)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.12)',
+                        borderWidth: 1,
+                        pointRadius: 0,
+                        fill: {
+                            target: '-1',
+                            above: 'rgba(255, 99, 132, 0.12)',
+                            below: 'rgba(255, 99, 132, 0.12)'
+                        },
+                        spanGaps: true
+                    }
                 ]
             }
         });

@@ -6,6 +6,8 @@ import math
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 
+from .utils import residual_confidence_intervals
+
 
 def create_supervised_data(series, lag=1):
     """Convierte una serie en un conjunto supervisado X,y."""
@@ -19,6 +21,17 @@ def create_supervised_data(series, lag=1):
 
 def train_linear_regression(train_data, test_data, forecast_steps=1):
     """Entrena una regresión lineal y pronostica."""
+    if len(train_data) <= 1 or len(test_data) == 0:
+        metrics = {
+            "Modelo": "Regresión Lineal",
+            "MAE": float("nan"),
+            "RMSE": float("nan"),
+            "MAPE": float("nan"),
+            "R^2": float("nan"),
+        }
+        empty_ci = {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps}
+        return metrics, np.array([]), [None] * forecast_steps, empty_ci
+
     X, y = create_supervised_data(train_data, lag=1)
     model = LinearRegression()
     model.fit(X, y)
@@ -60,6 +73,12 @@ def train_linear_regression(train_data, test_data, forecast_steps=1):
         forecast_next.append(next_pred)
         current_input = next_pred
 
+    forecast_list = [float(x) for x in forecast_next]
+    lower_bounds, upper_bounds = residual_confidence_intervals(
+        test_data, test_predictions, forecast_list
+    )
+    ci_bounds = {"lower": lower_bounds, "upper": upper_bounds}
+
     metrics = {
         "Modelo": "Regresión Lineal",
         "MAE": round(mae, 4),
@@ -68,11 +87,22 @@ def train_linear_regression(train_data, test_data, forecast_steps=1):
         "R^2": round(r2, 4),
     }
 
-    return metrics, test_predictions, [float(x) for x in forecast_next]
+    return metrics, test_predictions, forecast_list, ci_bounds
 
 
 def train_random_forest(train_data, test_data, forecast_steps=1):
     """Entrena un bosque aleatorio para pronosticar."""
+    if len(train_data) <= 1 or len(test_data) == 0:
+        metrics = {
+            "Modelo": "Random Forest",
+            "MAE": float("nan"),
+            "RMSE": float("nan"),
+            "MAPE": float("nan"),
+            "R^2": float("nan"),
+        }
+        empty_ci = {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps}
+        return metrics, np.array([]), [None] * forecast_steps, empty_ci
+
     X, y = create_supervised_data(train_data, lag=1)
     model = RandomForestRegressor(n_estimators=100)
     model.fit(X, y)
@@ -110,6 +140,12 @@ def train_random_forest(train_data, test_data, forecast_steps=1):
         forecast_next.append(next_pred)
         current_input = next_pred
 
+    forecast_list = [float(x) for x in forecast_next]
+    lower_bounds, upper_bounds = residual_confidence_intervals(
+        test_data, test_predictions, forecast_list
+    )
+    ci_bounds = {"lower": lower_bounds, "upper": upper_bounds}
+
     metrics = {
         "Modelo": "Random Forest",
         "MAE": round(mae, 4),
@@ -118,4 +154,4 @@ def train_random_forest(train_data, test_data, forecast_steps=1):
         "R^2": round(r2, 4),
     }
 
-    return metrics, test_predictions, [float(x) for x in forecast_next]
+    return metrics, test_predictions, forecast_list, ci_bounds

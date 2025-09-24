@@ -55,12 +55,12 @@
         {% if forecast_values %}
             <!-- Lista con los valores pronosticados por cada modelo -->
             <h2 class="mt-4">Pronóstico de los próximos puntos</h2>
-            <!-- forecast_values already holds comma-separated strings rounded to two decimals -->
             <ul>
             {% for model, fc_val in forecast_values.items() %}
                 <li><strong>{{ model }}:</strong> {{ fc_val }}</li>
             {% endfor %}
             </ul>
+            <p><small>Los intervalos de confianza se visualizan en la gráfica del modelo seleccionado.</small></p>
         {% endif %}
 
         {% if dm_results %}
@@ -104,8 +104,15 @@
             <input type="hidden" name="train_series" value='{{ train_series|tojson }}'>
             <input type="hidden" name="test_series" value='{{ test_series|tojson }}'>
             <input type="hidden" name="dates" value='{{ dates|tojson }}'>
+            <input type="hidden" name="future_dates" value='{{ (future_dates or [])|tojson }}'>
+            {% set forecast_series_dict = forecast_series or {} %}
+            {% set forecast_intervals_dict = forecast_intervals or {} %}
             {% for model, preds in predictions_dict.items() %}
             <input type="hidden" name="pred_{{ model }}" value='{{ preds|tojson }}'>
+            <input type="hidden" name="forecast_{{ model }}" value='{{ (forecast_series_dict.get(model) or [])|tojson }}'>
+            {% set ci_dict = forecast_intervals_dict.get(model) or {} %}
+            <input type="hidden" name="ci_lower_{{ model }}" value='{{ (ci_dict.get("lower") or [])|tojson }}'>
+            <input type="hidden" name="ci_upper_{{ model }}" value='{{ (ci_dict.get("upper") or [])|tojson }}'>
             {% endfor %}
 
             <button type="submit" class="btn btn-success mt-2">Ejecutar</button>

@@ -38,6 +38,7 @@ def index():
         (
             metrics_df,
             forecast_values,
+            forecast_intervals,
             train_series,
             test_series,
             predictions_dict,
@@ -100,15 +101,36 @@ def index():
         )
 
         def format_forecast(vals):
-            """Return a comma-separated string with two-decimal values."""
-            try:
-                return ", ".join(f"{v:.2f}" for v in vals if v is not None)
-            except TypeError:
-                return f"{vals:.2f}" if vals is not None else ""
+            """Return a descriptive string with forecast values."""
+            if not vals:
+                return "Sin datos disponibles"
+            formatted_parts = []
+            for val in vals:
+                if val is None or pd.isna(val):
+                    continue
+                formatted_parts.append(f"{float(val):.2f}")
+            return "; ".join(formatted_parts) if formatted_parts else "Sin datos disponibles"
 
+        raw_forecasts = forecast_values
         formatted_forecasts = {
-            model: format_forecast(vals) for model, vals in forecast_values.items()
+            model: format_forecast(vals) for model, vals in raw_forecasts.items()
         }
+
+        forecast_horizon = 0
+        if raw_forecasts:
+            forecast_horizon = max(
+                (len(vals) if isinstance(vals, (list, tuple)) else 0)
+                for vals in raw_forecasts.values()
+            )
+
+        future_dates = []
+        if forecast_horizon and not df.empty:
+            next_day = df["Date"].iloc[-1] + timedelta(days=1)
+            future_dates = (
+                pd.date_range(start=next_day, periods=forecast_horizon, freq="B")
+                .strftime("%Y-%m-%d")
+                .tolist()
+            )
 
         period_labels = {
             "5d": "5 días",
@@ -128,10 +150,13 @@ def index():
             "index.html",
             metrics_table=metrics_table,
             forecast_values=formatted_forecasts,
+            forecast_series=raw_forecasts,
             train_series=train_series,
             test_series=test_series,
             predictions_dict=predictions_dict,
             dm_results=dm_results,
+            forecast_intervals=forecast_intervals,
+            future_dates=future_dates,
             dates=dates,
             selected_period=None,
             selected_test_percent="",
@@ -145,6 +170,10 @@ def index():
             selected_period="1mo",
             selected_test_percent=20,
             dm_results=None,
+            forecast_values=None,
+            forecast_intervals=None,
+            forecast_series=None,
+            future_dates=None,
         )
 
 
@@ -191,7 +220,20 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
     Returns
     -------
     tuple
-        ``(metrics_df, forecast_values, train_series, test_series, predictions_dict)``
+        metrics_df : pandas.DataFrame
+            Tabla con las métricas de evaluación de cada modelo.
+        forecast_values : dict
+            Pronósticos futuros por modelo.
+        forecast_intervals : dict
+            Intervalos de confianza (al 95%) asociados a cada pronóstico.
+        train_series : list
+            Serie extendida con valores de entrenamiento.
+        test_series : list
+            Serie extendida con valores reales del conjunto de prueba.
+        predictions_dict : dict
+            Predicciones alineadas temporalmente para cada modelo.
+        dm_results : dict
+            Resultados de la prueba Diebold-Mariano entre pares de modelos.
     """
 
     ts = df["Close"].values
@@ -203,26 +245,26 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
     test_data = ts[-test_size:]
 
     # ----- Modelos de series de tiempo -----
-    sarima_metrics, sarima_pred, sarima_forecast = train_sarima(
+    sarima_metrics, sarima_pred, sarima_forecast, sarima_ci = train_sarima(
         train_data, test_data, forecast_steps
     )
-    hw_metrics, hw_pred, hw_forecast = train_holtwinters(
+    hw_metrics, hw_pred, hw_forecast, hw_ci = train_holtwinters(
         train_data, test_data, forecast_steps
     )
 
     # ----- Modelos de Machine Learning -----
-    linreg_metrics, linreg_pred, linreg_forecast = train_linear_regression(
+    linreg_metrics, linreg_pred, linreg_forecast, linreg_ci = train_linear_regression(
         train_data, test_data, forecast_steps
     )
-    rf_metrics, rf_pred, rf_forecast = train_random_forest(
+    rf_metrics, rf_pred, rf_forecast, rf_ci = train_random_forest(
         train_data, test_data, forecast_steps
     )
 
     # ----- Modelos de Deep Learning -----
-    rnn_metrics, rnn_pred, rnn_forecast = train_rnn(
+    rnn_metrics, rnn_pred, rnn_forecast, rnn_ci = train_rnn(
         train_data, test_data, forecast_steps
     )
-    lstm_metrics, lstm_pred, lstm_forecast = train_lstm(
+    lstm_metrics, lstm_pred, lstm_forecast, lstm_ci = train_lstm(
         train_data, test_data, forecast_steps
     )
 
@@ -249,6 +291,15 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
         "Random Forest": rf_forecast,
         "RNN": rnn_forecast,
         "LSTM": lstm_forecast,
+    }
+
+    forecast_intervals = {
+        "SARIMA": sarima_ci,
+        "Holt-Winters": hw_ci,
+        "Regresión Lineal": linreg_ci,
+        "Random Forest": rf_ci,
+        "RNN": rnn_ci,
+        "LSTM": lstm_ci,
     }
 
     # Listas combinando valores de train/test para facilitar el graficado
@@ -288,6 +339,7 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
     return (
         metrics_df,
         forecast_values,
+        forecast_intervals,
         train_series,
         test_series,
         predictions_dict,
@@ -303,10 +355,23 @@ def plot():
     visualización y renderiza la plantilla ``plot.html``.
     """
     model_name = request.form.get("model_choice")
-    train_series = json.loads(request.form.get("train_series"))
-    test_series = json.loads(request.form.get("test_series"))
-    dates = json.loads(request.form.get("dates"))
-    pred_series = json.loads(request.form.get(f"pred_{model_name}"))
+    def parse_payload(key):
+        payload = request.form.get(key)
+        if not payload:
+            return []
+        try:
+            return json.loads(payload)
+        except json.JSONDecodeError:
+            return []
+
+    train_series = parse_payload("train_series")
+    test_series = parse_payload("test_series")
+    dates = parse_payload("dates")
+    future_dates = parse_payload("future_dates")
+    pred_series = parse_payload(f"pred_{model_name}")
+    forecast_series = parse_payload(f"forecast_{model_name}")
+    forecast_lower = parse_payload(f"ci_lower_{model_name}")
+    forecast_upper = parse_payload(f"ci_upper_{model_name}")
 
     def format_series(series):
         """Convierte una serie numérica a una cadena separada por comas."""
@@ -317,16 +382,23 @@ def plot():
     test_display = format_series(test_series)
     pred_display = format_series(pred_series)
 
+    forecast_display = format_series(forecast_series)
+
     return render_template(
         "plot.html",
         model_name=model_name,
         train_series=train_series,
         test_series=test_series,
         pred_series=pred_series,
+        forecast_series=forecast_series,
+        forecast_lower=forecast_lower,
+        forecast_upper=forecast_upper,
         dates=dates,
+        future_dates=future_dates,
         train_display=train_display,
         test_display=test_display,
         pred_display=pred_display,
+        forecast_display=forecast_display,
     )
 
 

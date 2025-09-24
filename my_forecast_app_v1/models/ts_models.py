@@ -6,6 +6,8 @@ import math
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
+from .utils import residual_confidence_intervals
+
 
 def train_sarima(train_data, test_data, forecast_steps=1):
     """Entrena un modelo SARIMA y devuelve métricas y pronósticos."""
@@ -19,7 +21,8 @@ def train_sarima(train_data, test_data, forecast_steps=1):
             "MAPE": float("nan"),
             "R^2": float("nan"),
         }
-        return metrics, np.array([]), [None] * forecast_steps
+        empty_ci = {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps}
+        return metrics, np.array([]), [None] * forecast_steps, empty_ci
     model = SARIMAX(
         train_data,
         order=(1, 1, 1),
@@ -54,6 +57,11 @@ def train_sarima(train_data, test_data, forecast_steps=1):
         start=len(train_data) + len(test_data),
         end=len(train_data) + len(test_data) + forecast_steps - 1,
     )
+    forecast_list = [float(x) for x in np.asarray(forecast_next)]
+    lower_bounds, upper_bounds = residual_confidence_intervals(
+        test_data, predictions, forecast_list
+    )
+    ci_bounds = {"lower": lower_bounds, "upper": upper_bounds}
 
     metrics = {
         "Modelo": "SARIMA",
@@ -63,7 +71,7 @@ def train_sarima(train_data, test_data, forecast_steps=1):
         "R^2": round(r2, 4),
     }
 
-    return metrics, predictions, forecast_next.tolist()
+    return metrics, predictions, forecast_list, ci_bounds
 
 
 def train_holtwinters(train_data, test_data, forecast_steps=1):
@@ -76,7 +84,8 @@ def train_holtwinters(train_data, test_data, forecast_steps=1):
             "MAPE": float("nan"),
             "R^2": float("nan"),
         }
-        return metrics, np.array([]), [None] * forecast_steps
+        empty_ci = {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps}
+        return metrics, np.array([]), [None] * forecast_steps, empty_ci
     # Ver cuántos datos hay en train
     n_train = len(train_data)
     # Solo usar estacionalidad si hay >= 2 ciclos de 12
@@ -114,6 +123,11 @@ def train_holtwinters(train_data, test_data, forecast_steps=1):
         start=len(train_data) + len(test_data),
         end=len(train_data) + len(test_data) + forecast_steps - 1,
     )
+    forecast_list = [float(x) for x in np.asarray(forecast_next)]
+    lower_bounds, upper_bounds = residual_confidence_intervals(
+        test_data, predictions, forecast_list
+    )
+    ci_bounds = {"lower": lower_bounds, "upper": upper_bounds}
 
     metrics = {
         "Modelo": "Holt-Winters",
@@ -123,4 +137,4 @@ def train_holtwinters(train_data, test_data, forecast_steps=1):
         "R^2": round(r2, 4),
     }
 
-    return metrics, predictions, forecast_next.tolist()
+    return metrics, predictions, forecast_list, ci_bounds

@@ -36,17 +36,84 @@
         const train = {{ train_series|tojson }};
         const testReal = {{ test_series|tojson }};
         const testPred = {{ pred_series|tojson }};
+        const ciLower = {{ ci_lower|tojson }};
+        const ciUpper = {{ ci_upper|tojson }};
+        const hasCI = {{ 'true' if has_confidence_data else 'false' }};
 
         // Configura y renderiza el gráfico de líneas con las tres series
+        const datasets = [
+            {label: 'Entrenamiento', data: train, borderColor: 'blue', fill:false, pointRadius: 0, spanGaps: true},
+            {label: 'Real (test)', data: testReal, borderColor: 'green', fill:false, pointRadius: 0, spanGaps: true},
+            {label: 'Pronóstico', data: testPred, borderColor: 'red', fill:false, pointRadius: 3, tension: 0.2, spanGaps: true}
+        ];
+
+        if (hasCI) {
+            const ciBackground = 'rgba(255, 99, 132, 0.18)';
+            datasets.push(
+                {
+                    label: 'IC Superior',
+                    data: ciUpper,
+                    borderColor: ciBackground,
+                    backgroundColor: ciBackground,
+                    pointRadius: 0,
+                    fill: false,
+                    borderWidth: 0,
+                    spanGaps: true
+                },
+                {
+                    label: 'IC Inferior',
+                    data: ciLower,
+                    borderColor: ciBackground,
+                    backgroundColor: ciBackground,
+                    pointRadius: 0,
+                    borderWidth: 0,
+                    fill: '-1',
+                    spanGaps: true
+                }
+            );
+        }
+
         new Chart(document.getElementById('chart'), {
             type: 'line',
             data: {
                 labels: labels,
-                datasets: [
-                    {label: 'Entrenamiento', data: train, borderColor: 'blue', fill:false},
-                    {label: 'Real (test)', data: testReal, borderColor: 'green', fill:false},
-                    {label: 'Pronóstico', data: testPred, borderColor: 'red', fill:false}
-                ]
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.dataset.label || '';
+                                if (label.startsWith('IC')) {
+                                    return `${label}: ${context.parsed.y !== null ? context.parsed.y.toFixed(4) : 'N/A'}`;
+                                }
+                                return `${label}: ${context.parsed.y !== null ? context.parsed.y.toFixed(4) : 'N/A'}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 0
+                        }
+                    },
+                    y: {
+                        beginAtZero: false
+                    }
+                }
             }
         });
     </script>

@@ -337,6 +337,28 @@ def plot():
     test_series = json.loads(request.form.get("test_series"))
     dates = json.loads(request.form.get("dates"))
     pred_series = json.loads(request.form.get(f"pred_{model_name}"))
+    raw_intervals = request.form.get("forecast_intervals")
+    forecast_intervals = json.loads(raw_intervals) if raw_intervals else {}
+    ci_bounds = forecast_intervals.get(model_name, {}) if forecast_intervals else {}
+
+    ci_lower = ci_bounds.get("lower") if isinstance(ci_bounds, dict) else None
+    ci_upper = ci_bounds.get("upper") if isinstance(ci_bounds, dict) else None
+
+    test_length = sum(1 for value in test_series if value is not None)
+    total_length = len(test_series)
+    padding = max(0, total_length - test_length)
+
+    def align_intervals(bounds):
+        if not isinstance(bounds, list) or len(bounds) == 0:
+            return [None] * total_length
+        trimmed = bounds[-test_length:] if test_length > 0 else []
+        if len(trimmed) < test_length:
+            trimmed = [None] * (test_length - len(trimmed)) + trimmed
+        return [None] * padding + trimmed
+
+    ci_lower_aligned = align_intervals(ci_lower)
+    ci_upper_aligned = align_intervals(ci_upper)
+    has_confidence_data = any(v is not None for v in ci_lower_aligned + ci_upper_aligned)
 
     def format_series(series):
         """Convierte una serie numérica a una cadena separada por comas."""
@@ -357,6 +379,9 @@ def plot():
         train_display=train_display,
         test_display=test_display,
         pred_display=pred_display,
+        ci_lower=ci_lower_aligned,
+        ci_upper=ci_upper_aligned,
+        has_confidence_data=has_confidence_data,
     )
 
 

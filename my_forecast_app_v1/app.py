@@ -72,37 +72,22 @@ def index():
             "Rank": "{:.0f}",
         }
 
-        def highlight_best(row):
-            return ["background-color: gold"] * len(row) if row.name == best_idx else [""] * len(row)
-
         dates = df["Date"].dt.strftime("%Y-%m-%d").tolist()
         # 5. Renderizamos la plantilla con los resultados
-        metrics_table = (
-            metrics_df.style
-            .apply(highlight_best, axis=1)
-            .format(format_dict)
-            .hide(axis="index")
-            .set_table_styles(
-                [
-                    {
-                        "selector": "",
-                        "props": [
-                            ("border", "1px solid #000"),
-                            ("border-collapse", "separate"),
-                            ("border-spacing", "10px 0"),
-                        ],
-                    },
-                    {
-                        "selector": "th, td",
-                        "props": [("border", "1px solid #000")],
-                    },
-                ]
-            )
-            .to_html(
-                classes="table table-striped table-hover table-sm text-center",
-                table_id="metrics-table",
-            )
-        )
+        def format_value(column, value):
+            if pd.isna(value):
+                return "-"
+            formatter = format_dict.get(column)
+            if formatter:
+                return formatter.format(value)
+            return str(value)
+
+        metrics_columns = list(metrics_df.columns)
+        metrics_rows = []
+
+        for idx, row in metrics_df.iterrows():
+            formatted_row = {column: format_value(column, row[column]) for column in metrics_columns}
+            metrics_rows.append({"values": formatted_row, "is_best": idx == best_idx})
 
         def format_forecast(vals, intervals):
             """Return a descriptive string with forecast values without confidence intervals."""
@@ -200,7 +185,8 @@ def index():
 
         return render_template(
             "index.html",
-            metrics_table=metrics_table,
+            metrics_columns=metrics_columns,
+            metrics_rows=metrics_rows,
             forecast_values=formatted_forecasts,
             train_series=train_series,
             test_series=test_series,
@@ -221,6 +207,8 @@ def index():
         # Método GET: mostramos el formulario con valores por defecto
         return render_template(
             "index.html",
+            metrics_columns=[],
+            metrics_rows=[],
             selected_period="1mo",
             selected_test_percent=20,
             dm_results=None,

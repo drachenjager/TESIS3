@@ -128,6 +128,59 @@ def index():
         }
         display_period = period_labels.get(selected_period, selected_period)
 
+        test_length = sum(1 for value in test_series if value is not None)
+        total_length = len(test_series)
+        padding = max(0, total_length - test_length)
+
+        def align_intervals(bounds):
+            if not isinstance(bounds, list) or len(bounds) == 0:
+                return [None] * total_length
+            trimmed = bounds[-test_length:] if test_length > 0 else []
+            if len(trimmed) < test_length:
+                trimmed = [None] * (test_length - len(trimmed)) + trimmed
+            return [None] * padding + trimmed
+
+        aligned_confidence = {}
+        for model_name, bounds in (forecast_intervals or {}).items():
+            lower = align_intervals(bounds.get("lower")) if isinstance(bounds, dict) else [None] * total_length
+            upper = align_intervals(bounds.get("upper")) if isinstance(bounds, dict) else [None] * total_length
+            aligned_confidence[model_name] = {
+                "lower": lower,
+                "upper": upper,
+            }
+
+        residual_series = {}
+        scatter_series = {}
+        summary_rows = []
+
+        for model_name, preds in predictions_dict.items():
+            model_residuals = []
+            model_scatter = []
+            for real_value, pred_value in zip(test_series, preds):
+                if real_value is None or pred_value is None:
+                    model_residuals.append(None)
+                    continue
+                residual = real_value - pred_value
+                model_residuals.append(residual)
+                model_scatter.append({"x": pred_value, "y": residual})
+
+            residual_series[model_name] = model_residuals
+            scatter_series[model_name] = model_scatter
+
+            residual_values = [value for value in model_residuals if value is not None]
+            if residual_values:
+                series = pd.Series(residual_values)
+                summary_rows.append(
+                    {
+                        "model": model_name,
+                        "mean": float(series.mean()),
+                        "std": float(series.std(ddof=0)),
+                        "mae": float(series.abs().mean()),
+                    }
+                )
+
+        summary_table = summary_rows
+
         return render_template(
             "index.html",
             metrics_table=metrics_table,
@@ -136,12 +189,16 @@ def index():
             test_series=test_series,
             predictions_dict=predictions_dict,
             dm_results=dm_results,
-            forecast_intervals=forecast_intervals,
+            forecast_intervals=aligned_confidence,
             dates=dates,
+            residual_series=residual_series,
+            scatter_series=scatter_series,
+            residuals_summary=summary_table,
             selected_period=None,
             selected_test_percent="",
             display_period=display_period,
             display_test_percent=test_percent,
+            best_model_name=best_idx,
         )
     else:
         # Método GET: mostramos el formulario con valores por defecto
@@ -151,7 +208,15 @@ def index():
             selected_test_percent=20,
             dm_results=None,
             forecast_values=None,
-            forecast_intervals=None,
+            forecast_intervals={},
+            train_series=[],
+            test_series=[],
+            predictions_dict={},
+            dates=[],
+            residual_series={},
+            scatter_series={},
+            residuals_summary=[],
+            best_model_name=None,
         )
 
 

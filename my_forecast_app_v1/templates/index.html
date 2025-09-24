@@ -14,112 +14,485 @@
     <!-- Contenedor principal con fondo blanco -->
     <div class="container container-box">
         <h1>Pronóstico de USD/MXN</h1>
-        <!-- Formulario para elegir periodo y porcentaje de testing -->
-        <form method="POST">
-            <label for="period_select">Selecciona el periodo:</label>
-            <select name="period_select" id="period_select" class="form-select" style="max-width:300px;">
-                <option value="" disabled {% if not selected_period %}selected{% endif %}>Selecciona un periodo</option>
-                <option value="5d" {% if selected_period == '5d' %}selected{% endif %}>5 días</option>
-                <option value="1mo" {% if selected_period == '1mo' %}selected{% endif %}>1 mes</option>
-                <option value="3mo" {% if selected_period == '3mo' %}selected{% endif %}>3 meses</option>
-                <option value="6mo" {% if selected_period == '6mo' %}selected{% endif %}>6 meses</option>
-                <option value="1y" {% if selected_period == '1y' %}selected{% endif %}>1 año</option>
-                <option value="ytd" {% if selected_period == 'ytd' %}selected{% endif %}>Año en curso</option>
-                <option value="2y" {% if selected_period == '2y' %}selected{% endif %}>2 años</option>
-                <option value="5y" {% if selected_period == '5y' %}selected{% endif %}>5 años</option>
-                <option value="10y" {% if selected_period == '10y' %}selected{% endif %}>10 años</option>
-                <option value="max" {% if selected_period == 'max' %}selected{% endif %}>Máx</option>
-            </select>
-            <label for="test_percent" class="mt-2">Porcentaje para testing:</label>
-            <input type="number" name="test_percent" id="test_percent" class="form-control" value="{{ selected_test_percent }}" min="1" max="80" style="max-width:150px;" />
-            <button type="submit" class="btn btn-primary mt-2">Consultar y pronosticar</button>
-        </form>
 
-        {% if display_period %}
-            <!-- Mensaje que muestra la última selección realizada -->
-            <div class="alert alert-info mt-3">
-                <strong>Última selección:</strong>
-                Periodo: {{ display_period }}, Porcentaje testing: {{ display_test_percent }}%
-            </div>
-        {% endif %}
+        <ul class="nav nav-tabs mt-3" id="dashboard-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="home-tab" data-bs-toggle="tab" data-bs-target="#home" type="button" role="tab" aria-controls="home" aria-selected="true">Home</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="chart-tab" data-bs-toggle="tab" data-bs-target="#chart" type="button" role="tab" aria-controls="chart" aria-selected="false">Gráfica resultante</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="dm-tab" data-bs-toggle="tab" data-bs-target="#dm" type="button" role="tab" aria-controls="dm" aria-selected="false">Prueba Diebold-Mariano</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="residuals-tab" data-bs-toggle="tab" data-bs-target="#residuals" type="button" role="tab" aria-controls="residuals" aria-selected="false">Residuales</button>
+            </li>
+        </ul>
 
-        {% if metrics_table %}
-            <!-- Tabla con métricas de evaluación de cada modelo -->
-            <h2 class="mt-4">Resultados de métricas</h2>
-            <div class="table-responsive">
-                <!-- Muestra el DataFrame de métricas -->
-                {{ metrics_table|safe }}
-            </div>
-        {% endif %}
+        <div class="tab-content mt-4" id="dashboard-tabs-content">
+            <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
+                <!-- Formulario para elegir periodo y porcentaje de testing -->
+                <form method="POST" class="mb-4">
+                    <label for="period_select">Selecciona el periodo:</label>
+                    <select name="period_select" id="period_select" class="form-select" style="max-width:300px;">
+                        <option value="" disabled {% if not selected_period %}selected{% endif %}>Selecciona un periodo</option>
+                        <option value="5d" {% if selected_period == '5d' %}selected{% endif %}>5 días</option>
+                        <option value="1mo" {% if selected_period == '1mo' %}selected{% endif %}>1 mes</option>
+                        <option value="3mo" {% if selected_period == '3mo' %}selected{% endif %}>3 meses</option>
+                        <option value="6mo" {% if selected_period == '6mo' %}selected{% endif %}>6 meses</option>
+                        <option value="1y" {% if selected_period == '1y' %}selected{% endif %}>1 año</option>
+                        <option value="ytd" {% if selected_period == 'ytd' %}selected{% endif %}>Año en curso</option>
+                        <option value="2y" {% if selected_period == '2y' %}selected{% endif %}>2 años</option>
+                        <option value="5y" {% if selected_period == '5y' %}selected{% endif %}>5 años</option>
+                        <option value="10y" {% if selected_period == '10y' %}selected{% endif %}>10 años</option>
+                        <option value="max" {% if selected_period == 'max' %}selected{% endif %}>Máx</option>
+                    </select>
+                    <label for="test_percent" class="mt-2">Porcentaje para testing:</label>
+                    <input type="number" name="test_percent" id="test_percent" class="form-control" value="{{ selected_test_percent }}" min="1" max="80" style="max-width:150px;" />
+                    <button type="submit" class="btn btn-primary mt-3">Consultar y pronosticar</button>
+                </form>
 
-        {% if forecast_values %}
-            <!-- Lista con los valores pronosticados por cada modelo -->
-            <h2 class="mt-4">Pronóstico de los próximos puntos</h2>
-            <!-- forecast_values ya incluye valores formateados -->
-            <ul>
-            {% for model, fc_val in forecast_values.items() %}
-                <li><strong>{{ model }}:</strong> {{ fc_val }}</li>
-            {% endfor %}
-            </ul>
-        {% endif %}
+                {% if display_period %}
+                    <!-- Mensaje que muestra la última selección realizada -->
+                    <div class="alert alert-info">
+                        <strong>Última selección:</strong>
+                        Periodo: {{ display_period }}, Porcentaje testing: {{ display_test_percent }}%
+                    </div>
+                {% endif %}
 
-        {% if dm_results %}
-            <h2 class="mt-4">Diebold-Mariano</h2>
-            <div class="table-responsive">
-                <table class="table table-striped table-hover table-sm text-center">
-                    <thead>
-                        <tr>
-                            <th>Modelos</th>
-                            <th>Estadístico</th>
-                            <th>p-valor</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    {% for pair, res in dm_results.items() %}
-                        {% set significant = res.p_value < 0.05 %}
-                        <tr{% if significant %} class="table-warning"{% endif %}>
-                            <td>{{ pair }}</td>
-                            <td>{{ '%.4f'|format(res.statistic) }}</td>
-                            <td>{{ '%.4f'|format(res.p_value) }}</td>
-                        </tr>
+                {% if metrics_table %}
+                    <!-- Tabla con métricas de evaluación de cada modelo -->
+                    <h2>Resultados de métricas</h2>
+                    <div class="table-responsive">
+                        <!-- Muestra el DataFrame de métricas -->
+                        {{ metrics_table|safe }}
+                    </div>
+                {% endif %}
+
+                {% if forecast_values %}
+                    <!-- Lista con los valores pronosticados por cada modelo -->
+                    <h2 class="mt-4">Pronóstico de los próximos puntos</h2>
+                    <!-- forecast_values ya incluye valores formateados -->
+                    <ul>
+                    {% for model, fc_val in forecast_values.items() %}
+                        <li><strong>{{ model }}:</strong> {{ fc_val }}</li>
                     {% endfor %}
-                    </tbody>
-                </table>
-                <p><small>Se resalta la fila cuando el p-valor es menor a 0.05.</small></p>
+                    </ul>
+                {% endif %}
             </div>
-        {% endif %}
 
-        {% if metrics_table %}
-        <!-- Formulario para seleccionar el modelo a graficar y enviar datos -->
-        <form method="POST" action="{{ url_for('plot') }}" target="_blank" class="mt-4">
-            <p>Selecciona el modelo que prefieras:</p>
-            {% for model in predictions_dict.keys() %}
-            <div class="form-check">
-                <input class="form-check-input" type="radio" name="model_choice" id="rb_{{ loop.index }}" value="{{ model }}" {% if loop.first %}checked{% endif %}>
-                <label class="form-check-label" for="rb_{{ loop.index }}">{{ model }}</label>
+            <div class="tab-pane fade" id="chart" role="tabpanel" aria-labelledby="chart-tab">
+                {% if metrics_table %}
+                    {% set initial_model = best_model_name if best_model_name else (predictions_dict|first) %}
+                    <div class="row g-4">
+                        <div class="col-lg-4">
+                            <label for="model-select" class="form-label">Selecciona el modelo para visualizar:</label>
+                            <select class="form-select" id="model-select">
+                                {% for model_name in predictions_dict.keys() %}
+                                    <option value="{{ model_name }}" {% if model_name == initial_model %}selected{% endif %}>{{ model_name }}</option>
+                                {% endfor %}
+                            </select>
+                            <form method="POST" action="{{ url_for('download_excel') }}" class="mt-3" id="download-form">
+                                <input type="hidden" name="model_name" value="{{ initial_model }}" />
+                                <input type="hidden" name="train_series" value='{{ train_series|tojson }}' />
+                                <input type="hidden" name="test_series" value='{{ test_series|tojson }}' />
+                                <input type="hidden" name="pred_series" value='{{ predictions_dict[initial_model]|tojson if initial_model else "[]" }}' />
+                                <input type="hidden" name="dates" value='{{ dates|tojson }}' />
+                                <button type="submit" class="btn btn-outline-primary w-100">Descargar en Excel</button>
+                            </form>
+                        </div>
+                        <div class="col-lg-8">
+                            <div class="ratio ratio-16x9">
+                                <canvas id="forecast-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <p class="text-muted">Ejecuta un pronóstico desde la pestaña Home para visualizar la gráfica.</p>
+                {% endif %}
             </div>
-            {% endfor %}
 
-            <!-- Series y predicciones se envían ocultas para la vista de gráficos -->
-            <input type="hidden" name="train_series" value='{{ train_series|tojson }}'>
-            <input type="hidden" name="test_series" value='{{ test_series|tojson }}'>
-            <input type="hidden" name="dates" value='{{ dates|tojson }}'>
-            <input type="hidden" name="forecast_intervals" value='{{ forecast_intervals|tojson }}'>
-            <input type="hidden" name="predictions_dict_json" value='{{ predictions_dict|tojson }}'>
-            {% for model, preds in predictions_dict.items() %}
-            <input type="hidden" name="pred_{{ model }}" value='{{ preds|tojson }}'>
-            {% endfor %}
-
-            <div class="d-flex flex-wrap gap-2 mt-2">
-                <button type="submit" class="btn btn-success">Ejecutar</button>
-                <button type="submit" class="btn btn-outline-primary" formaction="{{ url_for('residuals') }}" formtarget="_blank">Ver residuales</button>
+            <div class="tab-pane fade" id="dm" role="tabpanel" aria-labelledby="dm-tab">
+                {% if dm_results %}
+                    <h2>Prueba Diebold-Mariano</h2>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover table-sm text-center">
+                            <thead>
+                                <tr>
+                                    <th>Modelos</th>
+                                    <th>Estadístico</th>
+                                    <th>p-valor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for pair, res in dm_results.items() %}
+                                {% set significant = res.p_value < 0.05 %}
+                                <tr{% if significant %} class="table-warning"{% endif %}>
+                                    <td>{{ pair }}</td>
+                                    <td>{{ '%.4f'|format(res.statistic) }}</td>
+                                    <td>{{ '%.4f'|format(res.p_value) }}</td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                        <p><small>Se resalta la fila cuando el p-valor es menor a 0.05.</small></p>
+                    </div>
+                {% else %}
+                    <p class="text-muted">Aún no hay resultados para comparar. Ejecuta un pronóstico primero.</p>
+                {% endif %}
             </div>
-        </form>
-        {% endif %}
+
+            <div class="tab-pane fade" id="residuals" role="tabpanel" aria-labelledby="residuals-tab">
+                {% if residual_series %}
+                    <div class="mb-4">
+                        <h2 class="h4">Residuales en el tiempo</h2>
+                        <p class="text-muted">La línea horizontal indica el valor cero para facilitar la detección de sesgos o cambios de varianza.</p>
+                        <div class="ratio ratio-16x9">
+                            <canvas id="residual-line-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <h2 class="h4">Residuales vs. predicción</h2>
+                        <p class="text-muted">Un patrón aleatorio alrededor de cero sugiere homocedasticidad.</p>
+                        <div class="ratio ratio-16x9">
+                            <canvas id="residual-scatter-chart"></canvas>
+                        </div>
+                    </div>
+                    {% if residuals_summary %}
+                        <h2 class="h4">Resumen estadístico</h2>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover table-sm text-center">
+                                <thead>
+                                    <tr>
+                                        <th>Modelo</th>
+                                        <th>Media</th>
+                                        <th>Desv. estándar</th>
+                                        <th>MAE</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in residuals_summary %}
+                                    <tr>
+                                        <td>{{ row.model }}</td>
+                                        <td>{{ '%.4f'|format(row.mean) }}</td>
+                                        <td>{{ '%.4f'|format(row.std) }}</td>
+                                        <td>{{ '%.4f'|format(row.mae) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <p class="text-muted">Genera un pronóstico para analizar los residuales de los modelos.</p>
+                {% endif %}
+            </div>
+        </div>
     </div>
     <!-- Bibliotecas JavaScript -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        const predictionsDict = {{ predictions_dict|tojson }};
+        const trainSeries = {{ train_series|tojson }};
+        const testSeries = {{ test_series|tojson }};
+        const forecastDates = {{ dates|tojson }};
+        const confidenceIntervals = {{ forecast_intervals|tojson }};
+        const residualSeries = {{ residual_series|tojson }};
+        const scatterSeries = {{ scatter_series|tojson }};
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabsElement = document.getElementById('dashboard-tabs');
+            if (!tabsElement) {
+                return;
+            }
+
+            let forecastChart = null;
+            let residualLineChart = null;
+            let residualScatterChart = null;
+            let chartInitialized = false;
+            let residualsInitialized = false;
+
+            const modelSelect = document.getElementById('model-select');
+            const downloadForm = document.getElementById('download-form');
+
+            function hasConfidence(ci) {
+                if (!ci) {
+                    return false;
+                }
+                const lower = ci.lower || [];
+                const upper = ci.upper || [];
+                return lower.some((v) => v !== null) || upper.some((v) => v !== null);
+            }
+
+            function buildForecastDatasets(modelName) {
+                const predictions = predictionsDict[modelName] || [];
+                const ci = confidenceIntervals[modelName] || { lower: [], upper: [] };
+                const datasets = [
+                    {
+                        label: 'Entrenamiento',
+                        data: trainSeries,
+                        borderColor: 'rgba(0, 123, 255, 0.9)',
+                        fill: false,
+                        pointRadius: 0,
+                        spanGaps: true,
+                    },
+                    {
+                        label: 'Real (test)',
+                        data: testSeries,
+                        borderColor: 'rgba(40, 167, 69, 0.9)',
+                        fill: false,
+                        pointRadius: 0,
+                        spanGaps: true,
+                    },
+                    {
+                        label: 'Pronóstico',
+                        data: predictions,
+                        borderColor: 'rgba(220, 53, 69, 0.9)',
+                        fill: false,
+                        pointRadius: 3,
+                        tension: 0.2,
+                        spanGaps: true,
+                    },
+                ];
+
+                if (hasConfidence(ci)) {
+                    const ciBackground = 'rgba(220, 53, 69, 0.18)';
+                    datasets.push(
+                        {
+                            label: 'IC Superior',
+                            data: ci.upper,
+                            borderColor: ciBackground,
+                            backgroundColor: ciBackground,
+                            pointRadius: 0,
+                            fill: false,
+                            borderWidth: 0,
+                            spanGaps: true,
+                        },
+                        {
+                            label: 'IC Inferior',
+                            data: ci.lower,
+                            borderColor: ciBackground,
+                            backgroundColor: ciBackground,
+                            pointRadius: 0,
+                            borderWidth: 0,
+                            fill: '-1',
+                            spanGaps: true,
+                        },
+                    );
+                }
+
+                return datasets;
+            }
+
+            function renderForecastChart(modelName) {
+                if (!modelSelect || !forecastDates.length) {
+                    return;
+                }
+                const canvas = document.getElementById('forecast-chart');
+                if (!canvas) {
+                    return;
+                }
+                if (forecastChart) {
+                    forecastChart.destroy();
+                }
+                forecastChart = new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: forecastDates,
+                        datasets: buildForecastDatasets(modelName),
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: { labels: { usePointStyle: true } },
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => {
+                                        const label = context.dataset.label || '';
+                                        const value = context.parsed.y;
+                                        if (value === null || value === undefined) {
+                                            return `${label}: N/A`;
+                                        }
+                                        return `${label}: ${value.toFixed(4)}`;
+                                    },
+                                },
+                            },
+                        },
+                        scales: {
+                            x: { ticks: { maxRotation: 45, minRotation: 0 } },
+                            y: { beginAtZero: false },
+                        },
+                    },
+                });
+            }
+
+            function updateDownloadForm(modelName) {
+                if (!downloadForm) {
+                    return;
+                }
+                const modelInput = downloadForm.querySelector('input[name="model_name"]');
+                const predInput = downloadForm.querySelector('input[name="pred_series"]');
+                if (modelInput) {
+                    modelInput.value = modelName;
+                }
+                if (predInput) {
+                    predInput.value = JSON.stringify(predictionsDict[modelName] || []);
+                }
+            }
+
+            function renderResidualCharts() {
+                if (!Object.keys(residualSeries).length) {
+                    return;
+                }
+                const dates = forecastDates;
+                const models = Object.keys(residualSeries);
+                const colorPalette = ['#007bff', '#28a745', '#dc3545', '#6f42c1', '#20c997', '#fd7e14'];
+                const zeroLine = dates.map(() => 0);
+
+                const lineDatasets = models.map((model, idx) => ({
+                    label: model,
+                    data: residualSeries[model],
+                    borderColor: colorPalette[idx % colorPalette.length],
+                    backgroundColor: colorPalette[idx % colorPalette.length],
+                    spanGaps: true,
+                    pointRadius: 0,
+                    tension: 0.2,
+                }));
+
+                lineDatasets.push({
+                    label: 'Residual = 0',
+                    data: zeroLine,
+                    borderColor: 'rgba(0, 0, 0, 0.4)',
+                    borderWidth: 1,
+                    borderDash: [6, 6],
+                    pointRadius: 0,
+                    fill: false,
+                    spanGaps: true,
+                });
+
+                const lineCanvas = document.getElementById('residual-line-chart');
+                if (lineCanvas) {
+                    if (residualLineChart) {
+                        residualLineChart.destroy();
+                    }
+                    residualLineChart = new Chart(lineCanvas, {
+                        type: 'line',
+                        data: { labels: dates, datasets: lineDatasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: {
+                                legend: { labels: { usePointStyle: true } },
+                                tooltip: {
+                                    callbacks: {
+                                        label: (context) => {
+                                            const label = context.dataset.label || '';
+                                            const value = context.parsed.y;
+                                            if (value === null || value === undefined) {
+                                                return `${label}: N/A`;
+                                            }
+                                            return `${label}: ${value.toFixed(4)}`;
+                                        },
+                                    },
+                                },
+                            },
+                            scales: {
+                                x: { ticks: { maxRotation: 45, minRotation: 0 } },
+                                y: { title: { display: true, text: 'Residual' } },
+                            },
+                        },
+                    });
+                }
+
+                const scatterCanvas = document.getElementById('residual-scatter-chart');
+                if (scatterCanvas) {
+                    if (residualScatterChart) {
+                        residualScatterChart.destroy();
+                    }
+                    const scatterDatasets = models.map((model, idx) => ({
+                        label: model,
+                        data: scatterSeries[model] || [],
+                        backgroundColor: colorPalette[idx % colorPalette.length],
+                        pointRadius: 4,
+                    }));
+
+                    residualScatterChart = new Chart(scatterCanvas, {
+                        type: 'scatter',
+                        data: { datasets: scatterDatasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { labels: { usePointStyle: true } },
+                                tooltip: {
+                                    callbacks: {
+                                        label: (context) => {
+                                            const label = context.dataset.label || '';
+                                            const point = context.raw;
+                                            if (!point) {
+                                                return `${label}: N/A`;
+                                            }
+                                            return `${label} → Predicción: ${point.x.toFixed(4)}, Residual: ${point.y.toFixed(4)}`;
+                                        },
+                                    },
+                                },
+                            },
+                            scales: {
+                                x: { title: { display: true, text: 'Predicción' } },
+                                y: { title: { display: true, text: 'Residual' } },
+                            },
+                        },
+                    });
+                }
+            }
+
+            function initializeForecastTab() {
+                if (!modelSelect) {
+                    return;
+                }
+                const selectedModel = modelSelect.value;
+                renderForecastChart(selectedModel);
+                updateDownloadForm(selectedModel);
+                modelSelect.addEventListener('change', () => {
+                    const modelName = modelSelect.value;
+                    renderForecastChart(modelName);
+                    updateDownloadForm(modelName);
+                });
+                chartInitialized = true;
+            }
+
+            const tabButtons = tabsElement.querySelectorAll('[data-bs-toggle="tab"]');
+            tabButtons.forEach((button) => {
+                button.addEventListener('shown.bs.tab', (event) => {
+                    const targetId = event.target.getAttribute('data-bs-target');
+                    if (targetId === '#chart' && !chartInitialized) {
+                        initializeForecastTab();
+                    }
+                    if (targetId === '#residuals' && !residualsInitialized) {
+                        renderResidualCharts();
+                        residualsInitialized = true;
+                    }
+                });
+            });
+
+            // Si la pestaña de gráfica está activa por defecto (recarga manual), inicializamos de inmediato.
+            if (document.querySelector('#chart.show.active')) {
+                initializeForecastTab();
+            }
+
+            if (document.querySelector('#residuals.show.active')) {
+                renderResidualCharts();
+                residualsInitialized = true;
+            }
+        });
+    </script>
 </body>
 </html>

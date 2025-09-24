@@ -38,6 +38,7 @@ def index():
         (
             metrics_df,
             forecast_values,
+            forecast_intervals,
             train_series,
             test_series,
             predictions_dict,
@@ -99,15 +100,40 @@ def index():
             )
         )
 
-        def format_forecast(vals):
-            """Return a comma-separated string with two-decimal values."""
-            try:
-                return ", ".join(f"{v:.2f}" for v in vals if v is not None)
-            except TypeError:
-                return f"{vals:.2f}" if vals is not None else ""
+        def format_forecast(vals, intervals):
+            """Return a descriptive string with forecast values and confidence intervals."""
+            formatted_parts = []
+            lower = []
+            upper = []
+            if intervals:
+                lower = intervals.get("lower", [])
+                upper = intervals.get("upper", [])
+            for idx, val in enumerate(vals):
+                if val is None or pd.isna(val):
+                    continue
+                base = f"{float(val):.2f}"
+                low_val = None
+                up_val = None
+                if idx < len(lower):
+                    low_val = lower[idx]
+                if idx < len(upper):
+                    up_val = upper[idx]
+                if (
+                    low_val is not None
+                    and up_val is not None
+                    and not pd.isna(low_val)
+                    and not pd.isna(up_val)
+                ):
+                    formatted_parts.append(
+                        f"{base} (IC95%: {float(low_val):.2f} - {float(up_val):.2f})"
+                    )
+                else:
+                    formatted_parts.append(base)
+            return "; ".join(formatted_parts) if formatted_parts else "Sin datos disponibles"
 
         formatted_forecasts = {
-            model: format_forecast(vals) for model, vals in forecast_values.items()
+            model: format_forecast(vals, forecast_intervals.get(model))
+            for model, vals in forecast_values.items()
         }
 
         period_labels = {
@@ -132,6 +158,7 @@ def index():
             test_series=test_series,
             predictions_dict=predictions_dict,
             dm_results=dm_results,
+            forecast_intervals=forecast_intervals,
             dates=dates,
             selected_period=None,
             selected_test_percent="",
@@ -145,6 +172,8 @@ def index():
             selected_period="1mo",
             selected_test_percent=20,
             dm_results=None,
+            forecast_values=None,
+            forecast_intervals=None,
         )
 
 
@@ -191,7 +220,20 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
     Returns
     -------
     tuple
-        ``(metrics_df, forecast_values, train_series, test_series, predictions_dict)``
+        metrics_df : pandas.DataFrame
+            Tabla con las métricas de evaluación de cada modelo.
+        forecast_values : dict
+            Pronósticos futuros por modelo.
+        forecast_intervals : dict
+            Intervalos de confianza (al 95%) asociados a cada pronóstico.
+        train_series : list
+            Serie extendida con valores de entrenamiento.
+        test_series : list
+            Serie extendida con valores reales del conjunto de prueba.
+        predictions_dict : dict
+            Predicciones alineadas temporalmente para cada modelo.
+        dm_results : dict
+            Resultados de la prueba Diebold-Mariano entre pares de modelos.
     """
 
     ts = df["Close"].values
@@ -203,26 +245,26 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
     test_data = ts[-test_size:]
 
     # ----- Modelos de series de tiempo -----
-    sarima_metrics, sarima_pred, sarima_forecast = train_sarima(
+    sarima_metrics, sarima_pred, sarima_forecast, sarima_ci = train_sarima(
         train_data, test_data, forecast_steps
     )
-    hw_metrics, hw_pred, hw_forecast = train_holtwinters(
+    hw_metrics, hw_pred, hw_forecast, hw_ci = train_holtwinters(
         train_data, test_data, forecast_steps
     )
 
     # ----- Modelos de Machine Learning -----
-    linreg_metrics, linreg_pred, linreg_forecast = train_linear_regression(
+    linreg_metrics, linreg_pred, linreg_forecast, linreg_ci = train_linear_regression(
         train_data, test_data, forecast_steps
     )
-    rf_metrics, rf_pred, rf_forecast = train_random_forest(
+    rf_metrics, rf_pred, rf_forecast, rf_ci = train_random_forest(
         train_data, test_data, forecast_steps
     )
 
     # ----- Modelos de Deep Learning -----
-    rnn_metrics, rnn_pred, rnn_forecast = train_rnn(
+    rnn_metrics, rnn_pred, rnn_forecast, rnn_ci = train_rnn(
         train_data, test_data, forecast_steps
     )
-    lstm_metrics, lstm_pred, lstm_forecast = train_lstm(
+    lstm_metrics, lstm_pred, lstm_forecast, lstm_ci = train_lstm(
         train_data, test_data, forecast_steps
     )
 
@@ -249,6 +291,15 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
         "Random Forest": rf_forecast,
         "RNN": rnn_forecast,
         "LSTM": lstm_forecast,
+    }
+
+    forecast_intervals = {
+        "SARIMA": sarima_ci,
+        "Holt-Winters": hw_ci,
+        "Regresión Lineal": linreg_ci,
+        "Random Forest": rf_ci,
+        "RNN": rnn_ci,
+        "LSTM": lstm_ci,
     }
 
     # Listas combinando valores de train/test para facilitar el graficado
@@ -288,6 +339,7 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
     return (
         metrics_df,
         forecast_values,
+        forecast_intervals,
         train_series,
         test_series,
         predictions_dict,

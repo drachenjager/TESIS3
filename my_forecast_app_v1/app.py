@@ -11,7 +11,7 @@ import io
 # (series de tiempo, machine learning y deep learning).
 from models.ts_models import train_sarima, train_holtwinters
 from models.ml_models import train_linear_regression, train_random_forest
-from models.dl_models import train_rnn, train_lstm, train_gru, train_encoder_decoder
+from models.dl_models import train_rnn, train_lstm, prepare_data_dl
 from models.stat_tests import diebolt_mariano
 
 # Inicializamos la aplicación Flask
@@ -318,12 +318,6 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
     lstm_metrics, lstm_pred, lstm_forecast, lstm_ci = train_lstm(
         train_data, test_data, forecast_steps
     )
-    gru_metrics, gru_pred, gru_forecast, gru_ci = train_gru(
-        train_data, test_data, forecast_steps
-    )
-    encdec_metrics, encdec_pred, encdec_forecast, encdec_ci = train_encoder_decoder(
-        train_data, test_data, forecast_steps
-    )
 
     # Construimos un DataFrame con todas las métricas obtenidas
     metrics_df = pd.DataFrame(
@@ -334,8 +328,6 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
             rf_metrics,
             rnn_metrics,
             lstm_metrics,
-            gru_metrics,
-            encdec_metrics,
         ]
     )
 
@@ -350,8 +342,6 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
         "Random Forest": rf_forecast,
         "RNN": rnn_forecast,
         "LSTM": lstm_forecast,
-        "GRU": gru_forecast,
-        "Encoder-Decoder": encdec_forecast,
     }
 
     forecast_intervals = {
@@ -361,8 +351,6 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
         "Random Forest": rf_ci,
         "RNN": rnn_ci,
         "LSTM": lstm_ci,
-        "GRU": gru_ci,
-        "Encoder-Decoder": encdec_ci,
     }
 
     # Listas combinando valores de train/test para facilitar el graficado
@@ -377,8 +365,6 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
         "Random Forest": [None] * len(train_data) + rf_pred.tolist(),
         "RNN": [None] * len(train_data) + rnn_pred.tolist(),
         "LSTM": [None] * len(train_data) + lstm_pred.tolist(),
-        "GRU": [None] * len(train_data) + gru_pred.tolist(),
-        "Encoder-Decoder": [None] * len(train_data) + encdec_pred.tolist(),
     }
 
     # Resultados de la prueba Diebold-Mariano entre pares de modelos
@@ -390,8 +376,6 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
         "Random Forest": rf_pred,
         "RNN": rnn_pred,
         "LSTM": lstm_pred,
-        "GRU": gru_pred,
-        "Encoder-Decoder": encdec_pred,
     }
     model_names = list(model_preds.keys())
     for i in range(len(model_names)):

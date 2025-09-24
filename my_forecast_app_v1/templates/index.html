@@ -107,6 +107,12 @@
             {% for model, preds in predictions_dict.items() %}
             <input type="hidden" name="pred_{{ model }}" value='{{ preds|tojson }}'>
             {% endfor %}
+            {% for model, resid in residuals_dict.items() %}
+            <input type="hidden" name="resid_{{ model }}" value='{{ resid|tojson }}'>
+            {% endfor %}
+            {% for model, ci in conf_int_dict.items() %}
+            <input type="hidden" name="confint_{{ model }}" value='{{ ci|tojson }}'>
+            {% endfor %}
 
             <button type="submit" class="btn btn-success mt-2">Ejecutar</button>
         </form>

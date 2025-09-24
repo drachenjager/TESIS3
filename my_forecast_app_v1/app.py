@@ -4,7 +4,6 @@ from flask import Flask, render_template, request, send_file
 import json
 import yfinance as yf
 import pandas as pd
-import numpy as np
 from datetime import datetime, timedelta
 import io
 
@@ -43,8 +42,6 @@ def index():
             test_series,
             predictions_dict,
             dm_results,
-            residuals_dict,
-            conf_int_dict,
         ) = train_and_evaluate_all_models(
             df, forecast_steps=test_size, test_size=test_size
         )
@@ -134,8 +131,6 @@ def index():
             train_series=train_series,
             test_series=test_series,
             predictions_dict=predictions_dict,
-            residuals_dict=residuals_dict,
-            conf_int_dict=conf_int_dict,
             dm_results=dm_results,
             dates=dates,
             selected_period=None,
@@ -150,9 +145,6 @@ def index():
             selected_period="1mo",
             selected_test_percent=20,
             dm_results=None,
-            predictions_dict={},
-            residuals_dict={},
-            conf_int_dict={},
         )
 
 
@@ -211,28 +203,20 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
     test_data = ts[-test_size:]
 
     # ----- Modelos de series de tiempo -----
-    sarima_metrics, sarima_pred, sarima_forecast, sarima_res, sarima_ci = train_sarima(
+    sarima_metrics, sarima_pred, sarima_forecast = train_sarima(
         train_data, test_data, forecast_steps
     )
-    hw_metrics, hw_pred, hw_forecast, hw_res, hw_ci = train_holtwinters(
+    hw_metrics, hw_pred, hw_forecast = train_holtwinters(
         train_data, test_data, forecast_steps
     )
 
     # ----- Modelos de Machine Learning -----
-    (
-        linreg_metrics,
-        linreg_pred,
-        linreg_forecast,
-        linreg_res,
-        linreg_ci,
-    ) = train_linear_regression(train_data, test_data, forecast_steps)
-    (
-        rf_metrics,
-        rf_pred,
-        rf_forecast,
-        rf_res,
-        rf_ci,
-    ) = train_random_forest(train_data, test_data, forecast_steps)
+    linreg_metrics, linreg_pred, linreg_forecast = train_linear_regression(
+        train_data, test_data, forecast_steps
+    )
+    rf_metrics, rf_pred, rf_forecast = train_random_forest(
+        train_data, test_data, forecast_steps
+    )
 
     # ----- Modelos de Deep Learning -----
     rnn_metrics, rnn_pred, rnn_forecast = train_rnn(
@@ -281,24 +265,6 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
         "LSTM": [None] * len(train_data) + lstm_pred.tolist(),
     }
 
-    residuals_dict = {
-        "SARIMA": [None] * len(train_data) + sarima_res,
-        "Holt-Winters": [None] * len(train_data) + hw_res,
-        "Regresión Lineal": [None] * len(train_data) + linreg_res,
-        "Random Forest": [None] * len(train_data) + rf_res,
-        "RNN": [None] * len(train_data) + (test_data - np.array(rnn_pred)).tolist(),
-        "LSTM": [None] * len(train_data) + (test_data - np.array(lstm_pred)).tolist(),
-    }
-
-    conf_int_dict = {
-        "SARIMA": [None] * len(train_data) + sarima_ci,
-        "Holt-Winters": [None] * len(train_data) + hw_ci,
-        "Regresión Lineal": [None] * len(train_data) + linreg_ci,
-        "Random Forest": [None] * len(train_data) + rf_ci,
-        "RNN": [None] * len(train_data) + [[None, None]] * len(rnn_pred),
-        "LSTM": [None] * len(train_data) + [[None, None]] * len(lstm_pred),
-    }
-
     # Resultados de la prueba Diebold-Mariano entre pares de modelos
     dm_results = {}
     model_preds = {
@@ -326,8 +292,6 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
         test_series,
         predictions_dict,
         dm_results,
-        residuals_dict,
-        conf_int_dict,
     )
 
 
@@ -343,10 +307,6 @@ def plot():
     test_series = json.loads(request.form.get("test_series"))
     dates = json.loads(request.form.get("dates"))
     pred_series = json.loads(request.form.get(f"pred_{model_name}"))
-    resid_series = json.loads(request.form.get(f"resid_{model_name}"))
-    conf_int = json.loads(request.form.get(f"confint_{model_name}"))
-    ci_lower = [c[0] if c is not None else None for c in conf_int]
-    ci_upper = [c[1] if c is not None else None for c in conf_int]
 
     def format_series(series):
         """Convierte una serie numérica a una cadena separada por comas."""
@@ -356,7 +316,6 @@ def plot():
     train_display = format_series(train_series)
     test_display = format_series(test_series)
     pred_display = format_series(pred_series)
-    resid_display = format_series(resid_series)
 
     return render_template(
         "plot.html",
@@ -364,14 +323,10 @@ def plot():
         train_series=train_series,
         test_series=test_series,
         pred_series=pred_series,
-        resid_series=resid_series,
-        ci_lower=ci_lower,
-        ci_upper=ci_upper,
         dates=dates,
         train_display=train_display,
         test_display=test_display,
         pred_display=pred_display,
-        resid_display=resid_display,
     )
 
 
@@ -386,9 +341,6 @@ def download_excel():
     train_series = json.loads(request.form.get("train_series"))
     test_series = json.loads(request.form.get("test_series"))
     pred_series = json.loads(request.form.get("pred_series"))
-    resid_series = json.loads(request.form.get("resid_series"))
-    ci_lower = json.loads(request.form.get("ci_lower"))
-    ci_upper = json.loads(request.form.get("ci_upper"))
     dates = json.loads(request.form.get("dates"))
 
     # Construimos un DataFrame para exportar a Excel
@@ -398,9 +350,6 @@ def download_excel():
             "Entrenamiento": train_series,
             "Real (test)": test_series,
             "Pronóstico": pred_series,
-            "Residual": resid_series,
-            "Lower CI": ci_lower,
-            "Upper CI": ci_upper,
         }
     )
 
@@ -411,14 +360,7 @@ def download_excel():
         workbook = writer.book
         worksheet = writer.sheets["Datos"]
         chart = workbook.add_chart({"type": "line"})
-        for idx, col in enumerate([
-            "Entrenamiento",
-            "Real (test)",
-            "Pronóstico",
-            "Residual",
-            "Lower CI",
-            "Upper CI",
-        ]):
+        for idx, col in enumerate(["Entrenamiento", "Real (test)", "Pronóstico"]):
             chart.add_series(
                 {
                     "name": col,

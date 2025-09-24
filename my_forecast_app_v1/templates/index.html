@@ -61,12 +61,29 @@
                     </div>
                 {% endif %}
 
-                {% if metrics_table %}
+                {% if metrics_rows %}
                     <!-- Tabla con métricas de evaluación de cada modelo -->
                     <h2>Resultados de métricas</h2>
                     <div class="table-responsive">
-                        <!-- Muestra el DataFrame de métricas -->
-                        {{ metrics_table|safe }}
+                        <table class="table table-striped table-hover table-sm text-center">
+                            <thead>
+                                <tr>
+                                    {% for column in metrics_columns %}
+                                        <th>{{ column }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in metrics_rows %}
+                                    <tr{% if row["is_best"] %} class="table-warning"{% endif %}>
+                                        {% for column in metrics_columns %}
+                                            <td>{{ row["values"][column] }}</td>
+                                        {% endfor %}
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <p><small>Se resalta la fila con el mejor desempeño.</small></p>
                     </div>
                 {% endif %}
 
@@ -83,7 +100,7 @@
             </div>
 
             <div class="tab-pane fade" id="chart" role="tabpanel" aria-labelledby="chart-tab">
-                {% if metrics_table %}
+                {% if metrics_rows %}
                     {% set initial_model = best_model_name if best_model_name else (predictions_dict|first) %}
                     <div class="row g-4">
                         <div class="col-lg-4">

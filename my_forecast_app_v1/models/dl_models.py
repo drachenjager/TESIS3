@@ -7,6 +7,8 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, SimpleRNN, LSTM
 
+from .utils import residual_confidence_intervals
+
 
 def prepare_data_dl(series, lag=1):
     """Crea matrices supervisadas para RNN/LSTM.
@@ -36,6 +38,17 @@ def prepare_data_dl(series, lag=1):
 
 def train_rnn(train_data, test_data, forecast_steps=1):
     """Entrena una red neuronal recurrente simple y genera pronósticos."""
+    if len(train_data) <= 1 or len(test_data) == 0:
+        metrics = {
+            "Modelo": "RNN",
+            "MAE": float("nan"),
+            "RMSE": float("nan"),
+            "MAPE": float("nan"),
+            "R^2": float("nan"),
+        }
+        empty_ci = {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps}
+        return metrics, np.array([]), [None] * forecast_steps, empty_ci
+
     X_train, y_train = prepare_data_dl(train_data)
 
     # Definimos la arquitectura de la RNN
@@ -84,6 +97,12 @@ def train_rnn(train_data, test_data, forecast_steps=1):
         forecast_next.append(next_pred)
         next_input = np.array([[next_pred]]).reshape((1, 1, 1))
 
+    forecast_list = [float(x) for x in forecast_next]
+    lower_bounds, upper_bounds = residual_confidence_intervals(
+        test_data, predictions, forecast_list
+    )
+    ci_bounds = {"lower": lower_bounds, "upper": upper_bounds}
+
     metrics = {
         "Modelo": "RNN",
         "MAE": round(mae, 4),
@@ -91,11 +110,22 @@ def train_rnn(train_data, test_data, forecast_steps=1):
         "MAPE": round(mape, 4),
         "R^2": round(r2, 4),
     }
-    return metrics, predictions, [float(x) for x in forecast_next]
+    return metrics, predictions, forecast_list, ci_bounds
 
 
 def train_lstm(train_data, test_data, forecast_steps=1):
     """Entrena una red LSTM y devuelve pronósticos."""
+    if len(train_data) <= 1 or len(test_data) == 0:
+        metrics = {
+            "Modelo": "LSTM",
+            "MAE": float("nan"),
+            "RMSE": float("nan"),
+            "MAPE": float("nan"),
+            "R^2": float("nan"),
+        }
+        empty_ci = {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps}
+        return metrics, np.array([]), [None] * forecast_steps, empty_ci
+
     X_train, y_train = prepare_data_dl(train_data)
 
     # Definimos la arquitectura LSTM
@@ -139,6 +169,12 @@ def train_lstm(train_data, test_data, forecast_steps=1):
         forecast_next.append(next_pred)
         next_input = np.array([[next_pred]]).reshape((1, 1, 1))
 
+    forecast_list = [float(x) for x in forecast_next]
+    lower_bounds, upper_bounds = residual_confidence_intervals(
+        test_data, predictions, forecast_list
+    )
+    ci_bounds = {"lower": lower_bounds, "upper": upper_bounds}
+
     metrics = {
         "Modelo": "LSTM",
         "MAE": round(mae, 4),
@@ -146,4 +182,4 @@ def train_lstm(train_data, test_data, forecast_steps=1):
         "MAPE": round(mape, 4),
         "R^2": round(r2, 4),
     }
-    return metrics, predictions, [float(x) for x in forecast_next]
+    return metrics, predictions, forecast_list, ci_bounds

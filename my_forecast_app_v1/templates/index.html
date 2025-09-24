@@ -55,12 +55,13 @@
         {% if forecast_values %}
             <!-- Lista con los valores pronosticados por cada modelo -->
             <h2 class="mt-4">Pronóstico de los próximos puntos</h2>
-            <!-- forecast_values already holds comma-separated strings rounded to two decimals -->
+            <!-- forecast_values ya incluye valores formateados con sus intervalos -->
             <ul>
             {% for model, fc_val in forecast_values.items() %}
                 <li><strong>{{ model }}:</strong> {{ fc_val }}</li>
             {% endfor %}
             </ul>
+            <p><small>Se muestran intervalos de confianza al 95% para cada pronóstico.</small></p>
         {% endif %}
 
         {% if dm_results %}

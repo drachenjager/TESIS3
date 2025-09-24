@@ -104,6 +104,7 @@
             <input type="hidden" name="train_series" value='{{ train_series|tojson }}'>
             <input type="hidden" name="test_series" value='{{ test_series|tojson }}'>
             <input type="hidden" name="dates" value='{{ dates|tojson }}'>
+            <input type="hidden" name="forecast_intervals" value='{{ forecast_intervals|tojson }}'>
             {% for model, preds in predictions_dict.items() %}
             <input type="hidden" name="pred_{{ model }}" value='{{ preds|tojson }}'>
             {% endfor %}

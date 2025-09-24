@@ -139,6 +139,10 @@
             <div class="tab-pane fade" id="dm" role="tabpanel" aria-labelledby="dm-tab">
                 {% if dm_results %}
                     <h2>Prueba Diebold-Mariano</h2>
+                    <p class="text-muted">Revisa en esta tabla qué pares de modelos muestran diferencias
+                        estadísticamente significativas en su desempeño. Un p-valor pequeño sugiere que las
+                        métricas de error de ambos modelos no son equivalentes, lo que ayuda a decidir cuál ofrece
+                        pronósticos más precisos.</p>
                     <div class="table-responsive">
                         <table class="table table-striped table-hover table-sm text-center">
                             <thead>
@@ -170,14 +174,18 @@
                 {% if residual_series %}
                     <div class="mb-4">
                         <h2 class="h4">Residuales en el tiempo</h2>
-                        <p class="text-muted">La línea horizontal indica el valor cero para facilitar la detección de sesgos o cambios de varianza.</p>
+                        <p class="text-muted">Analiza si los residuales oscilan alrededor de cero sin patrones
+                            persistentes; de observarse tendencias o cambios en la amplitud podrías detectar sesgos,
+                            autocorrelación o heterocedasticidad en los errores.</p>
                         <div class="ratio ratio-16x9">
                             <canvas id="residual-line-chart"></canvas>
                         </div>
                     </div>
                     <div class="mb-4">
                         <h2 class="h4">Residuales vs. predicción</h2>
-                        <p class="text-muted">Un patrón aleatorio alrededor de cero sugiere homocedasticidad.</p>
+                        <p class="text-muted">Busca que los puntos estén dispersos sin un patrón claro; si se
+                            forman abanicos o franjas podrás identificar relaciones con la magnitud de la predicción y
+                            posibles problemas de varianza no constante.</p>
                         <div class="ratio ratio-16x9">
                             <canvas id="residual-scatter-chart"></canvas>
                         </div>

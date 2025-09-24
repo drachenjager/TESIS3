@@ -59,6 +59,10 @@ def index():
         })
         metrics_df["Rank"] = ranking.mean(axis=1).rank(method="dense").astype(int)
         best_idx = metrics_df["Rank"].idxmin()
+        if "Modelo" in metrics_df.columns:
+            best_model_name = metrics_df.loc[best_idx, "Modelo"]
+        else:
+            best_model_name = best_idx
 
         format_dict = {
             "MAE": "{:.4f}",
@@ -198,7 +202,7 @@ def index():
             selected_test_percent="",
             display_period=display_period,
             display_test_percent=test_percent,
-            best_model_name=best_idx,
+            best_model_name=best_model_name,
         )
     else:
         # Método GET: mostramos el formulario con valores por defecto

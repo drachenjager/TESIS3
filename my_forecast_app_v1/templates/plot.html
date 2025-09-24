@@ -51,26 +51,24 @@
             const ciBackground = 'rgba(255, 99, 132, 0.18)';
             datasets.push(
                 {
-                    label: 'IC Inferior 95%',
-                    data: ciLower,
-                    borderColor: 'rgba(0, 0, 0, 0)',
+                    label: 'IC Superior',
+                    data: ciUpper,
+                    borderColor: ciBackground,
                     backgroundColor: ciBackground,
                     pointRadius: 0,
-                    borderWidth: 0,
                     fill: false,
-                    spanGaps: true,
-                    order: -1
+                    borderWidth: 0,
+                    spanGaps: true
                 },
                 {
-                    label: 'Intervalo de Confianza 95%',
-                    data: ciUpper,
-                    borderColor: 'rgba(0, 0, 0, 0)',
+                    label: 'IC Inferior',
+                    data: ciLower,
+                    borderColor: ciBackground,
                     backgroundColor: ciBackground,
                     pointRadius: 0,
                     borderWidth: 0,
-                    spanGaps: true,
-                    fill: { target: '-1', above: ciBackground, below: ciBackground },
-                    order: -1
+                    fill: '-1',
+                    spanGaps: true
                 }
             );
         }
@@ -90,10 +88,7 @@
                 plugins: {
                     legend: {
                         labels: {
-                            usePointStyle: true,
-                            filter: function(legendItem, chartData) {
-                                return legendItem.text !== 'IC Inferior 95%';
-                            }
+                            usePointStyle: true
                         }
                     },
                     tooltip: {

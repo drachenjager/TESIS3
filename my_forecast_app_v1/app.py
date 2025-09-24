@@ -144,14 +144,27 @@ def index():
                 trimmed = [None] * (test_length - len(trimmed)) + trimmed
             return [None] * padding + trimmed
 
-        aligned_confidence = {}
-        for model_name, bounds in (forecast_intervals or {}).items():
-            lower = align_intervals(bounds.get("lower")) if isinstance(bounds, dict) else [None] * total_length
-            upper = align_intervals(bounds.get("upper")) if isinstance(bounds, dict) else [None] * total_length
-            aligned_confidence[model_name] = {
-                "lower": lower,
-                "upper": upper,
+        def extract_test_bounds(bounds):
+            if not isinstance(bounds, dict):
+                return {"lower": [None] * total_length, "upper": [None] * total_length}
+
+            # Cuando ``bounds`` proviene directamente de los modelos contiene las
+            # claves ``test`` y ``forecast``. En ese caso, solo necesitamos los
+            # valores alineados con el conjunto de prueba para sombrear la
+            # gráfica.
+            interval_section = bounds.get("test") if "test" in bounds else bounds
+            if not isinstance(interval_section, dict):
+                return {"lower": [None] * total_length, "upper": [None] * total_length}
+
+            return {
+                "lower": align_intervals(interval_section.get("lower")),
+                "upper": align_intervals(interval_section.get("upper")),
             }
+
+        aligned_confidence = {
+            model_name: extract_test_bounds(bounds)
+            for model_name, bounds in (forecast_intervals or {}).items()
+        }
 
         residual_series = {}
         scatter_series = {}

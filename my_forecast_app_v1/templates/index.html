@@ -124,10 +124,10 @@
                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="reset-zoom-button" disabled>
                                     Restablecer zoom
                                 </button>
-                                <small class="text-muted">Usa la rueda del ratón o pellizca para acercar la gráfica.</small>
+                                <small class="text-muted">Usa la rueda del ratón o arrastra para acercar la gráfica. Doble clic o el botón restablecen la vista.</small>
                             </div>
                             <div class="ratio ratio-16x9">
-                                <canvas id="forecast-chart"></canvas>
+                                <div id="forecast-chart" style="width: 100%; height: 100%;"></div>
                             </div>
                         </div>
                     </div>
@@ -217,8 +217,8 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.umd.min.js"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     <script>
         const predictionsDict = {{ predictions_dict|tojson }};
@@ -235,14 +235,8 @@
                 return;
             }
 
-            if (window.Chart) {
-                const zoomPlugin = window.ChartZoom || window["chartjs-plugin-zoom"];
-                if (zoomPlugin) {
-                    Chart.register(zoomPlugin);
-                }
-            }
-
-            let forecastChart = null;
+            const hasPlotly = typeof Plotly !== 'undefined';
+            let forecastChartElement = null;
             let residualLineChart = null;
             let residualScatterChart = null;
             let chartInitialized = false;
@@ -262,137 +256,125 @@
                 return lower.some((v) => v !== null) || upper.some((v) => v !== null);
             }
 
-            function buildForecastDatasets(modelName) {
+            function buildForecastTraces(modelName) {
                 const predictions = predictionsDict[modelName] || [];
                 const ci = confidenceIntervals[modelName] || { lower: [], upper: [] };
-                const datasets = [
+                const traces = [
                     {
-                        label: 'Entrenamiento',
-                        data: trainSeries,
-                        borderColor: 'rgba(0, 123, 255, 0.9)',
-                        fill: false,
-                        pointRadius: 0,
-                        spanGaps: true,
+                        name: 'Entrenamiento',
+                        x: forecastDates,
+                        y: trainSeries,
+                        mode: 'lines',
+                        line: { color: 'rgba(0, 123, 255, 0.9)', width: 2 },
+                        hovertemplate: 'Entrenamiento: %{y:.4f}<extra></extra>',
+                        connectgaps: true,
                     },
                     {
-                        label: 'Real (test)',
-                        data: testSeries,
-                        borderColor: 'rgba(40, 167, 69, 0.9)',
-                        fill: false,
-                        pointRadius: 0,
-                        spanGaps: true,
+                        name: 'Real (test)',
+                        x: forecastDates,
+                        y: testSeries,
+                        mode: 'lines',
+                        line: { color: 'rgba(40, 167, 69, 0.9)', width: 2 },
+                        hovertemplate: 'Real (test): %{y:.4f}<extra></extra>',
+                        connectgaps: true,
                     },
                     {
-                        label: 'Pronóstico',
-                        data: predictions,
-                        borderColor: 'rgba(220, 53, 69, 0.9)',
-                        fill: false,
-                        pointRadius: 3,
-                        tension: 0.2,
-                        spanGaps: true,
+                        name: 'Pronóstico',
+                        x: forecastDates,
+                        y: predictions,
+                        mode: 'lines+markers',
+                        line: { color: 'rgba(220, 53, 69, 0.9)', width: 2 },
+                        marker: { color: 'rgba(220, 53, 69, 0.9)', size: 6 },
+                        hovertemplate: 'Pronóstico: %{y:.4f}<extra></extra>',
+                        connectgaps: true,
                     },
                 ];
 
                 if (hasConfidence(ci)) {
-                    const ciLineColor = 'rgba(220, 53, 69, 0.55)';
                     const ciFillColor = 'rgba(220, 53, 69, 0.15)';
-                    datasets.push(
+                    const ciLineColor = 'rgba(220, 53, 69, 0.5)';
+                    traces.push(
                         {
-                            label: 'IC Superior',
-                            data: ci.upper,
-                            borderColor: ciLineColor,
-                            backgroundColor: ciFillColor,
-                            pointRadius: 0,
-                            borderDash: [6, 4],
-                            fill: false,
-                            borderWidth: 1,
-                            spanGaps: true,
-                            order: 0,
+                            name: 'IC 95%',
+                            x: forecastDates,
+                            y: ci.lower,
+                            mode: 'lines',
+                            line: { color: ciLineColor, width: 1, dash: 'dot' },
+                            hoverinfo: 'skip',
+                            showlegend: false,
+                            connectgaps: true,
                         },
                         {
-                            label: 'IC Inferior',
-                            data: ci.lower,
-                            borderColor: ciLineColor,
-                            backgroundColor: ciFillColor,
-                            pointRadius: 0,
-                            borderDash: [6, 4],
-                            borderWidth: 1,
-                            fill: { target: '-1', above: ciFillColor, below: ciFillColor },
-                            spanGaps: true,
-                            order: 0,
+                            name: 'IC 95%',
+                            x: forecastDates,
+                            y: ci.upper,
+                            mode: 'lines',
+                            line: { color: ciLineColor, width: 1, dash: 'dot' },
+                            fill: 'tonexty',
+                            fillcolor: ciFillColor,
+                            hoverinfo: 'skip',
+                            showlegend: true,
+                            connectgaps: true,
                         },
                     );
                 }
 
-                return datasets;
+                return traces;
             }
 
             function renderForecastChart(modelName) {
-                if (!modelSelect || !forecastDates.length) {
+                if (!modelSelect || !forecastDates.length || !hasPlotly) {
+                    if (resetZoomButton) {
+                        resetZoomButton.disabled = true;
+                    }
                     return;
                 }
-                const canvas = document.getElementById('forecast-chart');
-                if (!canvas) {
-                    return;
-                }
-                if (forecastChart) {
-                    forecastChart.destroy();
-                }
-                forecastChart = new Chart(canvas, {
-                    type: 'line',
-                    data: {
-                        labels: forecastDates,
-                        datasets: buildForecastDatasets(modelName),
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: { mode: 'index', intersect: false },
-                        plugins: {
-                            legend: { labels: { usePointStyle: true } },
-                            tooltip: {
-                                callbacks: {
-                                    label: (context) => {
-                                        const label = context.dataset.label || '';
-                                        const value = context.parsed.y;
-                                        if (value === null || value === undefined) {
-                                            return `${label}: N/A`;
-                                        }
-                                        return `${label}: ${value.toFixed(4)}`;
-                                    },
-                                },
-                            },
-                            zoom: {
-                                limits: {
-                                    x: { min: 'original', max: 'original' },
-                                    y: { min: 'original', max: 'original' },
-                                },
-                                pan: {
-                                    enabled: true,
-                                    mode: 'xy',
-                                },
-                                zoom: {
-                                    wheel: { enabled: true },
-                                    pinch: { enabled: true },
-                                    drag: {
-                                        enabled: true,
-                                        modifierKey: 'ctrl',
-                                    },
-                                    mode: 'xy',
-                                },
-                            },
-                        },
-                        scales: {
-                            x: { ticks: { maxRotation: 45, minRotation: 0 } },
-                            y: { beginAtZero: false },
-                        },
-                    },
-                });
 
-                if (resetZoomButton) {
-                    resetZoomButton.disabled =
-                        !(forecastChart && typeof forecastChart.resetZoom === 'function');
+                if (!forecastChartElement) {
+                    forecastChartElement = document.getElementById('forecast-chart');
                 }
+
+                if (!forecastChartElement) {
+                    if (resetZoomButton) {
+                        resetZoomButton.disabled = true;
+                    }
+                    return;
+                }
+
+                const traces = buildForecastTraces(modelName);
+                const layout = {
+                    margin: { t: 30, r: 20, b: 60, l: 70 },
+                    hovermode: 'x unified',
+                    legend: { orientation: 'h', y: -0.25 },
+                    xaxis: {
+                        title: 'Fecha',
+                        showspikes: true,
+                        spikemode: 'across',
+                        spikesnap: 'cursor',
+                        showline: true,
+                        tickangle: -35,
+                    },
+                    yaxis: {
+                        title: 'Tipo de cambio',
+                        showline: true,
+                        automargin: true,
+                    },
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(0,0,0,0)',
+                };
+
+                const config = {
+                    responsive: true,
+                    displaylogo: false,
+                    scrollZoom: true,
+                    modeBarButtonsToRemove: ['autoScale2d'],
+                };
+
+                Plotly.react(forecastChartElement, traces, layout, config).then(() => {
+                    if (resetZoomButton) {
+                        resetZoomButton.disabled = false;
+                    }
+                });
             }
 
             function updateDownloadForm(modelName) {
@@ -531,8 +513,11 @@
 
                 if (resetZoomButton && !resetZoomHandlerAttached) {
                     resetZoomButton.addEventListener('click', () => {
-                        if (forecastChart && typeof forecastChart.resetZoom === 'function') {
-                            forecastChart.resetZoom();
+                        if (hasPlotly && forecastChartElement) {
+                            Plotly.relayout(forecastChartElement, {
+                                'xaxis.autorange': true,
+                                'yaxis.autorange': true,
+                            });
                         }
                     });
                     resetZoomHandlerAttached = true;

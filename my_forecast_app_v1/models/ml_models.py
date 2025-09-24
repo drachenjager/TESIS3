@@ -29,7 +29,10 @@ def train_linear_regression(train_data, test_data, forecast_steps=1):
             "MAPE": float("nan"),
             "R^2": float("nan"),
         }
-        empty_ci = {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps}
+        empty_ci = {
+            "test": {"lower": [None] * len(test_data), "upper": [None] * len(test_data)},
+            "forecast": {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps},
+        }
         return metrics, np.array([]), [None] * forecast_steps, empty_ci
 
     X, y = create_supervised_data(train_data, lag=1)
@@ -48,6 +51,7 @@ def train_linear_regression(train_data, test_data, forecast_steps=1):
         current_input = actual_value
 
     test_predictions = np.array(test_predictions)
+    pred_list = test_predictions.tolist()
 
     # Cálculo de métricas
     mae = np.mean(np.abs(test_predictions - test_data))
@@ -74,10 +78,16 @@ def train_linear_regression(train_data, test_data, forecast_steps=1):
         current_input = next_pred
 
     forecast_list = [float(x) for x in forecast_next]
-    lower_bounds, upper_bounds = residual_confidence_intervals(
-        test_data, test_predictions, forecast_list
+    test_lower, test_upper = residual_confidence_intervals(
+        test_data, pred_list, pred_list
     )
-    ci_bounds = {"lower": lower_bounds, "upper": upper_bounds}
+    forecast_lower, forecast_upper = residual_confidence_intervals(
+        test_data, pred_list, forecast_list
+    )
+    ci_bounds = {
+        "test": {"lower": test_lower, "upper": test_upper},
+        "forecast": {"lower": forecast_lower, "upper": forecast_upper},
+    }
 
     metrics = {
         "Modelo": "Regresión Lineal",
@@ -100,7 +110,10 @@ def train_random_forest(train_data, test_data, forecast_steps=1):
             "MAPE": float("nan"),
             "R^2": float("nan"),
         }
-        empty_ci = {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps}
+        empty_ci = {
+            "test": {"lower": [None] * len(test_data), "upper": [None] * len(test_data)},
+            "forecast": {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps},
+        }
         return metrics, np.array([]), [None] * forecast_steps, empty_ci
 
     X, y = create_supervised_data(train_data, lag=1)
@@ -117,6 +130,7 @@ def train_random_forest(train_data, test_data, forecast_steps=1):
         current_input = actual_value
 
     test_predictions = np.array(test_predictions)
+    pred_list = test_predictions.tolist()
 
     mae = np.mean(np.abs(test_predictions - test_data))
     rmse = math.sqrt(np.mean((test_predictions - test_data) ** 2))
@@ -141,10 +155,16 @@ def train_random_forest(train_data, test_data, forecast_steps=1):
         current_input = next_pred
 
     forecast_list = [float(x) for x in forecast_next]
-    lower_bounds, upper_bounds = residual_confidence_intervals(
-        test_data, test_predictions, forecast_list
+    test_lower, test_upper = residual_confidence_intervals(
+        test_data, pred_list, pred_list
     )
-    ci_bounds = {"lower": lower_bounds, "upper": upper_bounds}
+    forecast_lower, forecast_upper = residual_confidence_intervals(
+        test_data, pred_list, forecast_list
+    )
+    ci_bounds = {
+        "test": {"lower": test_lower, "upper": test_upper},
+        "forecast": {"lower": forecast_lower, "upper": forecast_upper},
+    }
 
     metrics = {
         "Modelo": "Random Forest",

@@ -203,7 +203,10 @@ def train_and_evaluate_all_models(df, forecast_steps=1, test_size=5):
         forecast_values : dict
             Pronósticos futuros por modelo.
         forecast_intervals : dict
-            Intervalos de confianza (al 95%) asociados a cada pronóstico.
+            Intervalos de confianza (al 95%) asociados a cada modelo,
+            separados en claves ``"test"`` y ``"forecast"`` para las
+            predicciones sobre el conjunto de prueba y los pronósticos
+            hacia adelante, respectivamente.
         train_series : list
             Serie extendida con valores de entrenamiento.
         test_series : list
@@ -341,8 +344,13 @@ def plot():
     forecast_intervals = json.loads(raw_intervals) if raw_intervals else {}
     ci_bounds = forecast_intervals.get(model_name, {}) if forecast_intervals else {}
 
-    ci_lower = ci_bounds.get("lower") if isinstance(ci_bounds, dict) else None
-    ci_upper = ci_bounds.get("upper") if isinstance(ci_bounds, dict) else None
+    if isinstance(ci_bounds, dict) and "test" in ci_bounds:
+        ci_for_plot = ci_bounds.get("test", {}) or {}
+    else:
+        ci_for_plot = ci_bounds if isinstance(ci_bounds, dict) else {}
+
+    ci_lower = ci_for_plot.get("lower") if isinstance(ci_for_plot, dict) else None
+    ci_upper = ci_for_plot.get("upper") if isinstance(ci_for_plot, dict) else None
 
     test_length = sum(1 for value in test_series if value is not None)
     total_length = len(test_series)

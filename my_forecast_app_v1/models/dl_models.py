@@ -46,7 +46,10 @@ def train_rnn(train_data, test_data, forecast_steps=1):
             "MAPE": float("nan"),
             "R^2": float("nan"),
         }
-        empty_ci = {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps}
+        empty_ci = {
+            "test": {"lower": [None] * len(test_data), "upper": [None] * len(test_data)},
+            "forecast": {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps},
+        }
         return metrics, np.array([]), [None] * forecast_steps, empty_ci
 
     X_train, y_train = prepare_data_dl(train_data)
@@ -73,6 +76,7 @@ def train_rnn(train_data, test_data, forecast_steps=1):
         current_input = current_input.reshape((1, 1, 1))
 
     predictions = np.array(predictions)
+    pred_list = predictions.tolist()
 
     # Cálculo de métricas de error y de ajuste
     mae = np.mean(np.abs(predictions - test_data))
@@ -98,10 +102,16 @@ def train_rnn(train_data, test_data, forecast_steps=1):
         next_input = np.array([[next_pred]]).reshape((1, 1, 1))
 
     forecast_list = [float(x) for x in forecast_next]
-    lower_bounds, upper_bounds = residual_confidence_intervals(
-        test_data, predictions, forecast_list
+    test_lower, test_upper = residual_confidence_intervals(
+        test_data, pred_list, pred_list
     )
-    ci_bounds = {"lower": lower_bounds, "upper": upper_bounds}
+    forecast_lower, forecast_upper = residual_confidence_intervals(
+        test_data, pred_list, forecast_list
+    )
+    ci_bounds = {
+        "test": {"lower": test_lower, "upper": test_upper},
+        "forecast": {"lower": forecast_lower, "upper": forecast_upper},
+    }
 
     metrics = {
         "Modelo": "RNN",
@@ -123,7 +133,10 @@ def train_lstm(train_data, test_data, forecast_steps=1):
             "MAPE": float("nan"),
             "R^2": float("nan"),
         }
-        empty_ci = {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps}
+        empty_ci = {
+            "test": {"lower": [None] * len(test_data), "upper": [None] * len(test_data)},
+            "forecast": {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps},
+        }
         return metrics, np.array([]), [None] * forecast_steps, empty_ci
 
     X_train, y_train = prepare_data_dl(train_data)
@@ -147,6 +160,7 @@ def train_lstm(train_data, test_data, forecast_steps=1):
         current_input = current_input.reshape((1, 1, 1))
 
     predictions = np.array(predictions)
+    pred_list = predictions.tolist()
 
     mae = np.mean(np.abs(predictions - test_data))
     rmse = math.sqrt(np.mean((predictions - test_data) ** 2))
@@ -170,10 +184,16 @@ def train_lstm(train_data, test_data, forecast_steps=1):
         next_input = np.array([[next_pred]]).reshape((1, 1, 1))
 
     forecast_list = [float(x) for x in forecast_next]
-    lower_bounds, upper_bounds = residual_confidence_intervals(
-        test_data, predictions, forecast_list
+    test_lower, test_upper = residual_confidence_intervals(
+        test_data, pred_list, pred_list
     )
-    ci_bounds = {"lower": lower_bounds, "upper": upper_bounds}
+    forecast_lower, forecast_upper = residual_confidence_intervals(
+        test_data, pred_list, forecast_list
+    )
+    ci_bounds = {
+        "test": {"lower": test_lower, "upper": test_upper},
+        "forecast": {"lower": forecast_lower, "upper": forecast_upper},
+    }
 
     metrics = {
         "Modelo": "LSTM",

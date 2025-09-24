@@ -42,33 +42,60 @@
 
         // Configura y renderiza el gráfico de líneas con las tres series
         const datasets = [
-            {label: 'Entrenamiento', data: train, borderColor: 'blue', fill:false, pointRadius: 0, spanGaps: true},
-            {label: 'Real (test)', data: testReal, borderColor: 'green', fill:false, pointRadius: 0, spanGaps: true},
-            {label: 'Pronóstico', data: testPred, borderColor: 'red', fill:false, pointRadius: 3, tension: 0.2, spanGaps: true}
+            {
+                label: 'Entrenamiento',
+                data: train,
+                borderColor: 'rgba(0, 123, 255, 0.9)',
+                fill: false,
+                pointRadius: 0,
+                spanGaps: true
+            },
+            {
+                label: 'Real (test)',
+                data: testReal,
+                borderColor: 'rgba(40, 167, 69, 0.9)',
+                fill: false,
+                pointRadius: 0,
+                spanGaps: true
+            },
+            {
+                label: 'Pronóstico',
+                data: testPred,
+                borderColor: 'rgba(220, 53, 69, 0.9)',
+                fill: false,
+                pointRadius: 3,
+                tension: 0.2,
+                spanGaps: true
+            }
         ];
 
         if (hasCI) {
-            const ciBackground = 'rgba(255, 99, 132, 0.18)';
+            const ciLineColor = 'rgba(220, 53, 69, 0.55)';
+            const ciFillColor = 'rgba(220, 53, 69, 0.15)';
             datasets.push(
                 {
                     label: 'IC Superior',
                     data: ciUpper,
-                    borderColor: ciBackground,
-                    backgroundColor: ciBackground,
+                    borderColor: ciLineColor,
+                    backgroundColor: ciFillColor,
                     pointRadius: 0,
+                    borderDash: [6, 4],
                     fill: false,
-                    borderWidth: 0,
-                    spanGaps: true
+                    borderWidth: 1,
+                    spanGaps: true,
+                    order: 0
                 },
                 {
                     label: 'IC Inferior',
                     data: ciLower,
-                    borderColor: ciBackground,
-                    backgroundColor: ciBackground,
+                    borderColor: ciLineColor,
+                    backgroundColor: ciFillColor,
                     pointRadius: 0,
-                    borderWidth: 0,
-                    fill: '-1',
-                    spanGaps: true
+                    borderDash: [6, 4],
+                    borderWidth: 1,
+                    fill: { target: '-1', above: ciFillColor, below: ciFillColor },
+                    spanGaps: true,
+                    order: 0
                 }
             );
         }

@@ -101,34 +101,12 @@ def index():
         )
 
         def format_forecast(vals, intervals):
-            """Return a descriptive string with forecast values and confidence intervals."""
+            """Return a descriptive string with forecast values without confidence intervals."""
             formatted_parts = []
-            lower = []
-            upper = []
-            if intervals:
-                lower = intervals.get("lower", [])
-                upper = intervals.get("upper", [])
-            for idx, val in enumerate(vals):
+            for val in vals:
                 if val is None or pd.isna(val):
                     continue
-                base = f"{float(val):.2f}"
-                low_val = None
-                up_val = None
-                if idx < len(lower):
-                    low_val = lower[idx]
-                if idx < len(upper):
-                    up_val = upper[idx]
-                if (
-                    low_val is not None
-                    and up_val is not None
-                    and not pd.isna(low_val)
-                    and not pd.isna(up_val)
-                ):
-                    formatted_parts.append(
-                        f"{base} (IC95%: {float(low_val):.2f} - {float(up_val):.2f})"
-                    )
-                else:
-                    formatted_parts.append(base)
+                formatted_parts.append(f"{float(val):.2f}")
             return "; ".join(formatted_parts) if formatted_parts else "Sin datos disponibles"
 
         formatted_forecasts = {

@@ -120,6 +120,12 @@
                             </form>
                         </div>
                         <div class="col-lg-8">
+                            <div class="d-flex flex-column flex-lg-row justify-content-lg-end align-items-lg-center gap-2 mb-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="reset-zoom-button" disabled>
+                                    Restablecer zoom
+                                </button>
+                                <small class="text-muted">Usa la rueda del ratón o pellizca para acercar la gráfica.</small>
+                            </div>
                             <div class="ratio ratio-16x9">
                                 <canvas id="forecast-chart"></canvas>
                             </div>
@@ -212,6 +218,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.umd.min.js"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     <script>
         const predictionsDict = {{ predictions_dict|tojson }};
@@ -228,6 +235,13 @@
                 return;
             }
 
+            if (window.Chart) {
+                const zoomPlugin = window.ChartZoom || window["chartjs-plugin-zoom"];
+                if (zoomPlugin) {
+                    Chart.register(zoomPlugin);
+                }
+            }
+
             let forecastChart = null;
             let residualLineChart = null;
             let residualScatterChart = null;
@@ -236,6 +250,8 @@
 
             const modelSelect = document.getElementById('model-select');
             const downloadForm = document.getElementById('download-form');
+            const resetZoomButton = document.getElementById('reset-zoom-button');
+            let resetZoomHandlerAttached = false;
 
             function hasConfidence(ci) {
                 if (!ci) {
@@ -346,6 +362,25 @@
                                     },
                                 },
                             },
+                            zoom: {
+                                limits: {
+                                    x: { min: 'original', max: 'original' },
+                                    y: { min: 'original', max: 'original' },
+                                },
+                                pan: {
+                                    enabled: true,
+                                    mode: 'xy',
+                                },
+                                zoom: {
+                                    wheel: { enabled: true },
+                                    pinch: { enabled: true },
+                                    drag: {
+                                        enabled: true,
+                                        modifierKey: 'ctrl',
+                                    },
+                                    mode: 'xy',
+                                },
+                            },
                         },
                         scales: {
                             x: { ticks: { maxRotation: 45, minRotation: 0 } },
@@ -353,6 +388,11 @@
                         },
                     },
                 });
+
+                if (resetZoomButton) {
+                    resetZoomButton.disabled =
+                        !(forecastChart && typeof forecastChart.resetZoom === 'function');
+                }
             }
 
             function updateDownloadForm(modelName) {
@@ -488,6 +528,15 @@
                     renderForecastChart(modelName);
                     updateDownloadForm(modelName);
                 });
+
+                if (resetZoomButton && !resetZoomHandlerAttached) {
+                    resetZoomButton.addEventListener('click', () => {
+                        if (forecastChart && typeof forecastChart.resetZoom === 'function') {
+                            forecastChart.resetZoom();
+                        }
+                    });
+                    resetZoomHandlerAttached = true;
+                }
                 chartInitialized = true;
             }
 

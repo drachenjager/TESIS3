@@ -8,7 +8,7 @@ from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
 
 def train_sarima(train_data, test_data, forecast_steps=1):
-    """Entrena un modelo SARIMA y devuelve métricas, residuales e intervalos."""
+    """Entrena un modelo SARIMA y devuelve métricas y pronósticos."""
     # Por simplicidad, usaremos un (1,1,1) y estacionalidad = 12
     # En la práctica, se deben seleccionar p,d,q y parámetros estacionales mediante búsqueda.
     if len(train_data) == 0 or len(test_data) == 0:
@@ -19,7 +19,7 @@ def train_sarima(train_data, test_data, forecast_steps=1):
             "MAPE": float("nan"),
             "R^2": float("nan"),
         }
-        return metrics, np.array([]), [None] * forecast_steps, np.array([]), []
+        return metrics, np.array([]), [None] * forecast_steps
     model = SARIMAX(
         train_data,
         order=(1, 1, 1),
@@ -29,13 +29,10 @@ def train_sarima(train_data, test_data, forecast_steps=1):
     )
     sarima_fit = model.fit(disp=False)
 
-    # Predicción en el set de prueba con intervalos
-    pred_res = sarima_fit.get_prediction(
+    # Predicción en el set de prueba
+    predictions = sarima_fit.predict(
         start=len(train_data), end=len(train_data) + len(test_data) - 1, dynamic=False
     )
-    predictions = pred_res.predicted_mean
-    conf_int = pred_res.conf_int().values
-    residuals = test_data - predictions
 
     # Métricas de error
     mae = np.mean(np.abs(predictions - test_data))
@@ -66,17 +63,11 @@ def train_sarima(train_data, test_data, forecast_steps=1):
         "R^2": round(r2, 4),
     }
 
-    return (
-        metrics,
-        predictions,
-        forecast_next.tolist(),
-        residuals.tolist(),
-        conf_int.tolist(),
-    )
+    return metrics, predictions, forecast_next.tolist()
 
 
 def train_holtwinters(train_data, test_data, forecast_steps=1):
-    """Entrena un modelo Holt-Winters y devuelve métricas y residuales."""
+    """Entrena un modelo Holt-Winters y devuelve métricas y pronósticos."""
     if len(train_data) == 0 or len(test_data) == 0:
         metrics = {
             "Modelo": "Holt-Winters",
@@ -85,7 +76,7 @@ def train_holtwinters(train_data, test_data, forecast_steps=1):
             "MAPE": float("nan"),
             "R^2": float("nan"),
         }
-        return metrics, np.array([]), [None] * forecast_steps, np.array([]), []
+        return metrics, np.array([]), [None] * forecast_steps
     # Ver cuántos datos hay en train
     n_train = len(train_data)
     # Solo usar estacionalidad si hay >= 2 ciclos de 12
@@ -101,15 +92,9 @@ def train_holtwinters(train_data, test_data, forecast_steps=1):
     hw_fit = model.fit()
 
     # Predicción sobre el conjunto de prueba
-    pred_res = hw_fit.get_prediction(
+    predictions = hw_fit.predict(
         start=len(train_data), end=len(train_data) + len(test_data) - 1
     )
-    predictions = pred_res.predicted_mean
-    try:
-        conf_int = pred_res.conf_int().values
-    except Exception:
-        conf_int = np.array([[np.nan, np.nan]] * len(predictions))
-    residuals = test_data - predictions
 
     mae = np.mean(np.abs(predictions - test_data))
     rmse = math.sqrt(np.mean((predictions - test_data) ** 2))
@@ -138,10 +123,4 @@ def train_holtwinters(train_data, test_data, forecast_steps=1):
         "R^2": round(r2, 4),
     }
 
-    return (
-        metrics,
-        predictions,
-        forecast_next.tolist(),
-        residuals.tolist(),
-        conf_int.tolist(),
-    )
+    return metrics, predictions, forecast_next.tolist()

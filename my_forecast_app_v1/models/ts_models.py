@@ -21,7 +21,10 @@ def train_sarima(train_data, test_data, forecast_steps=1):
             "MAPE": float("nan"),
             "R^2": float("nan"),
         }
-        empty_ci = {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps}
+        empty_ci = {
+            "test": {"lower": [None] * len(test_data), "upper": [None] * len(test_data)},
+            "forecast": {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps},
+        }
         return metrics, np.array([]), [None] * forecast_steps, empty_ci
     model = SARIMAX(
         train_data,
@@ -36,6 +39,7 @@ def train_sarima(train_data, test_data, forecast_steps=1):
     predictions = sarima_fit.predict(
         start=len(train_data), end=len(train_data) + len(test_data) - 1, dynamic=False
     )
+    pred_list = [float(x) for x in np.asarray(predictions)]
 
     # Métricas de error
     mae = np.mean(np.abs(predictions - test_data))
@@ -58,10 +62,16 @@ def train_sarima(train_data, test_data, forecast_steps=1):
         end=len(train_data) + len(test_data) + forecast_steps - 1,
     )
     forecast_list = [float(x) for x in np.asarray(forecast_next)]
-    lower_bounds, upper_bounds = residual_confidence_intervals(
-        test_data, predictions, forecast_list
+    test_lower, test_upper = residual_confidence_intervals(
+        test_data, pred_list, pred_list
     )
-    ci_bounds = {"lower": lower_bounds, "upper": upper_bounds}
+    forecast_lower, forecast_upper = residual_confidence_intervals(
+        test_data, pred_list, forecast_list
+    )
+    ci_bounds = {
+        "test": {"lower": test_lower, "upper": test_upper},
+        "forecast": {"lower": forecast_lower, "upper": forecast_upper},
+    }
 
     metrics = {
         "Modelo": "SARIMA",
@@ -84,7 +94,10 @@ def train_holtwinters(train_data, test_data, forecast_steps=1):
             "MAPE": float("nan"),
             "R^2": float("nan"),
         }
-        empty_ci = {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps}
+        empty_ci = {
+            "test": {"lower": [None] * len(test_data), "upper": [None] * len(test_data)},
+            "forecast": {"lower": [None] * forecast_steps, "upper": [None] * forecast_steps},
+        }
         return metrics, np.array([]), [None] * forecast_steps, empty_ci
     # Ver cuántos datos hay en train
     n_train = len(train_data)
@@ -104,6 +117,7 @@ def train_holtwinters(train_data, test_data, forecast_steps=1):
     predictions = hw_fit.predict(
         start=len(train_data), end=len(train_data) + len(test_data) - 1
     )
+    pred_list = [float(x) for x in np.asarray(predictions)]
 
     mae = np.mean(np.abs(predictions - test_data))
     rmse = math.sqrt(np.mean((predictions - test_data) ** 2))
@@ -124,10 +138,16 @@ def train_holtwinters(train_data, test_data, forecast_steps=1):
         end=len(train_data) + len(test_data) + forecast_steps - 1,
     )
     forecast_list = [float(x) for x in np.asarray(forecast_next)]
-    lower_bounds, upper_bounds = residual_confidence_intervals(
-        test_data, predictions, forecast_list
+    test_lower, test_upper = residual_confidence_intervals(
+        test_data, pred_list, pred_list
     )
-    ci_bounds = {"lower": lower_bounds, "upper": upper_bounds}
+    forecast_lower, forecast_upper = residual_confidence_intervals(
+        test_data, pred_list, forecast_list
+    )
+    ci_bounds = {
+        "test": {"lower": test_lower, "upper": test_upper},
+        "forecast": {"lower": forecast_lower, "upper": forecast_upper},
+    }
 
     metrics = {
         "Modelo": "Holt-Winters",

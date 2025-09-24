@@ -339,7 +339,15 @@ def plot():
     train_series = json.loads(request.form.get("train_series"))
     test_series = json.loads(request.form.get("test_series"))
     dates = json.loads(request.form.get("dates"))
-    pred_series = json.loads(request.form.get(f"pred_{model_name}"))
+    predictions_payload = request.form.get("predictions_dict_json")
+    if predictions_payload:
+        predictions_dict = json.loads(predictions_payload)
+    else:
+        predictions_dict = {}
+    if model_name in predictions_dict:
+        pred_series = predictions_dict[model_name]
+    else:
+        pred_series = json.loads(request.form.get(f"pred_{model_name}"))
     raw_intervals = request.form.get("forecast_intervals")
     forecast_intervals = json.loads(raw_intervals) if raw_intervals else {}
     ci_bounds = forecast_intervals.get(model_name, {}) if forecast_intervals else {}
@@ -390,6 +398,63 @@ def plot():
         ci_lower=ci_lower_aligned,
         ci_upper=ci_upper_aligned,
         has_confidence_data=has_confidence_data,
+    )
+
+
+@app.route("/residuals", methods=["POST"])
+def residuals():
+    """Renderiza una vista con los residuales de todos los modelos."""
+
+    dates = json.loads(request.form.get("dates")) if request.form.get("dates") else []
+    test_series = json.loads(request.form.get("test_series")) if request.form.get("test_series") else []
+    predictions_payload = request.form.get("predictions_dict_json") or "{}"
+    predictions_dict = json.loads(predictions_payload)
+
+    residual_series = {}
+    scatter_series = {}
+    summary_rows = []
+
+    for model_name, preds in predictions_dict.items():
+        if isinstance(preds, str):
+            preds = json.loads(preds)
+
+        model_residuals = []
+        model_scatter = []
+        for real_value, pred_value in zip(test_series, preds):
+            if real_value is None or pred_value is None:
+                model_residuals.append(None)
+                continue
+            residual = real_value - pred_value
+            model_residuals.append(residual)
+            model_scatter.append({"x": pred_value, "y": residual})
+
+        residual_series[model_name] = model_residuals
+        scatter_series[model_name] = model_scatter
+
+        residual_values = [value for value in model_residuals if value is not None]
+        if residual_values:
+            series = pd.Series(residual_values)
+            summary_rows.append(
+                {
+                    "model": model_name,
+                    "mean": series.mean(),
+                    "std": series.std(ddof=0),
+                    "mae": series.abs().mean(),
+                }
+            )
+
+    summary_df = pd.DataFrame(summary_rows)
+    if not summary_df.empty:
+        summary_df["mean"] = summary_df["mean"].map(lambda x: float(x))
+        summary_df["std"] = summary_df["std"].map(lambda x: float(x))
+        summary_df["mae"] = summary_df["mae"].map(lambda x: float(x))
+
+    return render_template(
+        "residuals.html",
+        dates=dates,
+        residual_series=residual_series,
+        scatter_series=scatter_series,
+        summary_table=summary_df.to_dict(orient="records") if not summary_df.empty else [],
     )
 
 

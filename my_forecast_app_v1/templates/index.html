@@ -105,11 +105,15 @@
             <input type="hidden" name="test_series" value='{{ test_series|tojson }}'>
             <input type="hidden" name="dates" value='{{ dates|tojson }}'>
             <input type="hidden" name="forecast_intervals" value='{{ forecast_intervals|tojson }}'>
+            <input type="hidden" name="predictions_dict_json" value='{{ predictions_dict|tojson }}'>
             {% for model, preds in predictions_dict.items() %}
             <input type="hidden" name="pred_{{ model }}" value='{{ preds|tojson }}'>
             {% endfor %}
 
-            <button type="submit" class="btn btn-success mt-2">Ejecutar</button>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+                <button type="submit" class="btn btn-success">Ejecutar</button>
+                <button type="submit" class="btn btn-outline-primary" formaction="{{ url_for('residuals') }}" formtarget="_blank">Ver residuales</button>
+            </div>
         </form>
         {% endif %}
     </div>

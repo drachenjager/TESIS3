@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <title>Residuales por modelo</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.1.3/dist/flatly/bootstrap.min.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body class="p-4">
+    <div class="container container-box">
+        <h1 class="mb-4">Residuales por modelo</h1>
+        <p class="text-muted">La línea horizontal indica el valor cero para facilitar la detección de sesgos o cambios de varianza.</p>
+        <canvas id="residual-line-chart" height="120" class="mb-4"></canvas>
+        <h2 class="h4">Residuales vs. predicción</h2>
+        <p class="text-muted">Un patrón aleatorio alrededor de cero sugiere homocedasticidad.</p>
+        <canvas id="residual-scatter-chart" height="120" class="mb-4"></canvas>
+        {% if summary_table %}
+        <h2 class="h4">Resumen estadístico</h2>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-sm text-center">
+                <thead>
+                    <tr>
+                        <th>Modelo</th>
+                        <th>Media</th>
+                        <th>Desv. estándar</th>
+                        <th>MAE</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in summary_table %}
+                    <tr>
+                        <td>{{ row.model }}</td>
+                        <td>{{ '%.4f'|format(row.mean) }}</td>
+                        <td>{{ '%.4f'|format(row.std) }}</td>
+                        <td>{{ '%.4f'|format(row.mae) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const dates = {{ dates|tojson }};
+        const residualSeries = {{ residual_series|tojson }};
+        const scatterSeries = {{ scatter_series|tojson }};
+        const models = Object.keys(residualSeries);
+        const colorPalette = [
+            '#007bff', '#28a745', '#dc3545', '#6f42c1', '#20c997', '#fd7e14'
+        ];
+
+        const zeroLine = dates.map(() => 0);
+
+        const lineDatasets = models.map((model, idx) => ({
+            label: model,
+            data: residualSeries[model],
+            borderColor: colorPalette[idx % colorPalette.length],
+            backgroundColor: colorPalette[idx % colorPalette.length],
+            spanGaps: true,
+            pointRadius: 0,
+            tension: 0.2
+        }));
+
+        lineDatasets.push({
+            label: 'Residual = 0',
+            data: zeroLine,
+            borderColor: 'rgba(0,0,0,0.4)',
+            borderWidth: 1,
+            borderDash: [6, 6],
+            pointRadius: 0,
+            fill: false,
+            spanGaps: true
+        });
+
+        new Chart(document.getElementById('residual-line-chart'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: lineDatasets
+            },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { labels: { usePointStyle: true } },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const label = context.dataset.label || '';
+                                const value = context.parsed.y;
+                                if (value === null || value === undefined) {
+                                    return `${label}: N/A`;
+                                }
+                                return `${label}: ${value.toFixed(4)}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { maxRotation: 45, minRotation: 0 }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Residual'
+                        }
+                    }
+                }
+            }
+        });
+
+        const scatterDatasets = models.map((model, idx) => ({
+            label: model,
+            data: scatterSeries[model],
+            backgroundColor: colorPalette[idx % colorPalette.length],
+            pointRadius: 4
+        }));
+
+        new Chart(document.getElementById('residual-scatter-chart'), {
+            type: 'scatter',
+            data: {
+                datasets: scatterDatasets
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { labels: { usePointStyle: true } },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const label = context.dataset.label || '';
+                                const point = context.raw;
+                                if (!point) {
+                                    return `${label}: N/A`;
+                                }
+                                return `${label} → Predicción: ${point.x.toFixed(4)}, Residual: ${point.y.toFixed(4)}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Predicción'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Residual'
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

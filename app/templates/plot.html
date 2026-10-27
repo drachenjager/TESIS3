@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gráfica — {{ model_name }} · USD/MXN</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<!-- ============================================================
+     ENCABEZADO INSTITUCIONAL
+     ============================================================ -->
+<header class="site-header">
+    <div class="header-inner">
+        <svg class="header-crest" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="27" cy="27" r="26" fill="none" stroke="#C8A800" stroke-width="2"/>
+            <circle cx="27" cy="27" r="21" fill="none" stroke="#C8A800" stroke-width="1"/>
+            <text x="27" y="23" text-anchor="middle" font-size="8" font-weight="bold" fill="#FFFFFF" font-family="serif">UNAM</text>
+            <text x="27" y="34" text-anchor="middle" font-size="5.5" fill="#C8A800" font-family="serif">1910</text>
+            <line x1="12" y1="38" x2="42" y2="38" stroke="#C8A800" stroke-width="0.8"/>
+        </svg>
+
+        <div class="header-text">
+            <p class="header-institution">Universidad Nacional Autónoma de México</p>
+            <h1 class="header-title">Visualización del Modelo — <span style="color:var(--unam-gold-light)">{{ model_name }}</span></h1>
+            <p class="header-subtitle">Comparación: Entrenamiento · Real (test) · Pronóstico &nbsp;|&nbsp; Tipo de Cambio USD/MXN</p>
+        </div>
+
+        <span class="header-badge">Maestría &nbsp;·&nbsp; 2026</span>
+    </div>
+</header>
+
+<!-- ============================================================
+     CONTENIDO PRINCIPAL
+     ============================================================ -->
+<main class="page-main">
+
+    <!-- ---- Chips de series ---- -->
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+                <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
+            </svg>
+            <h2>Detalle de Series</h2>
+        </div>
+        <div class="card-body-unam">
+            <div class="series-info">
+                <div class="series-chip train">
+                    <div class="series-chip-label">Entrenamiento</div>
+                    <div class="series-chip-values">{{ train_display }}</div>
+                </div>
+                <div class="series-chip real">
+                    <div class="series-chip-label">Real (test)</div>
+                    <div class="series-chip-values">{{ test_display }}</div>
+                </div>
+                <div class="series-chip pred">
+                    <div class="series-chip-label">Pronóstico</div>
+                    <div class="series-chip-values">{{ pred_display }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ---- Gráfica ---- -->
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11 4a1 1 0 10-2 0v4a1 1 0 102 0V7zm-3 1a1 1 0 10-2 0v3a1 1 0 102 0V8zM8 9a1 1 0 00-2 0v2a1 1 0 102 0V9z" clip-rule="evenodd"/>
+            </svg>
+            <h2>Gráfica: Entrenamiento vs Real vs Pronóstico</h2>
+        </div>
+        <div class="card-body-unam">
+            <div class="chart-wrapper">
+                <canvas id="chart" height="90"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- ---- Exportar Excel ---- -->
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+            </svg>
+            <h2>Exportar Resultados</h2>
+        </div>
+        <div class="card-body-unam">
+            <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:16px;">
+                Descarga un archivo Excel con las series de datos y métricas del modelo
+                <strong>{{ model_name }}</strong>.
+            </p>
+            <form method="POST" action="{{ url_for('exports.download_excel') }}">
+                <input type="hidden" name="cache_key"  value="{{ cache_key }}" />
+                <input type="hidden" name="model_name" value="{{ model_name }}" />
+                <button type="submit" class="btn-unam-primary">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M.5 9.9a.5.5 0 01.5.5v2.5a1 1 0 001 1h12a1 1 0 001-1v-2.5a.5.5 0 011 0v2.5a2 2 0 01-2 2H2a2 2 0 01-2-2v-2.5a.5.5 0 01.5-.5z"/>
+                        <path d="M7.646 11.854a.5.5 0 00.708 0l3-3a.5.5 0 00-.708-.708L8.5 10.293V1.5a.5.5 0 00-1 0v8.793L5.354 8.146a.5.5 0 10-.708.708l3 3z"/>
+                    </svg>
+                    Descargar Excel
+                </button>
+            </form>
+        </div>
+    </div>
+
+</main>
+
+<!-- ============================================================
+     PIE DE PÁGINA
+     ============================================================ -->
+<footer class="site-footer">
+    <div class="footer-inner">
+        <p class="footer-copyright">
+            &copy; 2026 &nbsp;<span>Ing. Ricardo Javier Martínez Suástegui</span>
+            &nbsp;— Todos los derechos reservados
+        </p>
+        <p class="footer-institution">
+            Universidad Nacional Autónoma de México &nbsp;·&nbsp;
+            Facultad de Ingeniería &nbsp;·&nbsp; Tesis de Maestría
+        </p>
+    </div>
+</footer>
+
+<!-- ============================================================
+     SCRIPTS
+     ============================================================ -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+<style>
+    .zoom-controls {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+    }
+    .zoom-controls button {
+        padding: 6px 14px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border: 1.5px solid #003087;
+        border-radius: 6px;
+        background: #fff;
+        color: #003087;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+    }
+    .zoom-controls button:hover {
+        background: #003087;
+        color: #fff;
+    }
+    .zoom-hint {
+        font-size: 0.78rem;
+        color: #6B7280;
+        text-align: right;
+        margin-bottom: 6px;
+    }
+</style>
+<script>
+    const labels   = {{ dates|tojson }};
+    const train    = {{ train_series|tojson }};
+    const testReal = {{ test_series|tojson }};
+    const testPred = {{ pred_series|tojson }};
+    const ciUpper  = {{ ci_upper|tojson }};
+    const ciLower  = {{ ci_lower|tojson }};
+
+    // Insertar controles de zoom encima del canvas
+    const chartWrapper = document.querySelector('.chart-wrapper');
+    const controls = document.createElement('div');
+    controls.className = 'zoom-controls';
+    controls.innerHTML = `
+        <span class="zoom-hint">Rueda del mouse para zoom · Arrastra para desplazar</span>
+        <button id="btn-zoom-in">+ Acercar</button>
+        <button id="btn-zoom-out">− Alejar</button>
+        <button id="btn-reset-zoom">Restablecer zoom</button>
+    `;
+    chartWrapper.parentNode.insertBefore(controls, chartWrapper);
+
+    const myChart = new Chart(document.getElementById('chart'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'IC Superior (95%)',
+                    data: ciUpper,
+                    borderColor: 'rgba(200,168,0,0)',
+                    backgroundColor: 'rgba(200,168,0,0.15)',
+                    borderWidth: 0,
+                    pointRadius: 0,
+                    fill: '+1',          // rellena hacia el dataset siguiente (IC Inferior)
+                    spanGaps: false,
+                    tension: 0.2,
+                    order: 4,
+                },
+                {
+                    label: 'IC Inferior (95%)',
+                    data: ciLower,
+                    borderColor: 'rgba(200,168,0,0)',
+                    backgroundColor: 'rgba(200,168,0,0.15)',
+                    borderWidth: 0,
+                    pointRadius: 0,
+                    fill: false,
+                    spanGaps: false,
+                    tension: 0.2,
+                    order: 5,
+                },
+                {
+                    label: 'Entrenamiento',
+                    data: train,
+                    borderColor: '#003087',
+                    backgroundColor: 'rgba(0,48,135,0.06)',
+                    borderWidth: 1.8,
+                    pointRadius: 0,
+                    fill: false,
+                    spanGaps: false,
+                    tension: 0.3,
+                    order: 3,
+                },
+                {
+                    label: 'Real (test)',
+                    data: testReal,
+                    borderColor: '#1A7340',
+                    backgroundColor: 'rgba(26,115,64,0.08)',
+                    borderWidth: 2.2,
+                    pointRadius: 2.5,
+                    pointBackgroundColor: '#1A7340',
+                    fill: false,
+                    spanGaps: false,
+                    tension: 0.2,
+                    order: 2,
+                },
+                {
+                    label: 'Pronóstico',
+                    data: testPred,
+                    borderColor: '#C8A800',
+                    backgroundColor: 'rgba(200,168,0,0.08)',
+                    borderWidth: 2.2,
+                    borderDash: [6, 3],
+                    pointRadius: 3,
+                    pointBackgroundColor: '#C8A800',
+                    fill: false,
+                    spanGaps: false,
+                    tension: 0.2,
+                    order: 1,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        font: { size: 13, weight: '600', family: "'Segoe UI', system-ui, sans-serif" },
+                        color: '#0D1B3E',
+                        padding: 18,
+                        usePointStyle: true,
+                        pointStyleWidth: 16,
+                        filter: item => item.text !== 'IC Inferior (95%)',  // ocultar duplicado en leyenda
+                    }
+                },
+                title: {
+                    display: true,
+                    text: 'USD/MXN — Entrenamiento · Real · Pronóstico  |  Modelo: ' + {{ model_name|tojson }},
+                    color: '#003087',
+                    font: { size: 14, weight: '700', family: "'Segoe UI', system-ui, sans-serif" },
+                    padding: { bottom: 16 },
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0,31,90,0.92)',
+                    titleColor: '#F0CC30',
+                    bodyColor: '#FFFFFF',
+                    borderColor: '#C8A800',
+                    borderWidth: 1,
+                    padding: 10,
+                    titleFont: { weight: '700' },
+                    filter: item => item.dataset.label !== 'IC Inferior (95%)',
+                },
+                zoom: {
+                    zoom: {
+                        wheel: { enabled: true, speed: 0.1 },
+                        pinch: { enabled: true },
+                        mode: 'x',
+                    },
+                    pan: {
+                        enabled: true,
+                        mode: 'x',
+                    },
+                    limits: {
+                        x: { minRange: 10 },
+                    },
+                }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        maxTicksLimit: 20,
+                        maxRotation: 45,
+                        color: '#4A5568',
+                        font: { size: 11 },
+                    },
+                    grid: { color: 'rgba(0,48,135,0.06)' },
+                    border: { color: '#D6DCE8' },
+                },
+                y: {
+                    ticks: {
+                        color: '#4A5568',
+                        font: { size: 11 },
+                        callback: value => 'MXN ' + value.toFixed(4),
+                    },
+                    grid: { color: 'rgba(0,48,135,0.06)' },
+                    border: { color: '#D6DCE8' },
+                    title: {
+                        display: true,
+                        text: 'Tipo de cambio (MXN por USD)',
+                        color: '#4A5568',
+                        font: { size: 11, weight: '600' },
+                    }
+                }
+            }
+        }
+    });
+
+    document.getElementById('btn-zoom-in').addEventListener('click', () => myChart.zoom(1.2));
+    document.getElementById('btn-zoom-out').addEventListener('click', () => myChart.zoom(0.8));
+    document.getElementById('btn-reset-zoom').addEventListener('click', () => myChart.resetZoom());
+</script>
+</body>
+</html>

@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pronóstico vs. Realidad · USD/MXN</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css" />
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <style>
+        .accuracy-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 14px;
+            margin-bottom: 8px;
+        }
+        .accuracy-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 16px 18px;
+            border-left: 5px solid var(--unam-blue);
+            transition: box-shadow var(--transition);
+        }
+        .accuracy-card:hover { box-shadow: var(--shadow-sm); }
+        .accuracy-card.best  { border-left-color: var(--unam-gold); background: rgba(200,168,0,0.05); }
+        .accuracy-model {
+            font-size: 0.72rem; font-weight: 700; letter-spacing: 0.09em;
+            text-transform: uppercase; color: var(--unam-blue); margin-bottom: 6px;
+        }
+        .accuracy-card.best .accuracy-model { color: var(--unam-gold-dark); }
+        .accuracy-mae {
+            font-size: 1.4rem; font-weight: 800; color: var(--text-primary);
+            line-height: 1.1; margin-bottom: 8px; font-variant-numeric: tabular-nums;
+        }
+        .accuracy-bands {
+            display: flex; gap: 8px; flex-wrap: wrap;
+        }
+        .band-chip {
+            font-size: 0.72rem; font-weight: 700; padding: 3px 9px;
+            border-radius: 12px; white-space: nowrap;
+        }
+        .band-1 { background: rgba(26,115,64,0.12);  color: #1A7340; }
+        .band-2 { background: rgba(200,168,0,0.15);  color: #7A6000; }
+        .band-5 { background: rgba(0,48,135,0.10);   color: #003087; }
+        .best-badge {
+            display: inline-block; font-size: 0.65rem; font-weight: 700;
+            letter-spacing: 0.08em; text-transform: uppercase;
+            background: var(--unam-gold); color: var(--unam-blue-dark);
+            padding: 2px 8px; border-radius: 10px; margin-bottom: 6px;
+        }
+
+        /* Color coding de celdas en la tabla de detalle */
+        .err-low    { background: rgba(26,115,64,0.10)  !important; color: #0E4D25; }
+        .err-medium { background: rgba(200,168,0,0.15)  !important; color: #6B5200; }
+        .err-high   { background: rgba(192,57,43,0.12)  !important; color: #7B1A12; }
+
+        .legend-row {
+            display: flex; gap: 16px; flex-wrap: wrap;
+            font-size: 0.78rem; color: var(--text-secondary); margin-top: 8px;
+        }
+        .legend-dot {
+            display: inline-block; width: 12px; height: 12px;
+            border-radius: 50%; margin-right: 5px; vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ENCABEZADO -->
+<header class="site-header">
+    <div class="header-inner">
+        <svg class="header-crest" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="27" cy="27" r="26" fill="none" stroke="#C8A800" stroke-width="2"/>
+            <circle cx="27" cy="27" r="21" fill="none" stroke="#C8A800" stroke-width="1"/>
+            <text x="27" y="23" text-anchor="middle" font-size="8" font-weight="bold" fill="#FFFFFF" font-family="serif">UNAM</text>
+            <text x="27" y="34" text-anchor="middle" font-size="5.5" fill="#C8A800" font-family="serif">1910</text>
+            <line x1="12" y1="38" x2="42" y2="38" stroke="#C8A800" stroke-width="0.8"/>
+        </svg>
+        <div class="header-text">
+            <p class="header-institution">Universidad Nacional Autónoma de México</p>
+            <h1 class="header-title">Pronóstico <span style="color:var(--unam-gold-light)">vs.</span> Realidad</h1>
+            <p class="header-subtitle">Precisión de modelos en el período de prueba &nbsp;|&nbsp; Tipo de Cambio USD/MXN</p>
+        </div>
+        <span class="header-badge">Maestría &nbsp;·&nbsp; 2026</span>
+    </div>
+</header>
+
+<main class="page-main">
+
+    <!-- ── Resumen de precisión ── -->
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <h2>Resumen de Precisión por Modelo</h2>
+        </div>
+        <div class="card-body-unam">
+            <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:18px;">
+                MAE: error absoluto medio en MXN. Bandas: porcentaje de predicciones dentro del margen indicado respecto al valor real.
+            </p>
+            <div class="accuracy-grid">
+            {% for model in model_names %}
+            {% set s = accuracy_stats[model] %}
+            <div class="accuracy-card {% if model == best_model %}best{% endif %}">
+                {% if model == best_model %}<div class="best-badge">Mejor precisión</div>{% endif %}
+                <div class="accuracy-model">{{ model }}</div>
+                <div class="accuracy-mae">MAE: {{ s.mae }} <span style="font-size:0.8rem; font-weight:500; color:var(--text-muted)">MXN</span></div>
+                <div class="accuracy-bands">
+                    <span class="band-chip band-1">±1 %: {{ s.within_1pct }}%</span>
+                    <span class="band-chip band-2">±2 %: {{ s.within_2pct }}%</span>
+                    <span class="band-chip band-5">±5 %: {{ s.within_5pct }}%</span>
+                </div>
+            </div>
+            {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Gráfica comparativa ── -->
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3z" clip-rule="evenodd"/>
+            </svg>
+            <h2>Comparativa Visual — Período de Prueba</h2>
+        </div>
+        <div class="card-body-unam">
+            <div class="chart-wrapper">
+                <canvas id="chart-compare" height="90"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Tabla de detalle ── -->
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M5 4a3 3 0 00-3 3v6a3 3 0 003 3h10a3 3 0 003-3V7a3 3 0 00-3-3H5zm-1 9v-1h5v2H5a1 1 0 01-1-1zm7 1h4a1 1 0 001-1v-1h-5v2zm0-4h5V8h-5v2zM9 8H4v2h5V8z" clip-rule="evenodd"/>
+            </svg>
+            <h2>Detalle Día a Día</h2>
+        </div>
+        <div class="card-body-unam">
+            <div class="legend-row" style="margin-bottom:14px;">
+                <span><span class="legend-dot" style="background:rgba(26,115,64,0.5);"></span>Error ≤ 1 %</span>
+                <span><span class="legend-dot" style="background:rgba(200,168,0,0.6);"></span>Error 1–2 %</span>
+                <span><span class="legend-dot" style="background:rgba(192,57,43,0.5);"></span>Error &gt; 2 %</span>
+            </div>
+            <div class="table-responsive">
+                <table id="detail-table" class="display" style="width:100%; font-size:0.82rem;">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Real (MXN)</th>
+                            {% for model in model_names %}
+                            <th>{{ model }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody id="detail-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<footer class="site-footer">
+    <div class="footer-inner">
+        <p class="footer-copyright">
+            &copy; 2026 &nbsp;<span>Ing. Ricardo Javier Martínez Suástegui</span>
+            &nbsp;— Todos los derechos reservados
+        </p>
+        <p class="footer-institution">
+            Universidad Nacional Autónoma de México &nbsp;·&nbsp;
+            Facultad de Ingeniería &nbsp;·&nbsp; Tesis de Maestría
+        </p>
+    </div>
+</footer>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+<script>
+    const datesAll    = {{ dates_all|tojson }};
+    const datesTest   = {{ dates_test|tojson }};
+    const nTrain      = {{ n_train }};
+    const trainValues = {{ train_values|tojson }};
+    const testValues  = {{ test_values|tojson }};
+    const modelPreds  = {{ model_preds|tojson }};
+    const errMatrix   = {{ err_pct_matrix|tojson }};
+    const modelNames  = {{ model_names|tojson }};
+    const bestModel   = {{ best_model|tojson }};
+
+    // Build full-length arrays (train + test) aligned with datesAll
+    const nTotal = datesAll.length;
+    const nTest  = testValues.length;
+
+    // Training context: real values for train period, null for test period
+    const trainFull = trainValues.concat(new Array(nTest).fill(null));
+
+    // Real test values padded with nulls at the start
+    const testFull  = new Array(nTrain).fill(null).concat(testValues);
+
+    // Paleta de colores para los modelos
+    const palette = [
+        { border: '#6B7280', bg: 'rgba(107,114,128,0.08)', dash: [2,3] },
+        { border: '#C8A800', bg: 'rgba(200,168,0,0.08)',   dash: [6,3] },
+        { border: '#5B2D8E', bg: 'rgba(91,45,142,0.08)',   dash: [4,4] },
+        { border: '#E05A1E', bg: 'rgba(224,90,30,0.08)',   dash: [6,3] },
+        { border: '#1E7B8C', bg: 'rgba(30,123,140,0.08)',  dash: [4,4] },
+        { border: '#9B2335', bg: 'rgba(155,35,53,0.08)',   dash: [6,3] },
+        { border: '#2E86AB', bg: 'rgba(46,134,171,0.08)',  dash: [4,4] },
+    ];
+
+    // ── Gráfica comparativa (rango completo seleccionado) ──
+    const datasets = [
+        {
+            label: 'Entrenamiento',
+            data: trainFull,
+            borderColor: 'rgba(0,48,135,0.4)',
+            backgroundColor: 'rgba(0,48,135,0.04)',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: false,
+            spanGaps: false,
+            tension: 0.2,
+            order: 10,
+        },
+        {
+            label: 'Real (prueba)',
+            data: testFull,
+            borderColor: '#1A7340',
+            backgroundColor: 'rgba(26,115,64,0.08)',
+            borderWidth: 2.5,
+            pointRadius: 2,
+            pointBackgroundColor: '#1A7340',
+            fill: false,
+            spanGaps: false,
+            tension: 0.2,
+            order: 1,
+        }
+    ];
+
+    modelNames.forEach((name, i) => {
+        const c = palette[i % palette.length];
+        // Pad predictions with nulls for the training period
+        const predFull = new Array(nTrain).fill(null).concat(modelPreds[name]);
+        datasets.push({
+            label: name,
+            data: predFull,
+            borderColor: c.border,
+            backgroundColor: c.bg,
+            borderWidth: 1.8,
+            borderDash: c.dash,
+            pointRadius: 0,
+            fill: false,
+            spanGaps: false,
+            tension: 0.2,
+            order: i + 2,
+        });
+    });
+
+    new Chart(document.getElementById('chart-compare'), {
+        type: 'line',
+        data: { labels: datesAll, datasets },
+        options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { font: { size: 12, weight: '600' }, color: '#0D1B3E', usePointStyle: true, padding: 16 }
+                },
+                title: {
+                    display: true,
+                    text: 'USD/MXN — Rango completo seleccionado: Entrenamiento · Real (prueba) · Pronósticos',
+                    color: '#003087',
+                    font: { size: 13, weight: '700' },
+                    padding: { bottom: 14 },
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0,31,90,0.92)', titleColor: '#F0CC30',
+                    bodyColor: '#FFFFFF', borderColor: '#C8A800', borderWidth: 1, padding: 10,
+                    titleFont: { weight: '700' },
+                    filter: item => item.raw !== null,
+                },
+                zoom: {
+                    zoom: { wheel: { enabled: true, speed: 0.1 }, pinch: { enabled: true }, mode: 'x' },
+                    pan:  { enabled: true, mode: 'x' },
+                    limits: { x: { minRange: 5 } },
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { maxTicksLimit: 18, maxRotation: 45, color: '#4A5568', font: { size: 10 } },
+                    grid: { color: 'rgba(0,48,135,0.06)' }, border: { color: '#D6DCE8' },
+                },
+                y: {
+                    ticks: { color: '#4A5568', font: { size: 11 }, callback: v => 'MXN ' + v.toFixed(2) },
+                    grid: { color: 'rgba(0,48,135,0.06)' }, border: { color: '#D6DCE8' },
+                    title: { display: true, text: 'Tipo de cambio (MXN/USD)', color: '#4A5568', font: { size: 10, weight: '600' } },
+                }
+            }
+        }
+    });
+
+    // ── Tabla de detalle ──
+    function errClass(e) {
+        if (e <= 1)  return 'err-low';
+        if (e <= 2)  return 'err-medium';
+        return 'err-high';
+    }
+
+    const tbody = document.getElementById('detail-tbody');
+    datesTest.forEach((date, i) => {
+        const tr = document.createElement('tr');
+        // Fecha
+        let td = document.createElement('td');
+        td.textContent = date;
+        tr.appendChild(td);
+        // Real
+        td = document.createElement('td');
+        td.textContent = testValues[i].toFixed(4);
+        td.style.fontWeight = '600';
+        tr.appendChild(td);
+        // Cada modelo
+        modelNames.forEach(model => {
+            td = document.createElement('td');
+            const pred = modelPreds[model][i];
+            const err  = errMatrix[model][i];
+            td.textContent = pred.toFixed(4);
+            td.className = errClass(err);
+            td.title = `Error: ${err.toFixed(3)} %`;
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+
+    $('#detail-table').DataTable({
+        paging:    true,
+        pageLength: 20,
+        lengthMenu: [10, 20, 50, 100],
+        info:      true,
+        searching: false,
+        ordering:  false,
+        language: {
+            paginate: { previous: 'Anterior', next: 'Siguiente' },
+            info:     'Mostrando _START_–_END_ de _TOTAL_ observaciones',
+            lengthMenu: 'Mostrar _MENU_ filas',
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+tesis-forecast/
+├── app/
+│   ├── routes/
+│   │   ├── __init__.py
+│   │   ├── exports.py
+│   │   └── main.py
+│   ├── static/
+│   │   ├── css/
+│   │   │   └── style.css
+│   │   ├── img/
+│   │   └── js/
+│   │       └── main.js
+│   ├── templates/
+│   │   ├── forecast_vs_real.html
+│   │   ├── index.html
+│   │   ├── plot.html
+│   │   ├── residuals.html
+│   │   └── seasonality.html
+│   └── __init__.py
+├── benchmark/
+│   ├── models/
+│   │   ├── dl_models.py
+│   │   ├── evaluation.py
+│   │   ├── ml_models.py
+│   │   └── ts_models.py
+│   ├── aggregate.py
+│   ├── appendix_c.json
+│   ├── data.py
+│   ├── launch.ps1
+│   ├── run_bench.py
+│   └── usdmxn_cache.csv
+├── data/
+├── notebooks/
+├── scripts/
+│   ├── export_apendice.py
+│   └── make_favicon.py
+├── src/
+│   ├── data/
+│   │   ├── __init__.py
+│   │   └── fetch.py
+│   ├── features/
+│   │   ├── __init__.py
+│   │   └── build.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── dl_models.py
+│   │   ├── evaluation.py
+│   │   ├── ml_models.py
+│   │   ├── pipeline.py
+│   │   ├── ranking.py
+│   │   └── ts_models.py
+│   └── __init__.py
+├── .dockerignore
+├── .gcloudignore
+├── .gitignore
+├── Dockerfile
+├── Makefile
+├── README.md
+├── requirements.txt
+└── wsgi.py

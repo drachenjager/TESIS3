@@ -1,81 +1,86 @@
-# TESIS3
+# tesis-forecast — Pronóstico del tipo de cambio USD/MXN
 
+Plataforma web (Flask + PyTorch) desarrollada para la tesis de maestría
+*Arquitectura aplicada para pronosticar el tipo de cambio USD/MXN: un estudio
+comparativo entre métodos tradicionales, Machine Learning y Deep Learning por
+horizonte temporal* (UNAM, Programa de Maestría y Doctorado en Ingeniería).
 
-Esta aplicación de ejemplo demuestra un flujo de trabajo sencillo para un servicio de pronósticos basado en Flask. Se incluye un `Dockerfile` para crear la imagen y un conjunto mínimo de scripts de entrenamiento.
+Aplicación desplegada: https://tesis-forecast-403096497449.us-central1.run.app/
 
-## Requisitos previos
+## Modelos
 
-Antes de poder construir o desplegar la aplicación asegúrate de tener:
+| Familia | Modelo | Implementación |
+|---|---|---|
+| Referencia | Naive (paseo aleatorio) | el pronóstico de mañana es el valor de hoy |
+| Series de tiempo | SARIMA | `pmdarima.auto_arima` (m = 5) |
+| Series de tiempo | Holt-Winters | `statsmodels` (tendencia aditiva, estacionalidad multiplicativa) |
+| Machine Learning | Regresión Lineal | 5 rezagos (`scikit-learn`) |
+| Machine Learning | Random Forest | 5 rezagos, 100 árboles |
+| Deep Learning | RNN | 50 unidades, ventana 20, 50 épocas (PyTorch) |
+| Deep Learning | LSTM | 50 unidades, ventana 20, 50 épocas (PyTorch) |
 
-- **Python 3.10 o superior** para ejecutar el código localmente.
-- Una cuenta y proyecto en **Google Cloud Platform (GCP)** con permisos para usar Cloud Build y Cloud Run.
-- **Docker** instalado localmente o habilitar **Cloud Build** en tu proyecto de GCP para construir imágenes.
-- Instalados los componentes de la CLI de **`gcloud`** y haber ejecutado `gcloud auth login`.
+## Protocolo de evaluación (v2)
+
+Todos los modelos se evalúan de la misma forma:
+
+1. Los parámetros se estiman **solo con el conjunto de entrenamiento**.
+2. Sobre el conjunto de prueba cada predicción es **a un paso adelante**: el
+   modelo actualiza su estado con el valor real del día anterior
+   (`src/models/ts_models.py`, `ml_models.py`, `dl_models.py`).
+3. Métricas: MAE, RMSE, MAPE y R². Ranking compuesto por promedio de rangos
+   (`src/models/ranking.py`).
+4. Cada modelo se contrasta contra Naive con la prueba de **Diebold-Mariano**
+   (corrección de Harvey-Leybourne-Newbold; `src/models/evaluation.py`).
+5. Las redes neuronales usan semilla fija (`seed=0`) para ser reproducibles.
+
+En la versión anterior (v1) SARIMA y Holt-Winters pronosticaban toda la ventana
+de prueba de una vez, lo que los hacía incomparables con el resto; el cambio de
+protocolo y sus efectos están documentados en `benchmark/`.
 
 ## Ejecución local
 
-1. Instala las dependencias de Python:
-
-   ```bash
-   cd my_forecast_app_v1
-   pip install -r requirements.txt
-   ```
-
-2. Inicia la aplicación de manera local:
-
-   ```bash
-   python app.py
-   ```
-
-
-    La aplicación quedará disponible en `http://localhost:8080`.
-
-## Períodos disponibles
-
-Al iniciar la aplicación podrás elegir el período de datos descargados desde Yahoo Finance. Las opciones son:
-
-- `5d`
-- `1mo`
-- `3mo`
-- `6mo`
-- `1y`
-- `ytd`
-- `2y`
-- `5y`
-- `10y`
-- `max`
-
-## Construir la imagen con Docker
-
-Si cuentas con Docker local, desde la carpeta raíz ejecuta:
-
 ```bash
-docker build -t forecast-app:latest ./my_forecast_app_v1
+python -m venv .venv && .venv\Scripts\activate      # Windows
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements.txt
+python wsgi.py                                      # http://localhost:8080
 ```
 
-Y para probarla localmente:
+Modos de consulta: periodo relativo a hoy, fecha ancla + periodo (p. ej.
+2026-01-01 + 1 año reproduce los experimentos de la tesis) y rango de fechas.
+
+## Despliegue (Cloud Run)
 
 ```bash
-docker run -p 8080:8080 forecast-app:latest
+make deploy
 ```
 
-## Despliegue en Cloud Run
+Equivale a `gcloud run deploy tesis-forecast --source . --project tesis-usdmxn-2026
+--region us-central1 --memory 2Gi --cpu 1 --timeout 300 --session-affinity ...`
+(ver `Makefile`). La imagen se construye con `Dockerfile` (torch CPU-only).
 
-1. Primero construye y sube la imagen a Container Registry o Artifact Registry usando Cloud Build:
+## Reproducir el banco de pruebas de la tesis (54 experimentos)
 
-   ```bash
-   gcloud builds submit --tag gcr.io/PROJECT_ID/forecast-app ./my_forecast_app_v1
-   ```
+`benchmark/` contiene la matriz completa: 6 longitudes de historia (3 meses a
+10 años, ancladas al 2026-01-01) × 9 particiones de prueba (10 % a 50 %).
 
-2. Luego despliega en Cloud Run (ajusta la región y el proyecto):
+```bash
+python benchmark/run_bench.py P1      # ... hasta P6 (o benchmark/launch.ps1 en paralelo)
+python benchmark/aggregate.py         # tablas en benchmark/out/
+```
 
-   ```bash
-   gcloud run deploy forecast-app \
-       --image gcr.io/PROJECT_ID/forecast-app \
-       --platform managed \
-       --region us-central1 \
-       --allow-unauthenticated
-   ```
+Salidas incluidas: `results/*.json` (métricas por experimento, 3 semillas en
+RNN/LSTM), `preds/*.npz` (predicciones), `out/Apendice_C_v2_resultados.xlsx`
+y `out/tablas.md`. `benchmark/models/ts_models.py` conserva además las
+funciones `*_multistep` del protocolo v1 para la comparación "antes vs. después".
 
-Con esto la aplicación quedará disponible en una URL pública proporcionada por Cloud Run.
+## Estructura
 
+```
+app/        Flask: rutas (main, exports), plantillas y estáticos
+src/data/   descarga de datos (yfinance)
+src/models/ modelos, pipeline, ranking y prueba de Diebold-Mariano
+benchmark/  banco de pruebas reproducible de la tesis
+scripts/    utilidades (exportar Apéndice A, favicon)
+wsgi.py     punto de entrada (gunicorn / desarrollo)
+```

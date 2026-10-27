@@ -1,0 +1,743 @@
+/* ============================================================
+   Sistema de diseño — Paleta oficial UNAM
+   Tesis: Pronóstico USD/MXN
+   Autor: Ing. Ricardo Javier Martínez Suástegui, 2026
+   ============================================================ */
+
+/* ---------- Variables ---------- */
+:root {
+  --unam-blue:        #003087;
+  --unam-blue-dark:   #001F5A;
+  --unam-blue-mid:    #005EB8;
+  --unam-blue-light:  #1A4A8A;
+  --unam-gold:        #C8A800;
+  --unam-gold-light:  #F0CC30;
+  --unam-gold-dark:   #9A7F00;
+  --surface:          #FFFFFF;
+  --surface-alt:      #F4F6FA;
+  --border:           #D6DCE8;
+  --text-primary:     #0D1B3E;
+  --text-secondary:   #4A5568;
+  --text-muted:       #8A96A8;
+  --danger:           #C0392B;
+  --success:          #1A7340;
+  --shadow-sm:        0 2px 8px rgba(0,48,135,0.10);
+  --shadow-md:        0 4px 20px rgba(0,48,135,0.15);
+  --shadow-lg:        0 8px 40px rgba(0,48,135,0.18);
+  --radius:           10px;
+  --radius-sm:        6px;
+  --transition:       0.2s ease;
+}
+
+/* ---------- Reset & Base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: var(--surface-alt);
+  background-image:
+    radial-gradient(ellipse at 20% 10%, rgba(0,48,135,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 90%, rgba(200,168,0,0.05) 0%, transparent 60%);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  color: var(--text-primary);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+}
+
+/* ---------- Header / Navbar ---------- */
+.site-header {
+  background: linear-gradient(135deg, var(--unam-blue-dark) 0%, var(--unam-blue) 60%, var(--unam-blue-light) 100%);
+  border-bottom: 4px solid var(--unam-gold);
+  padding: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.35);
+}
+
+.header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.header-crest {
+  width: 54px;
+  height: 54px;
+  flex-shrink: 0;
+}
+
+.header-text { flex: 1; }
+
+.header-institution {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--unam-gold-light);
+  margin: 0 0 2px;
+}
+
+.header-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin: 0;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.header-subtitle {
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.70);
+  margin: 3px 0 0;
+  letter-spacing: 0.03em;
+}
+
+.header-badge {
+  background: rgba(200,168,0,0.18);
+  border: 1px solid var(--unam-gold);
+  color: var(--unam-gold-light);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* Logo UNAM en dorado exacto RGB(203,168,71) vía feColorMatrix definido en el HTML */
+.header-logo-unam {
+  filter: url(#unam-gold-filter);
+}
+
+.header-logo-wrap {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(200,168,0,0.20);
+  border-radius: 8px;
+  padding: 6px 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-logo-img {
+  height: 56px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
+
+/* Cinta inferior del header */
+.header-subribbon {
+  background: rgba(0,0,0,0.28);
+  border-top: 1px solid rgba(200,168,0,0.22);
+  padding: 5px 24px;
+}
+
+.header-subribbon-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.posgrado-logo-img {
+  height: 26px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
+
+.header-ribbon-badge {
+  margin-left: auto;
+  background: rgba(200,168,0,0.18);
+  border: 1px solid var(--unam-gold);
+  color: var(--unam-gold-light);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* ---------- Main Layout ---------- */
+.page-main {
+  flex: 1;
+  max-width: 1100px;
+  width: 100%;
+  margin: 32px auto;
+  padding: 0 24px;
+}
+
+/* ---------- Card ---------- */
+.card-unam {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.card-unam + .card-unam { margin-top: 24px; }
+
+.card-header-unam {
+  background: linear-gradient(90deg, var(--unam-blue) 0%, var(--unam-blue-mid) 100%);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.card-header-unam h2,
+.card-header-unam h3 {
+  color: #FFFFFF;
+  font-size: 1.0rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.card-header-icon {
+  width: 20px;
+  height: 20px;
+  fill: var(--unam-gold);
+  flex-shrink: 0;
+}
+
+.card-body-unam { padding: 24px; }
+
+/* ---------- Section heading (inside card) ---------- */
+.section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--unam-blue);
+  margin: 0 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--unam-gold);
+  display: inline-block;
+}
+
+/* ---------- Form Controls ---------- */
+.form-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.form-control,
+.form-select {
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  background-color: var(--surface);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  padding: 8px 12px;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--unam-blue-mid);
+  box-shadow: 0 0 0 3px rgba(0,94,184,0.15);
+  outline: none;
+}
+
+.form-check-input:checked {
+  background-color: var(--unam-blue);
+  border-color: var(--unam-blue);
+}
+
+.form-check-label {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+
+/* ---------- Buttons ---------- */
+.btn-unam-primary {
+  background: linear-gradient(135deg, var(--unam-blue) 0%, var(--unam-blue-mid) 100%);
+  color: #FFFFFF;
+  border: none;
+  padding: 10px 26px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.88rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--transition);
+  box-shadow: 0 3px 12px rgba(0,48,135,0.30);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-unam-primary:hover {
+  background: linear-gradient(135deg, var(--unam-blue-mid) 0%, var(--unam-blue) 100%);
+  box-shadow: 0 5px 18px rgba(0,48,135,0.40);
+  transform: translateY(-1px);
+  color: #FFFFFF;
+  text-decoration: none;
+}
+
+.btn-unam-primary:active { transform: translateY(0); }
+
+.btn-unam-gold {
+  background: linear-gradient(135deg, var(--unam-gold) 0%, var(--unam-gold-light) 100%);
+  color: var(--unam-blue-dark);
+  border: none;
+  padding: 10px 26px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.88rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--transition);
+  box-shadow: 0 3px 12px rgba(200,168,0,0.30);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-unam-gold:hover {
+  background: linear-gradient(135deg, var(--unam-gold-light) 0%, var(--unam-gold) 100%);
+  box-shadow: 0 5px 18px rgba(200,168,0,0.45);
+  transform: translateY(-1px);
+  color: var(--unam-blue-dark);
+  text-decoration: none;
+}
+
+.btn-unam-outline {
+  background: transparent;
+  color: var(--unam-blue);
+  border: 2px solid var(--unam-blue);
+  padding: 9px 24px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.88rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-unam-outline:hover {
+  background: var(--unam-blue);
+  color: #FFFFFF;
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+
+/* ---------- Alert / Info Banner ---------- */
+.alert-unam {
+  background: linear-gradient(90deg, rgba(0,48,135,0.07) 0%, rgba(0,48,135,0.02) 100%);
+  border-left: 4px solid var(--unam-blue-mid);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 12px 18px;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  margin-top: 16px;
+}
+
+.alert-unam strong { color: var(--unam-blue); }
+
+.alert-danger-unam {
+  background: rgba(192,57,43,0.07);
+  border-left: 4px solid var(--danger);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 12px 18px;
+  font-size: 0.88rem;
+  color: #7B1A12;
+  margin-top: 16px;
+}
+
+/* ---------- Loading Spinner ---------- */
+.loading-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(90deg, var(--unam-blue-dark), var(--unam-blue));
+  color: #FFFFFF;
+  padding: 14px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-top: 16px;
+  letter-spacing: 0.04em;
+}
+
+.spinner-ring {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255,255,255,0.3);
+  border-top-color: var(--unam-gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Metrics Table ---------- */
+#metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  margin-top: 0;
+}
+
+#metrics-table thead tr {
+  background: linear-gradient(90deg, var(--unam-blue) 0%, var(--unam-blue-mid) 100%);
+}
+
+#metrics-table thead th {
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 12px 14px;
+  text-align: center;
+  border: none;
+}
+
+#metrics-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+}
+
+#metrics-table tbody tr:nth-child(even) {
+  background-color: rgba(0,48,135,0.03);
+}
+
+#metrics-table tbody tr:hover {
+  background-color: rgba(0,48,135,0.07);
+}
+
+#metrics-table tbody td {
+  padding: 10px 14px;
+  text-align: center;
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+#metrics-table tbody td:first-child {
+  font-weight: 600;
+  text-align: left;
+  color: var(--unam-blue);
+}
+
+/* Mejor modelo — fila dorada */
+#metrics-table tbody tr.best-model {
+  background: linear-gradient(90deg, rgba(200,168,0,0.13), rgba(200,168,0,0.06)) !important;
+  border-left: 4px solid var(--unam-gold);
+}
+
+#metrics-table tbody tr.best-model td {
+  font-weight: 700;
+  color: var(--unam-gold-dark);
+}
+
+#metrics-table tbody tr.best-model td:first-child::after {
+  content: ' ★';
+  color: var(--unam-gold);
+}
+
+/* DataTables overrides */
+.dataTables_wrapper .dataTables_length select,
+.dataTables_wrapper .dataTables_filter input {
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  font-size: 0.84rem;
+  color: var(--text-primary);
+}
+
+.dataTables_wrapper .dataTables_filter input:focus {
+  border-color: var(--unam-blue-mid);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0,94,184,0.15);
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+  border-radius: var(--radius-sm) !important;
+  font-size: 0.82rem !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+  background: var(--unam-blue) !important;
+  color: #FFFFFF !important;
+  border-color: var(--unam-blue) !important;
+}
+
+/* ---------- Forecast List ---------- */
+.forecast-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.forecast-item {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  transition: box-shadow var(--transition);
+}
+
+.forecast-item:hover { box-shadow: var(--shadow-sm); }
+
+.forecast-model {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--unam-blue);
+  margin-bottom: 4px;
+}
+
+.forecast-value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Model Selector (radio list) ---------- */
+.model-selector { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+
+.model-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  transition: all var(--transition);
+  background: var(--surface);
+}
+
+.model-radio-label:hover {
+  border-color: var(--unam-blue-mid);
+  background: rgba(0,48,135,0.04);
+  color: var(--unam-blue);
+}
+
+.model-radio-label input[type="radio"] { accent-color: var(--unam-blue); }
+
+.model-radio-label input[type="radio"]:checked + span {
+  color: var(--unam-blue);
+  font-weight: 700;
+}
+
+/* ---------- Chart Container ---------- */
+.chart-wrapper {
+  position: relative;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------- Series Info (plot page) ---------- */
+.series-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.series-chip {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  border-left: 4px solid;
+}
+
+.series-chip.train  { border-color: #003087; background: rgba(0,48,135,0.06); }
+.series-chip.real   { border-color: #1A7340; background: rgba(26,115,64,0.06); }
+.series-chip.pred   { border-color: #C8A800; background: rgba(200,168,0,0.08); }
+
+.series-chip-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+  color: var(--text-muted);
+}
+
+.series-chip-values {
+  font-size: 0.80rem;
+  color: var(--text-primary);
+  font-family: 'Consolas', 'Courier New', monospace;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+/* ---------- Divider ---------- */
+.unam-divider {
+  height: 2px;
+  background: linear-gradient(90deg, var(--unam-gold) 0%, transparent 100%);
+  border: none;
+  margin: 28px 0;
+  border-radius: 2px;
+}
+
+.footer-motto {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 0.78rem;
+  letter-spacing: 0.20em;
+  color: var(--unam-gold-light);
+  opacity: 0.82;
+  margin-top: 2px;
+}
+
+.footer-motto::before {
+  content: '— ';
+  opacity: 0.6;
+}
+
+.footer-motto::after {
+  content: ' —';
+  opacity: 0.6;
+}
+
+/* ---------- Footer ---------- */
+.site-footer {
+  background: linear-gradient(135deg, var(--unam-blue-dark) 0%, var(--unam-blue) 100%);
+  border-top: 3px solid var(--unam-gold);
+  padding: 22px 24px;
+  margin-top: auto;
+}
+
+.footer-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.footer-copyright {
+  font-size: 0.80rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.90);
+  letter-spacing: 0.04em;
+}
+
+.footer-copyright span {
+  color: var(--unam-gold-light);
+  font-weight: 700;
+}
+
+.footer-institution {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.55);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ---------- Utility ---------- */
+.text-unam-blue  { color: var(--unam-blue)  !important; }
+.text-unam-gold  { color: var(--unam-gold)  !important; }
+.gold-line { display: inline-block; border-bottom: 2px solid var(--unam-gold); padding-bottom: 2px; }
+
+/* ============================================================
+   RESPONSIVE — móvil primero
+   ============================================================ */
+
+/* ── Tablet  (≤ 900 px) ── */
+@media (max-width: 900px) {
+  .header-logo-img   { height: 44px; }
+  .header-title      { font-size: 1.15rem; }
+  .header-subtitle   { font-size: 0.72rem; }
+}
+
+/* ── Móvil  (≤ 768 px) ── */
+@media (max-width: 768px) {
+
+  /* Header: ocultar logos para dar espacio al título */
+  .header-logo-wrap  { display: none; }
+  .header-subtitle   { display: none; }          /* ocupa 3 líneas → fuera */
+  .header-inner      { padding: 12px 16px; gap: 8px; }
+  .header-institution { font-size: 0.62rem; letter-spacing: 0.05em; }
+  .header-title      { font-size: 1.05rem; }
+
+  /* Cinta posgrado */
+  .header-subribbon  { padding: 4px 16px; }
+  .posgrado-logo-img { height: 20px; }
+  .header-ribbon-badge { font-size: 0.58rem; padding: 2px 7px; }
+
+  /* Layout principal */
+  .page-main         { padding: 0 12px; margin: 16px auto; }
+  .card-body-unam    { padding: 14px 12px; }
+  .card-header-unam  { padding: 12px 16px; }
+
+  /* Tabla de métricas: scroll horizontal */
+  #metrics-table_wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #metrics-table thead th,
+  #metrics-table tbody td { padding: 8px 10px; font-size: 0.78rem; }
+
+  /* Radio buttons: columna vertical */
+  .d-flex.gap-4 { gap: 10px !important; }
+  .form-check   { width: 100%; }
+
+  /* Selects y dates: ancho completo */
+  .form-select,
+  .form-control { max-width: 100% !important; width: 100%; }
+
+  /* Botones de acción: columna en móvil */
+  .mt-3.d-flex.flex-wrap.gap-2 { flex-direction: column !important; align-items: stretch !important; }
+  .mt-3.d-flex.flex-wrap.gap-2 > button { width: 100%; justify-content: center; }
+
+  /* Grids */
+  .forecast-grid { grid-template-columns: 1fr 1fr; }
+  .series-info   { grid-template-columns: 1fr; }
+
+  /* Footer */
+  .site-footer   { padding: 16px; }
+  .footer-motto  { letter-spacing: 0.10em; font-size: 0.72rem; }
+}
+
+/* ── Móvil pequeño  (≤ 480 px) ── */
+@media (max-width: 480px) {
+  .header-title      { font-size: 0.95rem; }
+  .header-institution { display: none; }       /* muy largo en pantallas < 480 px */
+  .page-main         { padding: 0 10px; margin: 12px auto; }
+  .forecast-grid     { grid-template-columns: 1fr; }
+  .card-body-unam    { padding: 12px 10px; }
+}

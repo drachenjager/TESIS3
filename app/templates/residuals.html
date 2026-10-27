@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Análisis de Residuales · USD/MXN</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <style>
+        .resid-stats-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+        .resid-stat-chip {
+            background: rgba(0,48,135,0.05);
+            border: 1px solid rgba(0,48,135,0.15);
+            border-radius: 8px;
+            padding: 8px 16px;
+            text-align: center;
+            min-width: 110px;
+        }
+        .resid-stat-chip .stat-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--unam-blue, #003087);
+            margin-bottom: 2px;
+        }
+        .resid-stat-chip .stat-value {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #0D1B3E;
+            font-variant-numeric: tabular-nums;
+        }
+        .resid-stat-chip.highlight {
+            border-color: #C8A800;
+            background: rgba(200,168,0,0.08);
+        }
+        .resid-stat-chip.highlight .stat-label { color: #7A6000; }
+        .resid-stat-chip.highlight .stat-value  { color: #5A4400; }
+
+        .interpretation-box {
+            background: rgba(0,48,135,0.04);
+            border-left: 4px solid #003087;
+            border-radius: 0 8px 8px 0;
+            padding: 12px 16px;
+            font-size: 0.85rem;
+            color: #2D3748;
+            margin-bottom: 18px;
+            line-height: 1.6;
+        }
+
+        .charts-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .charts-row { grid-template-columns: 1fr; }
+        }
+
+        .chart-sub-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #003087;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .model-card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid rgba(0,48,135,0.12);
+            padding-bottom: 10px;
+        }
+        .model-badge {
+            background: linear-gradient(90deg, #003087, #005EB8);
+            color: #fff;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            padding: 4px 12px;
+            border-radius: 20px;
+            text-transform: uppercase;
+        }
+        .model-card-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #0D1B3E;
+            margin: 0;
+        }
+
+        .intro-card {
+            background: linear-gradient(135deg, rgba(0,48,135,0.04), rgba(200,168,0,0.06));
+            border: 1px solid rgba(0,48,135,0.12);
+            border-radius: 12px;
+            padding: 22px 26px;
+            margin-bottom: 28px;
+        }
+        .intro-card h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #003087;
+            margin-bottom: 10px;
+        }
+        .intro-card p {
+            font-size: 0.85rem;
+            color: #2D3748;
+            line-height: 1.7;
+            margin-bottom: 8px;
+        }
+        .intro-card ul {
+            font-size: 0.84rem;
+            color: #2D3748;
+            padding-left: 20px;
+            line-height: 1.8;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ============================================================
+     ENCABEZADO INSTITUCIONAL
+     ============================================================ -->
+<header class="site-header">
+    <div class="header-inner">
+        <svg class="header-crest" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="27" cy="27" r="26" fill="none" stroke="#C8A800" stroke-width="2"/>
+            <circle cx="27" cy="27" r="21" fill="none" stroke="#C8A800" stroke-width="1"/>
+            <text x="27" y="23" text-anchor="middle" font-size="8" font-weight="bold" fill="#FFFFFF" font-family="serif">UNAM</text>
+            <text x="27" y="34" text-anchor="middle" font-size="5.5" fill="#C8A800" font-family="serif">1910</text>
+            <line x1="12" y1="38" x2="42" y2="38" stroke="#C8A800" stroke-width="0.8"/>
+        </svg>
+
+        <div class="header-text">
+            <p class="header-institution">Universidad Nacional Autónoma de México</p>
+            <h1 class="header-title">Análisis de <span style="color:var(--unam-gold-light)">Residuales</span></h1>
+            <p class="header-subtitle">Evaluación del error de predicción por modelo &nbsp;|&nbsp; Tipo de Cambio USD/MXN</p>
+        </div>
+
+        <span class="header-badge">Maestría &nbsp;·&nbsp; 2026</span>
+    </div>
+</header>
+
+<!-- ============================================================
+     CONTENIDO PRINCIPAL
+     ============================================================ -->
+<main class="page-main">
+
+    <!-- ---- Introducción ---- -->
+    <div class="intro-card">
+        <h3>¿Qué es el análisis de residuales?</h3>
+        <p>
+            Los <strong>residuales</strong> son la diferencia entre el valor <em>pronosticado</em> y el valor <em>real</em>
+            observado en el período de prueba: <code>residual = ŷ − y</code>.
+            Su análisis permite diagnosticar la calidad de cada modelo más allá de las métricas globales.
+        </p>
+        <ul>
+            <li><strong>Media ≈ 0</strong>: el modelo es insesgado; no sobreestima ni subestima sistemáticamente.</li>
+            <li><strong>Distribución simétrica</strong>: los errores se distribuyen de forma equilibrada alrededor de cero.</li>
+            <li><strong>Sin patrón temporal</strong>: si los residuales no muestran tendencia ni estacionalidad, el modelo captura bien la dinámica de la serie.</li>
+            <li><strong>Baja dispersión (σ pequeña)</strong>: los errores son consistentes y acotados.</li>
+        </ul>
+    </div>
+
+    <!-- ---- Una tarjeta por modelo ---- -->
+    {% for model_name in residuals_data.keys() %}
+    {% set stats = residuals_stats[model_name] %}
+    {% set interp = interpretations[model_name] %}
+
+    <div class="card-unam" style="margin-bottom: 32px;">
+        <div class="card-body-unam">
+
+            <!-- Encabezado del modelo -->
+            <div class="model-card-header">
+                <span class="model-badge">Modelo {{ loop.index }}</span>
+                <h2 class="model-card-title">{{ model_name }}</h2>
+            </div>
+
+            <!-- Estadísticas rápidas -->
+            <div class="resid-stats-row">
+                <div class="resid-stat-chip highlight">
+                    <div class="stat-label">Media (sesgo)</div>
+                    <div class="stat-value">{{ stats.mean }}</div>
+                </div>
+                <div class="resid-stat-chip">
+                    <div class="stat-label">Desv. Est. (σ)</div>
+                    <div class="stat-value">{{ stats.std }}</div>
+                </div>
+                <div class="resid-stat-chip">
+                    <div class="stat-label">MAE</div>
+                    <div class="stat-value">{{ stats.mae }}</div>
+                </div>
+                <div class="resid-stat-chip">
+                    <div class="stat-label">Error máximo</div>
+                    <div class="stat-value">{{ stats.max }}</div>
+                </div>
+                <div class="resid-stat-chip">
+                    <div class="stat-label">Error mínimo</div>
+                    <div class="stat-value">{{ stats.min }}</div>
+                </div>
+            </div>
+
+            <!-- Interpretación automática -->
+            <div class="interpretation-box">
+                <strong>Interpretación:</strong> {{ interp|safe }}
+                Revisa la gráfica temporal para detectar patrones no capturados, y el histograma para evaluar
+                si la distribución de errores es aproximadamente simétrica y centrada en cero.
+            </div>
+
+            <!-- Gráficas -->
+            <div class="charts-row">
+                <!-- Residuales en el tiempo -->
+                <div>
+                    <div class="chart-sub-title">Residuales en el tiempo</div>
+                    <canvas id="chart-time-{{ loop.index0 }}" height="160"></canvas>
+                </div>
+                <!-- Histograma -->
+                <div>
+                    <div class="chart-sub-title">Distribución de residuales</div>
+                    <canvas id="chart-hist-{{ loop.index0 }}" height="160"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    {% endfor %}
+
+</main>
+
+<!-- ============================================================
+     PIE DE PÁGINA
+     ============================================================ -->
+<footer class="site-footer">
+    <div class="footer-inner">
+        <p class="footer-copyright">
+            &copy; 2026 &nbsp;<span>Ing. Ricardo Javier Martínez Suástegui</span>
+            &nbsp;— Todos los derechos reservados
+        </p>
+        <p class="footer-institution">
+            Universidad Nacional Autónoma de México &nbsp;·&nbsp;
+            Facultad de Ingeniería &nbsp;·&nbsp; Tesis de Maestría
+        </p>
+    </div>
+</footer>
+
+<!-- ============================================================
+     SCRIPTS
+     ============================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const allResiduals = {{ residuals_data|tojson }};
+    const allHist      = {{ hist_data|tojson }};
+    const datesTest    = {{ dates_test|tojson }};
+
+    // Paleta de colores por modelo (ciclica)
+    const palette = [
+        { line: '#6B7280', fill: 'rgba(107,114,128,0.12)' },
+        { line: '#003087', fill: 'rgba(0,48,135,0.12)'   },
+        { line: '#1A7340', fill: 'rgba(26,115,64,0.12)'  },
+        { line: '#C8A800', fill: 'rgba(200,168,0,0.15)'  },
+        { line: '#9B2335', fill: 'rgba(155,35,53,0.12)'  },
+        { line: '#5B2D8E', fill: 'rgba(91,45,142,0.12)'  },
+        { line: '#1E7B8C', fill: 'rgba(30,123,140,0.12)' },
+    ];
+
+    const modelNames = Object.keys(allResiduals);
+
+    modelNames.forEach((modelName, idx) => {
+        const color   = palette[idx % palette.length];
+        const residArr = allResiduals[modelName];
+        const hist    = allHist[modelName];
+
+        // ---- Gráfica: residuales en el tiempo ----
+        new Chart(document.getElementById(`chart-time-${idx}`), {
+            type: 'line',
+            data: {
+                labels: datesTest,
+                datasets: [{
+                    label: 'Residual (ŷ − y)',
+                    data: residArr,
+                    borderColor: color.line,
+                    backgroundColor: color.fill,
+                    borderWidth: 1.8,
+                    pointRadius: residArr.length <= 60 ? 3 : 0,
+                    pointBackgroundColor: color.line,
+                    fill: false,
+                    tension: 0.2,
+                    spanGaps: false,
+                }, {
+                    // Línea de referencia en 0
+                    label: 'Referencia (0)',
+                    data: Array(datesTest.length).fill(0),
+                    borderColor: 'rgba(0,0,0,0.25)',
+                    borderWidth: 1,
+                    borderDash: [5, 4],
+                    pointRadius: 0,
+                    fill: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            font: { size: 11, weight: '600' },
+                            color: '#0D1B3E',
+                            usePointStyle: true,
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,31,90,0.92)',
+                        titleColor: '#F0CC30',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#C8A800',
+                        borderWidth: 1,
+                        padding: 8,
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { maxTicksLimit: 12, maxRotation: 45, color: '#4A5568', font: { size: 10 } },
+                        grid: { color: 'rgba(0,48,135,0.05)' },
+                    },
+                    y: {
+                        ticks: {
+                            color: '#4A5568',
+                            font: { size: 10 },
+                            callback: v => v.toFixed(4),
+                        },
+                        grid: { color: 'rgba(0,48,135,0.05)' },
+                        title: {
+                            display: true,
+                            text: 'Residual (MXN)',
+                            color: '#4A5568',
+                            font: { size: 10, weight: '600' },
+                        }
+                    }
+                }
+            }
+        });
+
+        // ---- Gráfica: histograma ----
+        new Chart(document.getElementById(`chart-hist-${idx}`), {
+            type: 'bar',
+            data: {
+                labels: hist.labels,
+                datasets: [{
+                    label: 'Frecuencia',
+                    data: hist.counts,
+                    backgroundColor: color.fill,
+                    borderColor: color.line,
+                    borderWidth: 1.5,
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,31,90,0.92)',
+                        titleColor: '#F0CC30',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#C8A800',
+                        borderWidth: 1,
+                        padding: 8,
+                        callbacks: {
+                            title: items => `Bin: ${items[0].label}`,
+                            label: item => `Frecuencia: ${item.raw}`,
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#4A5568', font: { size: 9 }, maxRotation: 45 },
+                        grid: { display: false },
+                        title: {
+                            display: true,
+                            text: 'Valor del residual',
+                            color: '#4A5568',
+                            font: { size: 10, weight: '600' },
+                        }
+                    },
+                    y: {
+                        ticks: { color: '#4A5568', font: { size: 10 }, stepSize: 1 },
+                        grid: { color: 'rgba(0,48,135,0.05)' },
+                        title: {
+                            display: true,
+                            text: 'Frecuencia',
+                            color: '#4A5568',
+                            font: { size: 10, weight: '600' },
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+</body>
+</html>

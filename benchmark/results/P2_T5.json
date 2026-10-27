@@ -1,0 +1,113 @@
+{
+ "P": "P2",
+ "T": "T5",
+ "n": 130,
+ "n_train": 91,
+ "n_test": 39,
+ "fecha_inicio": "2025-07-01",
+ "fecha_test": "2025-11-06",
+ "fecha_fin": "2025-12-31",
+ "metrics": {
+  "Naive": {
+   "Modelo": "Naive",
+   "MAE": 0.0501,
+   "RMSE": 0.0606,
+   "MAPE": 0.2745,
+   "R^2": 0.9034
+  },
+  "SARIMA": {
+   "Modelo": "SARIMA",
+   "MAE": 0.0501,
+   "RMSE": 0.0606,
+   "MAPE": 0.2745,
+   "R^2": 0.9034
+  },
+  "SARIMA_multistep": {
+   "Modelo": "SARIMA",
+   "MAE": 0.459,
+   "RMSE": 0.4987,
+   "MAPE": 2.5312,
+   "R^2": -5.536
+  },
+  "Holt-Winters": {
+   "Modelo": "Holt-Winters",
+   "MAE": 0.0563,
+   "RMSE": 0.0697,
+   "MAPE": 0.3085,
+   "R^2": 0.8723
+  },
+  "Holt-Winters_multistep": {
+   "Modelo": "Holt-Winters",
+   "MAE": 0.5001,
+   "RMSE": 0.5381,
+   "MAPE": 2.7568,
+   "R^2": -6.6088
+  },
+  "Regresión Lineal": {
+   "Modelo": "Regresión Lineal",
+   "MAE": 0.0658,
+   "RMSE": 0.0757,
+   "MAPE": 0.3614,
+   "R^2": 0.8492
+  },
+  "Random Forest": {
+   "Modelo": "Random Forest",
+   "MAE": 0.2019,
+   "RMSE": 0.2566,
+   "MAPE": 1.1173,
+   "R^2": -0.7307
+  },
+  "RNN": {
+   "seed0": {
+    "Modelo": "RNN",
+    "MAE": 0.0745,
+    "RMSE": 0.0872,
+    "MAPE": 0.4098,
+    "R^2": 0.8001
+   },
+   "seed1": {
+    "Modelo": "RNN",
+    "MAE": 0.0706,
+    "RMSE": 0.0835,
+    "MAPE": 0.3878,
+    "R^2": 0.8169
+   },
+   "seed2": {
+    "Modelo": "RNN",
+    "MAE": 0.0709,
+    "RMSE": 0.0838,
+    "MAPE": 0.3898,
+    "R^2": 0.8154
+   }
+  },
+  "LSTM": {
+   "seed0": {
+    "Modelo": "LSTM",
+    "MAE": 0.1607,
+    "RMSE": 0.1843,
+    "MAPE": 0.887,
+    "R^2": 0.1068
+   },
+   "seed1": {
+    "Modelo": "LSTM",
+    "MAE": 0.1598,
+    "RMSE": 0.1871,
+    "MAPE": 0.8825,
+    "R^2": 0.0804
+   },
+   "seed2": {
+    "Modelo": "LSTM",
+    "MAE": 0.1555,
+    "RMSE": 0.1767,
+    "MAPE": 0.8581,
+    "R^2": 0.1794
+   }
+  }
+ },
+ "tiempos": {
+  "SARIMA": 2.0,
+  "DL": 7.3,
+  "total": 10.3
+ },
+ "sarima_order": "(0, 1, 0)x(0, 0, 0, 5)"
+}

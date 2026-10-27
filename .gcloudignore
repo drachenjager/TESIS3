@@ -1,0 +1,12 @@
+.git/
+.gitignore
+.venv/
+venv/
+__pycache__/
+*.pyc
+data/
+notebooks/
+benchmark/
+apendice_a_*.txt
+*.log
+.env

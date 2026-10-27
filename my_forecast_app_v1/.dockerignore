@@ -1,9 +1,0 @@
-# Ignore Git directory
-.git
-
-# Byte-compiled / cache files
-__pycache__/
-*.py[cod]
-
-# Other
-*.log

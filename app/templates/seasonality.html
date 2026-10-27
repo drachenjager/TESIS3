@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Análisis de Estacionalidad · USD/MXN</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <style>
+        .insights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+        .insight-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 16px 18px;
+            border-left-width: 5px;
+            border-left-style: solid;
+            box-shadow: var(--shadow-sm);
+        }
+        .insight-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.10em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+        .insight-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1.1;
+            margin-bottom: 4px;
+        }
+        .insight-sub {
+            font-size: 0.80rem;
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+        }
+        .charts-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .chart-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--unam-blue);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .intro-card {
+            background: linear-gradient(135deg, rgba(0,48,135,0.04), rgba(200,168,0,0.06));
+            border: 1px solid rgba(0,48,135,0.12);
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 28px;
+            font-size: 0.86rem;
+            color: #2D3748;
+            line-height: 1.7;
+        }
+        .intro-card strong { color: var(--unam-blue); }
+        @media (max-width: 768px) {
+            .charts-2col { grid-template-columns: 1fr; }
+            .insights-grid { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ENCABEZADO -->
+<header class="site-header">
+    <div class="header-inner">
+        <svg class="header-crest" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="27" cy="27" r="26" fill="none" stroke="#C8A800" stroke-width="2"/>
+            <circle cx="27" cy="27" r="21" fill="none" stroke="#C8A800" stroke-width="1"/>
+            <text x="27" y="23" text-anchor="middle" font-size="8" font-weight="bold" fill="#FFFFFF" font-family="serif">UNAM</text>
+            <text x="27" y="34" text-anchor="middle" font-size="5.5" fill="#C8A800" font-family="serif">1910</text>
+            <line x1="12" y1="38" x2="42" y2="38" stroke="#C8A800" stroke-width="0.8"/>
+        </svg>
+        <div class="header-text">
+            <p class="header-institution">Universidad Nacional Autónoma de México</p>
+            <h1 class="header-title">Análisis de <span style="color:var(--unam-gold-light)">Estacionalidad</span></h1>
+            <p class="header-subtitle">Patrones históricos por mes y trimestre &nbsp;|&nbsp; Tipo de Cambio USD/MXN</p>
+        </div>
+        <span class="header-badge">Maestría &nbsp;·&nbsp; 2026</span>
+    </div>
+</header>
+
+<!-- CONTENIDO -->
+<main class="page-main">
+
+    <div class="intro-card">
+        El análisis de estacionalidad identifica <strong>patrones recurrentes</strong> en el tipo de cambio
+        a lo largo del año. Conocer qué meses históricamente presentan mayor volatilidad o niveles más altos
+        permite a las empresas planificar sus <strong>estrategias de cobertura cambiaria</strong> con mayor anticipación
+        y establecer presupuestos anuales más robustos. Los datos abarcan
+        <strong>{{ insights.total_years }} año{{ 's' if insights.total_years != 1 else '' }}</strong>
+        de historia.
+    </div>
+
+    <!-- Tarjetas de insight -->
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            </svg>
+            <h2>Hallazgos Clave</h2>
+        </div>
+        <div class="card-body-unam">
+            <div class="insights-grid">
+                <div class="insight-card" style="border-left-color:#9B2335;">
+                    <div class="insight-label">Mes más volátil</div>
+                    <div class="insight-value">{{ insights.most_volatile_month }}</div>
+                    <div class="insight-sub">Desv. estándar: {{ insights.most_volatile_std }} MXN</div>
+                </div>
+                <div class="insight-card" style="border-left-color:#1A7340;">
+                    <div class="insight-label">Mes más estable</div>
+                    <div class="insight-value">{{ insights.most_stable_month }}</div>
+                    <div class="insight-sub">Desv. estándar: {{ insights.most_stable_std }} MXN</div>
+                </div>
+                <div class="insight-card" style="border-left-color:#C8A800;">
+                    <div class="insight-label">Mayor promedio histórico</div>
+                    <div class="insight-value">{{ insights.highest_avg_month }}</div>
+                    <div class="insight-sub">Promedio: {{ insights.highest_avg_val }} MXN</div>
+                </div>
+                <div class="insight-card" style="border-left-color:#003087;">
+                    <div class="insight-label">Menor promedio histórico</div>
+                    <div class="insight-value">{{ insights.lowest_avg_month }}</div>
+                    <div class="insight-sub">Promedio: {{ insights.lowest_avg_val }} MXN</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Análisis mensual -->
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-4a1 1 0 011-1h2a1 1 0 011 1v13a1 1 0 01-1 1h-2a1 1 0 01-1-1V3z"/>
+            </svg>
+            <h2>Análisis Mensual</h2>
+        </div>
+        <div class="card-body-unam">
+            <div class="charts-2col">
+                <div>
+                    <div class="chart-label">Tipo de cambio promedio por mes (MXN)</div>
+                    <div class="chart-wrapper" style="padding:16px;">
+                        <canvas id="chart-monthly-mean" height="220"></canvas>
+                    </div>
+                </div>
+                <div>
+                    <div class="chart-label">Volatilidad mensual — Desviación estándar (MXN)</div>
+                    <div class="chart-wrapper" style="padding:16px;">
+                        <canvas id="chart-monthly-std" height="220"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Análisis trimestral -->
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+            </svg>
+            <h2>Análisis Trimestral</h2>
+        </div>
+        <div class="card-body-unam">
+            <div class="charts-2col">
+                <div>
+                    <div class="chart-label">Promedio trimestral (MXN)</div>
+                    <div class="chart-wrapper" style="padding:16px;">
+                        <canvas id="chart-quarterly-mean" height="220"></canvas>
+                    </div>
+                </div>
+                <div>
+                    <div class="chart-label">Volatilidad trimestral — Desviación estándar (MXN)</div>
+                    <div class="chart-wrapper" style="padding:16px;">
+                        <canvas id="chart-quarterly-std" height="220"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tendencia anual (solo si hay 2+ años) -->
+    {% if insights.show_yearly %}
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3z" clip-rule="evenodd"/>
+            </svg>
+            <h2>Tendencia Año a Año</h2>
+        </div>
+        <div class="card-body-unam">
+            <div class="chart-wrapper">
+                <canvas id="chart-yearly" height="90"></canvas>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</main>
+
+<!-- PIE DE PÁGINA -->
+<footer class="site-footer">
+    <div class="footer-inner">
+        <p class="footer-copyright">
+            &copy; 2026 &nbsp;<span>Ing. Ricardo Javier Martínez Suástegui</span>
+            &nbsp;— Todos los derechos reservados
+        </p>
+        <p class="footer-institution">
+            Universidad Nacional Autónoma de México &nbsp;·&nbsp;
+            Facultad de Ingeniería &nbsp;·&nbsp; Tesis de Maestría
+        </p>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const monthlyLabels   = {{ monthly_labels|tojson }};
+    const monthlyMean     = {{ monthly_mean|tojson }};
+    const monthlyStd      = {{ monthly_std|tojson }};
+    const monthlyMin      = {{ monthly_min|tojson }};
+    const monthlyMax      = {{ monthly_max|tojson }};
+    const quarterlyLabels = {{ quarterly_labels|tojson }};
+    const quarterlyMean   = {{ quarterly_mean|tojson }};
+    const quarterlyStd    = {{ quarterly_std|tojson }};
+    {% if insights.show_yearly %}
+    const yearlyLabels    = {{ yearly_labels|tojson }};
+    const yearlyMean      = {{ yearly_mean|tojson }};
+    const yearlyStd       = {{ yearly_std|tojson }};
+    {% endif %}
+
+    const tooltipDefaults = {
+        backgroundColor: 'rgba(0,31,90,0.92)',
+        titleColor: '#F0CC30',
+        bodyColor: '#FFFFFF',
+        borderColor: '#C8A800',
+        borderWidth: 1,
+        padding: 10,
+        titleFont: { weight: '700' },
+    };
+
+    const scaleDefaults = (yLabel) => ({
+        x: {
+            ticks: { color: '#4A5568', font: { size: 11 } },
+            grid: { color: 'rgba(0,48,135,0.06)' },
+            border: { color: '#D6DCE8' },
+        },
+        y: {
+            ticks: { color: '#4A5568', font: { size: 11 }, callback: v => 'MXN ' + v.toFixed(2) },
+            grid: { color: 'rgba(0,48,135,0.06)' },
+            border: { color: '#D6DCE8' },
+            title: { display: true, text: yLabel, color: '#4A5568', font: { size: 10, weight:'600' } },
+        }
+    });
+
+    // ---- Promedio mensual ----
+    new Chart(document.getElementById('chart-monthly-mean'), {
+        type: 'bar',
+        data: {
+            labels: monthlyLabels,
+            datasets: [{
+                label: 'Promedio (MXN)',
+                data: monthlyMean,
+                backgroundColor: monthlyMean.map((v, i) =>
+                    i === monthlyMean.indexOf(Math.max(...monthlyMean))
+                        ? 'rgba(200,168,0,0.85)'
+                        : i === monthlyMean.indexOf(Math.min(...monthlyMean))
+                            ? 'rgba(0,48,135,0.85)'
+                            : 'rgba(0,94,184,0.65)'
+                ),
+                borderColor: '#003087',
+                borderWidth: 1,
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    ...tooltipDefaults,
+                    callbacks: {
+                        label: item => `Promedio: MXN ${item.raw.toFixed(4)}`,
+                        afterLabel: (item) => {
+                            const i = item.dataIndex;
+                            return [
+                                `Mín: MXN ${monthlyMin[i].toFixed(4)}`,
+                                `Máx: MXN ${monthlyMax[i].toFixed(4)}`,
+                                `Volatilidad (σ): MXN ${monthlyStd[i].toFixed(4)}`,
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: scaleDefaults('Tipo de cambio (MXN/USD)'),
+        }
+    });
+
+    // ---- Volatilidad mensual ----
+    new Chart(document.getElementById('chart-monthly-std'), {
+        type: 'bar',
+        data: {
+            labels: monthlyLabels,
+            datasets: [{
+                label: 'Desviación estándar (MXN)',
+                data: monthlyStd,
+                backgroundColor: monthlyStd.map((v, i) =>
+                    i === monthlyStd.indexOf(Math.max(...monthlyStd))
+                        ? 'rgba(155,35,53,0.80)'
+                        : i === monthlyStd.indexOf(Math.min(...monthlyStd))
+                            ? 'rgba(26,115,64,0.75)'
+                            : 'rgba(200,168,0,0.55)'
+                ),
+                borderColor: '#C8A800',
+                borderWidth: 1,
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    ...tooltipDefaults,
+                    callbacks: { label: item => `Volatilidad (σ): MXN ${item.raw.toFixed(4)}` }
+                }
+            },
+            scales: scaleDefaults('Desviación estándar (MXN)'),
+        }
+    });
+
+    // ---- Promedio trimestral ----
+    new Chart(document.getElementById('chart-quarterly-mean'), {
+        type: 'bar',
+        data: {
+            labels: quarterlyLabels,
+            datasets: [{
+                label: 'Promedio (MXN)',
+                data: quarterlyMean,
+                backgroundColor: ['rgba(0,48,135,0.75)','rgba(0,94,184,0.70)','rgba(200,168,0,0.80)','rgba(0,48,135,0.60)'],
+                borderColor: '#003087',
+                borderWidth: 1,
+                borderRadius: 5,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    ...tooltipDefaults,
+                    callbacks: { label: item => `Promedio: MXN ${item.raw.toFixed(4)}` }
+                }
+            },
+            scales: scaleDefaults('Tipo de cambio (MXN/USD)'),
+        }
+    });
+
+    // ---- Volatilidad trimestral ----
+    new Chart(document.getElementById('chart-quarterly-std'), {
+        type: 'bar',
+        data: {
+            labels: quarterlyLabels,
+            datasets: [{
+                label: 'Desviación estándar (MXN)',
+                data: quarterlyStd,
+                backgroundColor: ['rgba(155,35,53,0.70)','rgba(200,168,0,0.70)','rgba(155,35,53,0.55)','rgba(200,168,0,0.55)'],
+                borderColor: '#C8A800',
+                borderWidth: 1,
+                borderRadius: 5,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    ...tooltipDefaults,
+                    callbacks: { label: item => `Volatilidad (σ): MXN ${item.raw.toFixed(4)}` }
+                }
+            },
+            scales: scaleDefaults('Desviación estándar (MXN)'),
+        }
+    });
+
+    // ---- Tendencia anual (solo si se renderiza) ----
+    {% if insights.show_yearly %}
+    new Chart(document.getElementById('chart-yearly'), {
+        type: 'line',
+        data: {
+            labels: yearlyLabels,
+            datasets: [
+                {
+                    label: 'Promedio anual (MXN)',
+                    data: yearlyMean,
+                    borderColor: '#003087',
+                    backgroundColor: 'rgba(0,48,135,0.08)',
+                    borderWidth: 2.2,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#003087',
+                    fill: true,
+                    tension: 0.3,
+                },
+                {
+                    label: 'Volatilidad anual (σ)',
+                    data: yearlyStd,
+                    borderColor: '#C8A800',
+                    backgroundColor: 'rgba(200,168,0,0.06)',
+                    borderWidth: 2,
+                    borderDash: [5, 3],
+                    pointRadius: 3,
+                    pointBackgroundColor: '#C8A800',
+                    fill: false,
+                    tension: 0.3,
+                    yAxisID: 'y2',
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { font: { size: 12, weight:'600' }, color:'#0D1B3E', usePointStyle: true, padding: 16 }
+                },
+                tooltip: tooltipDefaults,
+            },
+            scales: {
+                x: {
+                    ticks: { color:'#4A5568', font:{ size:11 } },
+                    grid: { color:'rgba(0,48,135,0.06)' },
+                    border: { color:'#D6DCE8' },
+                },
+                y: {
+                    ticks: { color:'#4A5568', font:{size:11}, callback: v => 'MXN ' + v.toFixed(2) },
+                    grid: { color:'rgba(0,48,135,0.06)' },
+                    border: { color:'#D6DCE8' },
+                    title: { display:true, text:'Promedio anual (MXN/USD)', color:'#4A5568', font:{size:10,weight:'600'} },
+                },
+                y2: {
+                    position: 'right',
+                    ticks: { color:'#9A7F00', font:{size:11}, callback: v => 'σ ' + v.toFixed(4) },
+                    grid: { drawOnChartArea: false },
+                    border: { color:'#C8A800' },
+                    title: { display:true, text:'Volatilidad σ (MXN)', color:'#9A7F00', font:{size:10,weight:'600'} },
+                }
+            }
+        }
+    });
+    {% endif %}
+</script>
+</body>
+</html>

@@ -1,12 +1,14 @@
-.git/
-.gitignore
-.venv/
-venv/
+# Sintaxis gitignore: los patrones sin "/" inicial aplican a cualquier nivel,
+# por eso las carpetas de la raíz se anclan con "/" (src/data/ debe subir).
+/.git/
+/.gitignore
+/.venv/
+/venv/
 __pycache__/
 *.pyc
-data/
-notebooks/
-benchmark/
+/data/
+/notebooks/
+/benchmark/
 apendice_a_*.txt
 *.log
 .env

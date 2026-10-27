@@ -4,9 +4,9 @@ __pycache__/
 *.pyc
 .git/
 .gitignore
-data/
-notebooks/
-benchmark/
+/data/
+/notebooks/
+/benchmark/
 apendice_a_*.txt
 *.log
 .env

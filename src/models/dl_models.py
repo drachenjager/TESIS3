@@ -1,8 +1,10 @@
 """Modelos de Deep Learning (PyTorch) para la serie USD/MXN.
 
 Idéntico al Apéndice A (RNN/LSTM de 50 unidades, Adam, MSE, 50 épocas, batch
-16, MinMaxScaler ajustado solo en train). Único cambio: semilla controlable
-para que las corridas sean reproducibles y repetibles.
+16, MinMaxScaler ajustado solo en train). Cambios: semilla controlable para que
+las corridas sean reproducibles, predicción en lote y pronósticos a h pasos
+recursivos en el espacio escalado (``src/models/horizons.py``). Devuelven
+``(metrics, predictions, forecast_next, multi)``.
 """
 
 import math
@@ -10,6 +12,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from sklearn.preprocessing import MinMaxScaler
+
+from src.models.horizons import HORIZONS, recursive_multi
 
 torch.set_num_threads(1)
 
@@ -37,7 +41,7 @@ def _compute_metrics(predictions, test_data, model_name):
 def _empty_metrics(model_name, n_test, forecast_steps):
     metrics = {"Modelo": model_name, "MAE": float("nan"), "RMSE": float("nan"),
                "MAPE": float("nan"), "R^2": float("nan")}
-    return metrics, np.full(n_test, float("nan")), [None] * forecast_steps
+    return metrics, np.full(n_test, float("nan")), [None] * forecast_steps, {}
 
 
 def prepare_data_dl(series, lag=20):
@@ -93,14 +97,16 @@ def _predict_batch(model, windows_np):
         return model(torch.FloatTensor(windows_np)).numpy().ravel()
 
 
-def _predict_and_forecast(model, train_data, test_data, forecast_steps, scaler, lag):
-    """Predicción en test (un paso adelante con el valor real) y pronóstico futuro."""
+def _predict_and_forecast(model, train_data, test_data, forecast_steps, scaler, lag, horizons=HORIZONS):
+    """Predicción en test (un paso adelante con el valor real), pronósticos a h pasos
+    (recursivos, en el espacio escalado) y pronóstico futuro."""
     full = np.concatenate([np.asarray(train_data, dtype=float), np.asarray(test_data, dtype=float)])
     full_s = scaler.transform(full.reshape(-1, 1)).ravel()
     n = len(train_data)
-    windows = np.array([full_s[t - lag:t] for t in range(n, n + len(test_data))]).reshape(-1, lag, 1)
-    preds_s = _predict_batch(model, windows)
-    predictions = scaler.inverse_transform(preds_s.reshape(-1, 1)).ravel()
+    multi_s = recursive_multi(lambda W: _predict_batch(model, W.reshape(-1, lag, 1)), full_s, n, lag,
+                              horizons=tuple(sorted(set(horizons) | {1})), newest_first=False)
+    multi = {h: scaler.inverse_transform(np.asarray(p).reshape(-1, 1)).ravel() for h, p in multi_s.items()}
+    predictions = multi[1]
     history = list(full_s)
     forecast_next = []
     for _ in range(forecast_steps):
@@ -108,10 +114,10 @@ def _predict_and_forecast(model, train_data, test_data, forecast_steps, scaler, 
         p_s = float(_predict_batch(model, w)[0])
         forecast_next.append(float(scaler.inverse_transform([[p_s]])[0][0]))
         history.append(p_s)
-    return np.array(predictions), forecast_next
+    return np.array(predictions), forecast_next, multi
 
 
-def _train(net_cls, name, train_data, test_data, forecast_steps, seed):
+def _train(net_cls, name, train_data, test_data, forecast_steps, seed, horizons=HORIZONS):
     lag = _effective_lag(train_data)
     if len(train_data) <= lag or len(test_data) == 0:
         return _empty_metrics(name, len(test_data), forecast_steps)
@@ -122,13 +128,14 @@ def _train(net_cls, name, train_data, test_data, forecast_steps, seed):
     X_train, y_train = prepare_data_dl(train_s, lag=lag)
     model = net_cls()
     _fit(model, X_train, y_train)
-    predictions, forecast_next = _predict_and_forecast(model, train_data, test_data, forecast_steps, scaler, lag)
-    return _compute_metrics(predictions, test_data, name), predictions, forecast_next
+    predictions, forecast_next, multi = _predict_and_forecast(
+        model, train_data, test_data, forecast_steps, scaler, lag, horizons)
+    return _compute_metrics(predictions, test_data, name), predictions, forecast_next, multi
 
 
-def train_rnn(train_data, test_data, forecast_steps=1, seed=0):
-    return _train(_RNNNet, "RNN", train_data, test_data, forecast_steps, seed)
+def train_rnn(train_data, test_data, forecast_steps=1, seed=0, horizons=HORIZONS):
+    return _train(_RNNNet, "RNN", train_data, test_data, forecast_steps, seed, horizons)
 
 
-def train_lstm(train_data, test_data, forecast_steps=1, seed=0):
-    return _train(_LSTMNet, "LSTM", train_data, test_data, forecast_steps, seed)
+def train_lstm(train_data, test_data, forecast_steps=1, seed=0, horizons=HORIZONS):
+    return _train(_LSTMNet, "LSTM", train_data, test_data, forecast_steps, seed, horizons)

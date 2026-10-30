@@ -7,6 +7,7 @@ tesis-forecast/
 ├── app/
 │   ├── routes/
 │   │   ├── __init__.py
+│   │   ├── banco.py
 │   │   ├── exports.py
 │   │   └── main.py
 │   ├── static/
@@ -16,6 +17,7 @@ tesis-forecast/
 │   │   └── js/
 │   │       └── main.js
 │   ├── templates/
+│   │   ├── banco.html
 │   │   ├── forecast_vs_real.html
 │   │   ├── index.html
 │   │   ├── plot.html
@@ -37,12 +39,17 @@ tesis-forecast/
 ├── data/
 ├── notebooks/
 ├── scripts/
+│   ├── build_published.py
 │   ├── export_apendice.py
 │   └── make_favicon.py
 ├── src/
+│   ├── benchmark_data/
+│   │   └── resultados_tesis.json
 │   ├── data/
 │   │   ├── __init__.py
-│   │   └── fetch.py
+│   │   ├── fetch.py
+│   │   ├── frozen.py
+│   │   └── usdmxn_tesis.csv
 │   ├── features/
 │   │   ├── __init__.py
 │   │   └── build.py
@@ -50,11 +57,14 @@ tesis-forecast/
 │   │   ├── __init__.py
 │   │   ├── dl_models.py
 │   │   ├── evaluation.py
+│   │   ├── horizons.py
 │   │   ├── ml_models.py
 │   │   ├── pipeline.py
 │   │   ├── ranking.py
 │   │   └── ts_models.py
-│   └── __init__.py
+│   ├── __init__.py
+│   ├── provenance.py
+│   └── version.py
 ├── .dockerignore
 ├── .gcloudignore
 ├── .gitignore
@@ -74,9 +84,9 @@ __pycache__/
 *.pyc
 .git/
 .gitignore
-data/
-notebooks/
-benchmark/
+/data/
+/notebooks/
+/benchmark/
 apendice_a_*.txt
 *.log
 .env
@@ -85,15 +95,17 @@ apendice_a_*.txt
 
 ══ ARCHIVO: .gcloudignore ════════════════════════════════════════════════════
 
-.git/
-.gitignore
-.venv/
-venv/
+# Sintaxis gitignore: los patrones sin "/" inicial aplican a cualquier nivel,
+# por eso las carpetas de la raíz se anclan con "/" (src/data/ debe subir).
+/.git/
+/.gitignore
+/.venv/
+/venv/
 __pycache__/
 *.pyc
-data/
-notebooks/
-benchmark/
+/data/
+/notebooks/
+/benchmark/
 apendice_a_*.txt
 *.log
 .env
@@ -162,8 +174,10 @@ def create_app():
 
     from app.routes.main import bp as main_bp
     from app.routes.exports import bp as exports_bp
+    from app.routes.banco import bp as banco_bp
     app.register_blueprint(main_bp)
     app.register_blueprint(exports_bp)
+    app.register_blueprint(banco_bp)
 
     return app
 
@@ -171,6 +185,130 @@ def create_app():
 
 ══ ARCHIVO: app\routes\__init__.py ═══════════════════════════════════════════
 
+
+══════════════════════════════════════════════════════════════════════
+
+══ ARCHIVO: app\routes\banco.py ══════════════════════════════════════════════
+
+"""Banco de pruebas de la tesis: los 54 experimentos publicados (Capítulo 4 y
+Apéndice C) y su re-ejecución en vivo para contrastar publicado vs. reproducido."""
+
+import json
+import os
+from datetime import datetime
+
+from flask import Blueprint, render_template, request
+
+from app.routes.main import (CACHE_PREFIX, DATA_SOURCES, _render_index, period_bounds,
+                             results_context, run_experiment)
+from src.data.frozen import FROZEN_ANCHOR
+from src.models.ranking import add_ranking
+
+bp = Blueprint("banco", __name__)
+
+_PUB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                         "src", "benchmark_data", "resultados_tesis.json")
+_PUB = None
+MATCH_TOL = 0.0005        # |ΔMAE| para considerar que una corrida reproduce el valor publicado
+NEAR_TOL = 0.002          # ruido de punto flotante (p. ej. umbrales de Random Forest)
+
+
+def published():
+    global _PUB
+    if _PUB is None:
+        with open(_PUB_PATH, encoding="utf-8") as fh:
+            _PUB = json.load(fh)
+    return _PUB
+
+
+def _matrix(pub):
+    rows = []
+    for P, per in pub["periods"].items():
+        cells = []
+        for T, pct in pub["tests"].items():
+            el = f"{P},{T}"
+            e = pub["elements"][el]
+            models = {m["Modelo"]: m for m in e["models"]}
+            winners = [m["Modelo"] for m in e["models"] if m.get("rank6") == 1]
+            naive = models["Naive"]
+            cells.append({
+                "el": el, "anchor": f"{P}-{T}", "pct": pct, "winners": winners,
+                "mae": min(models[w]["MAE"] for w in winners) if winners else None,
+                "naive_mae": naive["MAE"], "naive_best": naive["rank7"] == 1,
+                "significant": any(m["veredicto"] == "mejor que Naive" for m in e["models"]),
+            })
+        rows.append({"P": P, "label": per["label"], "cells": cells})
+    return rows
+
+
+@bp.route("/banco")
+def banco():
+    pub = published()
+    worse = sorted(pub["summary"]["worse_than_naive"].items(), key=lambda kv: -kv[1])
+    return render_template(
+        "banco.html", pub=pub, matrix=_matrix(pub), worse=worse,
+        data_sources=DATA_SOURCES, anchor=pub["anchor"],
+    )
+
+
+@bp.route("/banco/run", methods=["POST"])
+def banco_run():
+    pub = published()
+    el = request.form.get("element", "").strip()
+    data_source = request.form.get("data_source", "tesis")
+    e = pub["elements"].get(el)
+    if e is None or data_source not in DATA_SOURCES:
+        return "Elemento o fuente de datos inválidos.", 400
+
+    start, end = period_bounds(FROZEN_ANCHOR, e["period_key"])
+    start_date, end_date = start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%Y%m%d")
+    cache_key = f"{CACHE_PREFIX}_{today}_banco_{e['P']}{e['T']}_{data_source}"
+
+    cached, err = run_experiment(cache_key, data_source, None, start_date, end_date, e["test_pct"])
+    if err:
+        return _render_index(error=err, data_source=data_source), 400
+
+    rep, _ = add_ranking(cached["metrics_df"])
+    rep = rep.set_index("Modelo")
+    rows, n_match = [], 0
+    for m in e["models"]:
+        name = m["Modelo"]
+        r = rep.loc[name]
+        seed0 = m.get("seed0")
+        ref_mae = seed0["MAE"] if seed0 else m["MAE"]
+        ref_r2 = seed0["R^2"] if seed0 else m["R^2"]
+        rep_mae = None if r["MAE"] != r["MAE"] else float(r["MAE"])
+        delta = None if (rep_mae is None or ref_mae is None) else rep_mae - ref_mae
+        if delta is None:
+            status = "n/a"
+        elif abs(delta) <= MATCH_TOL:
+            status = "coincide"; n_match += 1
+        elif abs(delta) <= NEAR_TOL:
+            status = "≈ coincide"; n_match += 1
+        else:
+            status = "difiere"
+        rows.append({
+            "Modelo": name,
+            "pub_mae": m["MAE"], "pub_r2": m["R^2"], "pub_p": m["p"], "pub_rank": m["rank7"],
+            "pub_seed0": bool(seed0), "ref_mae": ref_mae, "ref_r2": ref_r2,
+            "rep_mae": rep_mae, "rep_r2": None if r["R^2"] != r["R^2"] else float(r["R^2"]),
+            "rep_p": None if r["DM p-valor"] != r["DM p-valor"] else float(r["DM p-valor"]),
+            "rep_rank": int(r["Rank"]), "delta": delta, "status": status,
+        })
+
+    banco_compare = {
+        "element": el, "info": e, "rows": rows, "n_match": n_match, "n_total": len(rows),
+        "data_source_label": DATA_SOURCES[data_source], "anchor": pub["anchor"],
+    }
+    display_period = f"{start_date} → {end_date}  (historia de {e['periodo']}, elemento {el} de la tesis)"
+    return _render_index(
+        **results_context(cached),
+        banco_compare=banco_compare, display_period=display_period,
+        display_test_percent=e["test_pct"], cache_key=cache_key,
+        query_mode="anchor", selected_anchor_date=pub["anchor"], selected_anchor_period=e["period_key"],
+        selected_test_percent=e["test_pct"], data_source=data_source,
+    )
 
 ══════════════════════════════════════════════════════════════════════
 
@@ -202,6 +340,33 @@ from app import cache
 from src.models.ranking import add_ranking
 
 bp = Blueprint("exports", __name__)
+
+_VERDICT_SHORT = {"mejor que Naive": "mejor", "peor que Naive": "peor", "sin diferencia": "sin dif.",
+                  "referencia": "ref.", "n/a": "—"}
+
+
+def _provenance_rows(prov, compact=False):
+    """Pares (campo, valor) del sello de procedencia para Excel y PDF."""
+    rows = [
+        ("Plataforma", f"v{prov['app_version']} · commit {prov['git_commit']}"
+                       + (f" · build {prov['build_time']}" if prov.get("build_time") not in (None, "n/d") else "")),
+        ("Generado", prov["generated_at"]),
+        ("Fuente de datos", prov["source_label"]),
+        ("Descarga", prov["downloaded_at"]),
+        ("Serie", f"{prov['ticker']} · {prov['first_date']} → {prov['last_date']} · n = {prov['n']} "
+                  f"(entrenamiento {prov['n_train']}, prueba {prov['n_test']})"),
+        ("SHA-256 de la serie", prov["sha256"]),
+        ("Semilla (RNN/LSTM)", str(prov["seed"])),
+        ("Horizontes", ", ".join(str(h) for h in prov["horizons"])),
+        ("Protocolo", prov["protocol"]),
+    ]
+    versions = prov["versions"]
+    if compact:
+        rows.append(("Versiones", " · ".join(f"{k} {v}" for k, v in versions.items())))
+    else:
+        rows.extend((f"Versión {k}", str(v)) for k, v in versions.items())
+    rows.extend((f"Hiperparámetros {name}", desc) for name, desc in prov["hyperparams"])
+    return rows
 
 matplotlib.rcParams.update({
     "font.family":        "DejaVu Sans",
@@ -409,6 +574,17 @@ def download_excel():
                 "values":     ["Datos", 1, idx + 1, len(df), idx + 1],
             })
         worksheet.insert_chart("F2", chart)
+
+        # Métricas (un paso), horizontes y sello de procedencia
+        mdf, _ = add_ranking(cached["metrics_df"])
+        mdf.to_excel(writer, index=False, sheet_name="Métricas")
+        hdf = cached.get("horizons_df")
+        if hdf is not None:
+            hdf.to_excel(writer, index=False, sheet_name="Horizontes")
+        prov = cached.get("provenance")
+        if prov:
+            pd.DataFrame(_provenance_rows(prov), columns=["Campo", "Valor"]).to_excel(
+                writer, index=False, sheet_name="Procedencia")
     output.seek(0)
 
     return send_file(
@@ -489,6 +665,7 @@ def download_pdf():
         ["Fecha de generación:", now_str],
         ["Autor:", "Ing. Ricardo Javier Martínez Suástegui"],
         ["Mejor modelo:", best_model],
+        ["Datos:", (cached.get("provenance") or {}).get("source_label", "Yahoo Finance")],
     ], colWidths=[4.5*cm, AVAIL_W - 4.5*cm])
     meta.setStyle(TableStyle([
         ("FONT",          (0,0), (0,-1), "Helvetica-Bold", 8),
@@ -551,6 +728,54 @@ def download_pdf():
         "Evaluación a un paso adelante; DM p = p-valor de la prueba de Diebold-Mariano frente al modelo ingenuo (Naive).",
         small_s,
     ))
+
+    # ── Sección 1b: Error por horizonte de pronóstico ───────────────────────
+    hdf = cached.get("horizons_df")
+    if hdf is not None and len(hdf):
+        hs = sorted(int(h) for h in hdf["h"].unique())
+        story.append(Paragraph("1b. Error por Horizonte de Pronóstico (h = 1, 5 y 20 días)", section_s))
+        neval = " · ".join(f"h = {h}: {int(hdf[hdf['h'] == h]['n_eval'].max())} orígenes" for h in hs)
+        story.append(Paragraph(
+            "Origen móvil sobre el conjunto de prueba: desde cada día, cada modelo pronostica el valor h días "
+            "adelante usando solo la información real hasta ese día (SARIMA y Holt-Winters por sus ecuaciones de "
+            "estado; los modelos de ML/DL de forma recursiva). DM p: prueba de Diebold-Mariano frente a Naive al "
+            f"mismo horizonte (corrección HLN). Orígenes evaluados — {neval}.", body_s))
+        story.append(Spacer(1, 0.15*cm))
+        h_rows = [["Modelo"] + [f"{lbl} h={h}" for h in hs for lbl in ("MAE", "DM p", "Ver.")]]
+        for name in metrics_df["Modelo"]:
+            row = [str(name)]
+            for h in hs:
+                sub = hdf[(hdf["h"] == h) & (hdf["Modelo"] == name)]
+                if len(sub) == 0 or int(sub.iloc[0]["n_eval"]) == 0:
+                    row += ["—", "—", "—"]
+                else:
+                    r = sub.iloc[0]
+                    row += [_num(r["MAE"], "{:.4f}"), _num(r["DM p-valor"], "{:.3f}"),
+                            _VERDICT_SHORT.get(str(r["Veredicto"]), str(r["Veredicto"]))]
+            h_rows.append(row)
+        h_w = [3.2*cm] + [1.55*cm, 1.45*cm, 1.6*cm] * len(hs)
+        h_tbl = Table(h_rows, colWidths=h_w)
+        hts = [
+            ("BACKGROUND",    (0,0), (-1,0),  UNAM_BLUE),
+            ("TEXTCOLOR",     (0,0), (-1,0),  WHITE),
+            ("FONT",          (0,0), (-1,0),  "Helvetica-Bold", 6.5),
+            ("FONT",          (0,1), (-1,-1), "Helvetica",      7),
+            ("TEXTCOLOR",     (0,1), (-1,-1), DARK),
+            ("ALIGN",         (0,0), (-1,-1), "CENTER"),
+            ("ALIGN",         (0,1), (0,-1),  "LEFT"),
+            ("GRID",          (0,0), (-1,-1), 0.4, HexColor("#D6DCE8")),
+            ("TOPPADDING",    (0,0), (-1,-1), 4),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+            ("LEFTPADDING",   (0,0), (-1,-1), 4),
+            ("RIGHTPADDING",  (0,0), (-1,-1), 4),
+        ]
+        for r in range(1, len(h_rows)):
+            if r % 2 == 0:
+                hts.append(("BACKGROUND", (0, r), (-1, r), UNAM_LIGHT))
+        for j in range(len(hs)):
+            hts.append(("LINEBEFORE", (1 + 3*j, 0), (1 + 3*j, -1), 1.0, UNAM_GOLD))
+        h_tbl.setStyle(TableStyle(hts))
+        story.append(h_tbl)
 
     # ── Sección 2: Semáforo de riesgo ───────────────────────────────────────
     story.append(Paragraph("2. Semáforo de Riesgo Cambiario", section_s))
@@ -634,6 +859,28 @@ def download_pdf():
         story.append(Paragraph(f"• {item}", body_s))
         story.append(Spacer(1, 0.1*cm))
 
+    # ── Sección 7: Procedencia y reproducibilidad ───────────────────────────
+    prov = cached.get("provenance")
+    if prov:
+        story.append(Paragraph("7. Procedencia y Reproducibilidad", section_s))
+        story.append(Paragraph(
+            "Datos, versiones y parámetros con los que se generó este reporte; permiten reproducir el "
+            "resultado o explicar por qué otra corrida difiere.", body_s))
+        story.append(Spacer(1, 0.15*cm))
+        p_rows = [[Paragraph(f"<b>{k}</b>", small_s), Paragraph(str(v), small_s)]
+                  for k, v in _provenance_rows(prov, compact=True)]
+        p_tbl = Table(p_rows, colWidths=[4.2*cm, AVAIL_W - 4.2*cm])
+        p_tbl.setStyle(TableStyle([
+            ("GRID",          (0,0), (-1,-1), 0.3, HexColor("#D6DCE8")),
+            ("BACKGROUND",    (0,0), (0,-1),  UNAM_LIGHT),
+            ("VALIGN",        (0,0), (-1,-1), "TOP"),
+            ("TOPPADDING",    (0,0), (-1,-1), 3),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+            ("LEFTPADDING",   (0,0), (-1,-1), 6),
+            ("RIGHTPADDING",  (0,0), (-1,-1), 6),
+        ]))
+        story.append(p_tbl)
+
     # ── Pie de página ────────────────────────────────────────────────────────
     story.append(Spacer(1, 0.4*cm))
     story.append(HRFlowable(width="100%", thickness=1, color=UNAM_GOLD, spaceBefore=4))
@@ -653,23 +900,33 @@ def download_pdf():
 
 ══ ARCHIVO: app\routes\main.py ═══════════════════════════════════════════════
 
-"""Rutas principales: dashboard, gráfica, residuales, estacionalidad, forecast vs real."""
+"""Rutas principales: dashboard, gráfica, residuales, estacionalidad, forecast vs real.
 
-from datetime import datetime
+``run_experiment`` y ``results_context`` concentran la lógica de una consulta
+(descarga o serie congelada → 7 modelos → caché → tablas) para que la ruta
+principal y el banco de pruebas (``app/routes/banco.py``) compartan el mismo camino.
+"""
+
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
+import yfinance as yf
 from dateutil.relativedelta import relativedelta
 from flask import Blueprint, render_template, request
 
 from app import cache
 from src.data.fetch import get_usdmxn
+from src.data.frozen import get_frozen_usdmxn, FROZEN_ANCHOR, FROZEN_INFO
 from src.features.build import compute_risk
+from src.models.horizons import HORIZONS
 from src.models.pipeline import train_and_evaluate
 from src.models.ranking import add_ranking
+from src.provenance import build_provenance
 
 bp = Blueprint("main", __name__)
 
+CACHE_PREFIX = "v3"
 VALID_PERIODS = {"3mo", "6mo", "1y", "2y", "5y", "10y", "1mo", "5d", "ytd", "max"}
 PERIOD_LABELS = {
     "3mo": "3 meses (corto plazo)",
@@ -683,6 +940,38 @@ PERIOD_LABELS = {
     "ytd": "Año en curso (YTD)",
     "max": "Máximo histórico",
 }
+DATA_SOURCES = {
+    "yahoo": "Yahoo Finance (descarga en vivo)",
+    "tesis": f"Serie congelada de la tesis (USDMXN=X, {FROZEN_INFO['rango']})",
+}
+_OFFSETS = {
+    "5d":  relativedelta(days=5),
+    "1mo": relativedelta(months=1),
+    "3mo": relativedelta(months=3),
+    "6mo": relativedelta(months=6),
+    "1y":  relativedelta(years=1),
+    "2y":  relativedelta(years=2),
+    "5y":  relativedelta(years=5),
+    "10y": relativedelta(years=10),
+}
+
+
+def period_bounds(anchor_dt, period):
+    """(inicio, fin) de un periodo contado hacia atrás desde ``anchor_dt`` (fin exclusivo)."""
+    if period == "ytd":
+        start = datetime(anchor_dt.year, 1, 1)
+        if start >= anchor_dt:                      # 1 de enero: usa el año anterior
+            start = datetime(anchor_dt.year - 1, 1, 1)
+    elif period == "max":
+        start = datetime(1993, 1, 1)
+    else:
+        start = anchor_dt - _OFFSETS[period]
+    if start >= anchor_dt:
+        raise ValueError(
+            f"El periodo '{PERIOD_LABELS.get(period, period)}' no genera un rango válido "
+            "desde la fecha de referencia indicada."
+        )
+    return start, anchor_dt
 
 
 def _render_index(**kwargs):
@@ -692,144 +981,90 @@ def _render_index(**kwargs):
         error=None, selected_period="1y", selected_test_percent=20,
         query_mode="period", selected_start_date="", selected_end_date="",
         selected_anchor_date="", selected_anchor_period="1y",
-        semaforo=None,
+        semaforo=None, data_source="yahoo", data_sources=DATA_SOURCES,
+        banco_compare=None, horizons_rows=None, horizon_neval=None,
+        horizons=list(HORIZONS), provenance=None,
     )
     defaults.update(kwargs)
     return render_template("index.html", **defaults)
 
 
 # ---------------------------------------------------------------------------
-# Ruta principal
+# Datos → modelos → caché (compartido con el banco de pruebas)
 # ---------------------------------------------------------------------------
 
-@bp.route("/", methods=["GET", "POST"])
-def index():
-    if request.method != "POST":
-        return _render_index()
+def load_series(data_source, selected_period=None, start_date=None, end_date=None):
+    """Devuelve ``(df, source_meta)``; ``df`` es ``None`` si no hay datos."""
+    if data_source == "tesis":
+        if selected_period:                          # periodo contado desde el cierre de la serie congelada
+            s, e = period_bounds(FROZEN_ANCHOR, selected_period)
+            start_date, end_date = s.strftime("%Y-%m-%d"), e.strftime("%Y-%m-%d")
+        df = get_frozen_usdmxn(start_date, end_date)
+        meta = {"source": "tesis", "label": DATA_SOURCES["tesis"],
+                "downloaded_at": FROZEN_INFO["descargada"], "note": FROZEN_INFO["descripcion"]}
+        return (df if len(df) else None), meta
 
-    query_mode = request.form.get("query_mode", "period")
+    df = get_usdmxn(period=selected_period, start_date=start_date, end_date=end_date)
+    meta = {"source": "yahoo", "label": DATA_SOURCES["yahoo"],
+            "downloaded_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+            "note": f"yfinance {yf.__version__}, ticker USDMXN=X, intervalo diario"}
+    return df, meta
 
-    try:
-        test_percent = float(request.form.get("test_percent", 20))
-        if not (1 <= test_percent <= 80):
-            raise ValueError()
-    except (ValueError, TypeError):
-        return _render_index(error="El porcentaje de testing debe estar entre 1 y 80."), 400
 
-    # Estado ancla — solo se usa en modo "anchor"; valores neutros para los otros modos
-    anchor_date_str = ""
-    anchor_period   = "1y"
-
-    if query_mode == "period":
-        selected_period = request.form.get("period_select", "")
-        if selected_period not in VALID_PERIODS:
-            return _render_index(error="Periodo inválido seleccionado."), 400
-        start_date = end_date = None
-
-    elif query_mode == "custom":
-        selected_period = None
-        start_date = request.form.get("start_date", "").strip()
-        end_date   = request.form.get("end_date",   "").strip()
-        try:
-            dt_start = datetime.strptime(start_date, "%Y-%m-%d")
-            dt_end   = datetime.strptime(end_date,   "%Y-%m-%d")
-            if dt_start >= dt_end:
-                raise ValueError("La fecha de inicio debe ser anterior a la fecha fin.")
-            if dt_end > datetime.now():
-                raise ValueError("La fecha fin no puede ser futura.")
-        except (ValueError, TypeError) as exc:
-            return _render_index(
-                error=f"Fechas inválidas: {exc}", query_mode="custom",
-                selected_start_date=start_date, selected_end_date=end_date,
-                selected_test_percent=test_percent,
-            ), 400
-
-    elif query_mode == "anchor":
-        selected_period = None
-        anchor_date_str = request.form.get("anchor_date", "").strip()
-        anchor_period   = request.form.get("anchor_period", "").strip()
-        if anchor_period not in VALID_PERIODS:
-            return _render_index(
-                error="Periodo inválido en modo fecha ancla.", query_mode="anchor",
-                selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
-                selected_test_percent=test_percent,
-            ), 400
-        try:
-            dt_anchor = datetime.strptime(anchor_date_str, "%Y-%m-%d")
-            if dt_anchor > datetime.now():
-                raise ValueError("La fecha de referencia no puede ser futura.")
-            if dt_anchor < datetime(1993, 1, 1):
-                raise ValueError("La fecha de referencia mínima disponible es el 01/01/1993.")
-
-            _OFFSETS = {
-                "5d":  relativedelta(days=5),
-                "1mo": relativedelta(months=1),
-                "3mo": relativedelta(months=3),
-                "6mo": relativedelta(months=6),
-                "1y":  relativedelta(years=1),
-                "2y":  relativedelta(years=2),
-                "5y":  relativedelta(years=5),
-                "10y": relativedelta(years=10),
-            }
-            if anchor_period == "ytd":
-                dt_start = datetime(dt_anchor.year, 1, 1)
-            elif anchor_period == "max":
-                dt_start = datetime(1993, 1, 1)
-            else:
-                dt_start = dt_anchor - _OFFSETS[anchor_period]
-
-            if dt_start >= dt_anchor:
-                raise ValueError(
-                    f"El periodo '{PERIOD_LABELS.get(anchor_period, anchor_period)}' no genera "
-                    "un rango válido desde la fecha de referencia indicada."
-                )
-            start_date = dt_start.strftime("%Y-%m-%d")
-            end_date   = anchor_date_str
-        except (ValueError, TypeError) as exc:
-            return _render_index(
-                error=f"Fecha de referencia inválida: {exc}", query_mode="anchor",
-                selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
-                selected_test_percent=test_percent,
-            ), 400
-
-    else:
-        return _render_index(error="Modo de consulta inválido."), 400
-
-    today = datetime.now().strftime("%Y%m%d")
-    if query_mode == "period":
-        cache_key = f"v2_{today}_period_{selected_period}_{int(test_percent)}"
-    elif query_mode == "custom":
-        cache_key = f"v2_{today}_custom_{start_date}_{end_date}_{int(test_percent)}"
-    else:
-        cache_key = f"v2_{today}_anchor_{anchor_date_str}_{anchor_period}_{int(test_percent)}"
-
+def run_experiment(cache_key, data_source, selected_period, start_date, end_date, test_percent):
+    """Ejecuta (o recupera de caché) los 7 modelos. Devuelve ``(cached, error)``."""
     cached = cache.get(cache_key)
-    if cached is None:
-        df = get_usdmxn(period=selected_period, start_date=start_date, end_date=end_date)
-        if df is None or len(df) < 10:
-            return _render_index(
-                error="No se obtuvieron suficientes datos. Prueba con otro periodo o rango de fechas.",
-                query_mode=query_mode, selected_period=selected_period,
-                selected_start_date=start_date or "", selected_end_date=end_date or "",
-                selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
-                selected_test_percent=test_percent,
-            ), 400
+    if cached is not None:
+        return cached, None
 
-        test_size = max(1, int(len(df) * test_percent / 100))
-        metrics_df, forecast_values, train_series, test_series, predictions_dict = (
-            train_and_evaluate(df, forecast_steps=test_size, test_size=test_size)
-        )
-        dates = df["Date"].dt.strftime("%Y-%m-%d").tolist()
-        semaforo = compute_risk(df["Close"].values)
+    df, meta = load_series(data_source, selected_period, start_date, end_date)
+    if df is None or len(df) < 10:
+        return None, "No se obtuvieron suficientes datos. Prueba con otro periodo o rango de fechas."
 
-        cached = {
-            "metrics_df": metrics_df, "forecast_values": forecast_values,
-            "train_series": train_series, "test_series": test_series,
-            "predictions_dict": predictions_dict, "dates": dates, "semaforo": semaforo,
-        }
-        cache.set(cache_key, cached)
+    test_size = max(1, int(len(df) * test_percent / 100))
+    metrics_df, forecast_values, train_series, test_series, predictions_dict, horizons_df = (
+        train_and_evaluate(df, forecast_steps=test_size, test_size=test_size, horizons=HORIZONS, seed=0)
+    )
+    cached = {
+        "metrics_df": metrics_df, "forecast_values": forecast_values,
+        "train_series": train_series, "test_series": test_series,
+        "predictions_dict": predictions_dict,
+        "dates": df["Date"].dt.strftime("%Y-%m-%d").tolist(),
+        "semaforo": compute_risk(df["Close"].values),
+        "horizons_df": horizons_df,
+        "provenance": build_provenance(df, meta, test_size, seed=0, horizons=HORIZONS),
+        "data_source": data_source, "test_percent": test_percent,
+    }
+    cache.set(cache_key, cached)
+    return cached, None
 
-    # Tabla de métricas con ranking
+
+def _fmt(v, fmt="{:.4f}"):
+    return fmt.format(v) if v is not None and not pd.isna(v) else "—"
+
+
+def horizons_rows(horizons_df, model_order):
+    """Filas (una por modelo) con las celdas por horizonte, ya formateadas."""
+    rows, neval = [], {}
+    for h in HORIZONS:
+        sub = horizons_df[horizons_df["h"] == h]
+        neval[h] = int(sub["n_eval"].max()) if len(sub) else 0
+    for name in model_order:
+        cells = {}
+        for h in HORIZONS:
+            sub = horizons_df[(horizons_df["h"] == h) & (horizons_df["Modelo"] == name)]
+            if len(sub) == 0 or sub.iloc[0]["n_eval"] == 0:
+                cells[h] = {"MAE": "—", "RMSE": "—", "p": "—", "Veredicto": "sin datos"}
+                continue
+            r = sub.iloc[0]
+            cells[h] = {"MAE": _fmt(r["MAE"]), "RMSE": _fmt(r["RMSE"]),
+                        "p": _fmt(r["DM p-valor"]), "Veredicto": r["Veredicto"]}
+        rows.append({"Modelo": name, "cells": cells})
+    return rows, neval
+
+
+def results_context(cached):
+    """Tablas y objetos listos para la plantilla a partir de una entrada de caché."""
     metrics_df, best_idx = add_ranking(cached["metrics_df"])
 
     format_dict = {"MAE": "{:.4f}", "RMSE": "{:.4f}", "MAPE": "{:.4f}", "R^2": "{:.4f}",
@@ -871,8 +1106,116 @@ def index():
             return f"{vals:.2f}" if vals is not None else ""
 
     formatted_forecasts = {m: format_forecast(v) for m, v in cached["forecast_values"].items()}
+    rows, neval = horizons_rows(cached["horizons_df"], metrics_df["Modelo"].tolist())
+
+    return dict(
+        metrics_table=metrics_table, forecast_values=formatted_forecasts,
+        predictions_dict=cached["predictions_dict"], semaforo=cached.get("semaforo"),
+        horizons_rows=rows, horizon_neval=neval, provenance=cached.get("provenance"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Ruta principal
+# ---------------------------------------------------------------------------
+
+@bp.route("/", methods=["GET", "POST"])
+def index():
+    if request.method != "POST":
+        return _render_index()
+
+    query_mode = request.form.get("query_mode", "period")
+    data_source = request.form.get("data_source", "yahoo")
+    if data_source not in DATA_SOURCES:
+        return _render_index(error="Fuente de datos inválida."), 400
+
+    try:
+        test_percent = float(request.form.get("test_percent", 20))
+        if not (1 <= test_percent <= 80):
+            raise ValueError()
+    except (ValueError, TypeError):
+        return _render_index(error="El porcentaje de testing debe estar entre 1 y 80.",
+                             data_source=data_source), 400
+
+    # Estado ancla — solo se usa en modo "anchor"; valores neutros para los otros modos
+    anchor_date_str = ""
+    anchor_period   = "1y"
+
+    if query_mode == "period":
+        selected_period = request.form.get("period_select", "")
+        if selected_period not in VALID_PERIODS:
+            return _render_index(error="Periodo inválido seleccionado.", data_source=data_source), 400
+        start_date = end_date = None
+
+    elif query_mode == "custom":
+        selected_period = None
+        start_date = request.form.get("start_date", "").strip()
+        end_date   = request.form.get("end_date",   "").strip()
+        try:
+            dt_start = datetime.strptime(start_date, "%Y-%m-%d")
+            dt_end   = datetime.strptime(end_date,   "%Y-%m-%d")
+            if dt_start >= dt_end:
+                raise ValueError("La fecha de inicio debe ser anterior a la fecha fin.")
+            if dt_end > datetime.now():
+                raise ValueError("La fecha fin no puede ser futura.")
+        except (ValueError, TypeError) as exc:
+            return _render_index(
+                error=f"Fechas inválidas: {exc}", query_mode="custom",
+                selected_start_date=start_date, selected_end_date=end_date,
+                selected_test_percent=test_percent, data_source=data_source,
+            ), 400
+
+    elif query_mode == "anchor":
+        selected_period = None
+        anchor_date_str = request.form.get("anchor_date", "").strip()
+        anchor_period   = request.form.get("anchor_period", "").strip()
+        if anchor_period not in VALID_PERIODS:
+            return _render_index(
+                error="Periodo inválido en modo fecha ancla.", query_mode="anchor",
+                selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
+                selected_test_percent=test_percent, data_source=data_source,
+            ), 400
+        try:
+            dt_anchor = datetime.strptime(anchor_date_str, "%Y-%m-%d")
+            if dt_anchor > datetime.now():
+                raise ValueError("La fecha de referencia no puede ser futura.")
+            if dt_anchor < datetime(1993, 1, 1):
+                raise ValueError("La fecha de referencia mínima disponible es el 01/01/1993.")
+            dt_start, _ = period_bounds(dt_anchor, anchor_period)
+            start_date = dt_start.strftime("%Y-%m-%d")
+            end_date   = anchor_date_str
+        except (ValueError, TypeError) as exc:
+            return _render_index(
+                error=f"Fecha de referencia inválida: {exc}", query_mode="anchor",
+                selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
+                selected_test_percent=test_percent, data_source=data_source,
+            ), 400
+
+    else:
+        return _render_index(error="Modo de consulta inválido.", data_source=data_source), 400
+
+    today = datetime.now().strftime("%Y%m%d")
+    if query_mode == "period":
+        cache_key = f"{CACHE_PREFIX}_{today}_{data_source}_period_{selected_period}_{int(test_percent)}"
+    elif query_mode == "custom":
+        cache_key = f"{CACHE_PREFIX}_{today}_{data_source}_custom_{start_date}_{end_date}_{int(test_percent)}"
+    else:
+        cache_key = f"{CACHE_PREFIX}_{today}_{data_source}_anchor_{anchor_date_str}_{anchor_period}_{int(test_percent)}"
+
+    cached, err = run_experiment(cache_key, data_source, selected_period, start_date, end_date, test_percent)
+    if err:
+        return _render_index(
+            error=err, query_mode=query_mode, selected_period=selected_period,
+            selected_start_date=start_date or "", selected_end_date=end_date or "",
+            selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
+            selected_test_percent=test_percent, data_source=data_source,
+        ), 400
+
     if query_mode == "period":
         display_period = PERIOD_LABELS.get(selected_period, selected_period)
+        if data_source == "tesis":
+            s, e = period_bounds(FROZEN_ANCHOR, selected_period)
+            display_period = f"{s:%Y-%m-%d} → {e:%Y-%m-%d}  ({display_period}, contado desde el cierre de la serie de la tesis)"
     elif query_mode == "anchor":
         display_period = (
             f"{start_date} → {end_date}"
@@ -882,13 +1225,12 @@ def index():
         display_period = f"{start_date} → {end_date}"
 
     return _render_index(
-        metrics_table=metrics_table, forecast_values=formatted_forecasts,
-        predictions_dict=cached["predictions_dict"], display_period=display_period,
-        display_test_percent=test_percent, cache_key=cache_key, query_mode=query_mode,
-        selected_period=selected_period, selected_start_date=start_date or "",
-        selected_end_date=end_date or "", selected_test_percent=test_percent,
-        selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
-        semaforo=cached.get("semaforo"),
+        **results_context(cached),
+        display_period=display_period, display_test_percent=test_percent, cache_key=cache_key,
+        query_mode=query_mode, selected_period=selected_period,
+        selected_start_date=start_date or "", selected_end_date=end_date or "",
+        selected_test_percent=test_percent, selected_anchor_date=anchor_date_str,
+        selected_anchor_period=anchor_period, data_source=data_source,
     )
 
 
@@ -1984,6 +2326,273 @@ $(document).ready(function () {
 
 ══════════════════════════════════════════════════════════════════════
 
+══ ARCHIVO: app\templates\banco.html ═════════════════════════════════════════
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Banco de pruebas — Pronóstico USD/MXN — UNAM</title>
+    <!-- Bootstrap base (sin tema Bootswatch) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css" />
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<!-- Filtro SVG para colorear el logo UNAM en RGB(203,168,71) exacto.
+     Fórmula: out = objetivo × luminancia(R,G,B)
+     R_out = 0.796×(0.2126R + 0.7152G + 0.0722B)
+     G_out = 0.659×(0.2126R + 0.7152G + 0.0722B)
+     B_out = 0.278×(0.2126R + 0.7152G + 0.0722B) -->
+<svg aria-hidden="true" focusable="false"
+     style="position:absolute;width:0;height:0;overflow:hidden">
+  <defs>
+    <!-- Fórmula: dorado_out = gold_ratio × (1 − luminancia)
+         → píxeles oscuros (escudo) → dorado brillante
+         → píxeles claros (fondo blanco) → negro (invisible sobre header azul)
+         R = −0.1692r − 0.5693g − 0.0575b + 0.796
+         G = −0.1401r − 0.4713g − 0.0476b + 0.659
+         B = −0.0591r − 0.1988g − 0.0201b + 0.278 -->
+    <filter id="unam-gold-filter" color-interpolation-filters="sRGB">
+      <feColorMatrix type="matrix" values="
+        -0.1692  -0.5693  -0.0575  0  0.796
+        -0.1401  -0.4713  -0.0476  0  0.659
+        -0.0591  -0.1988  -0.0201  0  0.278
+         0        0        0       1  0"/>
+    </filter>
+  </defs>
+</svg>
+
+<!-- ============================================================
+     ENCABEZADO INSTITUCIONAL
+     ============================================================ -->
+<header class="site-header">
+
+    <!-- ── Banda principal ──────────────────────────────────────── -->
+    <div class="header-inner">
+
+        <!-- Logo UNAM (izquierda) -->
+        <div class="header-logo-wrap">
+            <img src="{{ url_for('static', filename='img/unam_logo.png') }}"
+                 alt="Universidad Nacional Autónoma de México"
+                 class="header-logo-img header-logo-unam" />
+        </div>
+
+        <!-- Texto central -->
+        <div class="header-text">
+            <p class="header-institution">Universidad Nacional Autónoma de México &nbsp;·&nbsp; Facultad de Ingeniería</p>
+            <h1 class="header-title">Pronóstico del Tipo de Cambio USD/MXN</h1>
+            <p class="header-subtitle">Estudio comparativo entre métodos tradicionales, machine learning y deep learning por horizonte temporal</p>
+        </div>
+
+        <!-- Logo Facultad de Ingeniería (derecha) -->
+        <div class="header-logo-wrap">
+            <img src="{{ url_for('static', filename='img/fi_escudo.png') }}"
+                 alt="Facultad de Ingeniería UNAM"
+                 class="header-logo-img" />
+        </div>
+
+    </div>
+
+    <!-- ── Cinta inferior: Posgrado ─────────────────────────────── -->
+    <div class="header-subribbon">
+        <div class="header-subribbon-inner">
+            <img src="{{ url_for('static', filename='img/posgrado_logo.png') }}"
+                 alt="UNAM Posgrado"
+                 class="posgrado-logo-img" />
+            <span class="header-ribbon-badge">Maestría &nbsp;·&nbsp; 2026</span>
+        </div>
+    </div>
+
+</header>
+
+<!-- Navegación secundaria -->
+<nav class="page-main" style="padding-top:14px; padding-bottom:0; font-size:0.86rem;">
+    <a href="{{ url_for('main.index') }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">Inicio</a>
+    <span style="color:var(--text-muted);">&nbsp;·&nbsp;</span>
+    <a href="{{ url_for('banco.banco') }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">Banco de pruebas de la tesis (54 experimentos)</a>
+</nav>
+
+<!-- ============================================================
+     CONTENIDO PRINCIPAL — BANCO DE PRUEBAS
+     ============================================================ -->
+<main class="page-main">
+
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 6a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1v-2zm0 6a1 1 0 011-1h12a1 1 0 011 1v1a1 1 0 01-1 1H4a1 1 0 01-1-1v-1z"/>
+            </svg>
+            <h2>Banco de Pruebas de la Tesis — 54 experimentos reproducibles</h2>
+        </div>
+        <div class="card-body-unam">
+            <p style="font-size:0.86rem; color:var(--text-secondary); line-height:1.7; margin-bottom:14px;">
+                Resultados publicados en el Capítulo 4 y el Apéndice C: 6 longitudes de historia (P1–P6, de 3 meses a 10 años)
+                × 9 particiones de prueba (T1–T9, de 10 % a 50 %), todas ancladas al <strong>{{ anchor }}</strong> con la serie
+                congelada. {{ pub.protocol }}
+            </p>
+            <div class="forecast-grid">
+                <div class="forecast-item">
+                    <div class="forecast-model">Naive en primer lugar o empatado</div>
+                    <div class="forecast-value">{{ pub.summary.naive_rank1 }} / {{ pub.summary.n_elements }}</div>
+                </div>
+                <div class="forecast-item">
+                    <div class="forecast-model">Mejor que Naive con significancia</div>
+                    <div class="forecast-value">{{ pub.summary.better_than_naive|length }} / {{ pub.summary.n_elements * 6 }}
+                        <span style="font-size:0.72rem; font-weight:400; display:block; color:var(--text-muted);">
+                        {% for b in pub.summary.better_than_naive %}{{ b.modelo }} en {{ b.elemento }} (p = {{ '%.3f'|format(b.p) }}){% endfor %}</span>
+                    </div>
+                </div>
+                {% for name, k in worse %}
+                <div class="forecast-item">
+                    <div class="forecast-model">{{ name }} peor que Naive</div>
+                    <div class="forecast-value">{{ k }} / 54</div>
+                </div>
+                {% endfor %}
+            </div>
+            <p style="font-size:0.84rem; color:var(--text-secondary); line-height:1.7; margin-top:14px;">
+                Cada elemento puede <strong>re-ejecutarse ahora</strong> con la serie congelada (reproduce el Apéndice C) o con datos
+                descargados en vivo de Yahoo Finance; la plataforma muestra lado a lado el valor publicado y el reproducido y permite
+                abrir la gráfica, los residuales y el reporte PDF de la corrida. Las corridas de 5 y 10 años tardan entre 1 y 3 minutos.
+            </p>
+        </div>
+    </div>
+
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M5 4a3 3 0 00-3 3v6a3 3 0 003 3h10a3 3 0 003-3V7a3 3 0 00-3-3H5zm-1 9v-1h5v2H5a1 1 0 01-1-1zm7 1h4a1 1 0 001-1v-1h-5v2zm0-4h5V8h-5v2zM9 8H4v2h5V8z" clip-rule="evenodd"/>
+            </svg>
+            <h2>Matriz de experimentos — mejor modelo entre los seis propuestos (MAE) y referencia Naive</h2>
+        </div>
+        <div class="card-body-unam">
+            <div class="table-responsive">
+            <table style="border-collapse:collapse; width:100%; font-size:0.78rem;">
+                <thead>
+                    <tr style="background:linear-gradient(90deg,#003087,#005EB8); color:#fff;">
+                        <th style="padding:8px 10px; text-align:left;">Historia</th>
+                        {% for T, pct in pub.tests.items() %}
+                        <th style="padding:8px; text-align:center; border-left:1px solid rgba(255,255,255,0.25);">{{ T }}<br><span style="font-weight:400;">{{ pct }} %</span></th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                {% for row in matrix %}
+                    <tr style="border-bottom:1px solid #D6DCE8;">
+                        <td style="padding:8px 10px; font-weight:700; white-space:nowrap;">{{ row.P }} · {{ row.label }}</td>
+                        {% for c in row.cells %}
+                        <td style="padding:6px; text-align:center; vertical-align:top; border-left:1px solid #D6DCE8;
+                                   {% if c.significant %}background:rgba(26,115,64,0.14);{% elif c.naive_best %}background:rgba(0,48,135,0.05);{% endif %}">
+                            <a href="#{{ c.anchor }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">{{ c.winners|join(' / ') }}</a><br>
+                            <span style="font-variant-numeric:tabular-nums;">{{ '%.4f'|format(c.mae) if c.mae is not none else '—' }}</span><br>
+                            <span style="color:var(--text-muted); font-size:0.7rem;">Naive {{ '%.4f'|format(c.naive_mae) }}</span>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:10px; line-height:1.6;">
+                Cada celda muestra el modelo con Rank 1 entre los seis propuestos (criterio del Capítulo 4) y su MAE, y debajo el MAE del
+                modelo ingenuo. Fondo verde: algún modelo supera a Naive con significancia (DM, p &lt; 0.05). Fondo azul tenue: Naive en
+                primer lugar o empatado en el ranking con los 7 modelos. Haz clic en un modelo para ver la tabla completa del elemento.
+            </p>
+        </div>
+    </div>
+
+    {% for row in matrix %}
+    <div class="card-unam" id="{{ row.P }}">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-4a1 1 0 011-1h2a1 1 0 011 1v13a1 1 0 01-1 1h-2a1 1 0 01-1-1V3z"/>
+            </svg>
+            <h2>Horizonte de {{ row.label }} ({{ row.P }})</h2>
+        </div>
+        <div class="card-body-unam">
+        {% for c in row.cells %}{% set e = pub.elements[c.el] %}
+            <div id="{{ c.anchor }}" style="margin-bottom:26px; padding-top:4px;">
+                <p class="section-label">
+                    Elemento {{ c.el }} — {{ e.periodo }}, {{ e.test_pct }} % de prueba · n = {{ e.n }} (entrenamiento {{ e.n_train }}, prueba {{ e.n_test }})
+                    · {{ e.fecha_inicio }} → {{ e.fecha_fin }} · auto_arima {{ e.sarima_order }}
+                </p>
+                <div class="table-responsive">
+                <table style="border-collapse:collapse; width:100%; font-size:0.8rem;">
+                    <thead>
+                        <tr style="background:#003087; color:#fff; font-size:0.7rem; letter-spacing:0.06em; text-transform:uppercase;">
+                            <th style="padding:6px 8px; text-align:left;">Modelo</th><th style="padding:6px 8px;">MAE</th><th style="padding:6px 8px;">RMSE</th>
+                            <th style="padding:6px 8px;">MAPE</th><th style="padding:6px 8px;">R²</th><th style="padding:6px 8px;">Rank (6)</th>
+                            <th style="padding:6px 8px;">Rank (7)</th><th style="padding:6px 8px;">DM</th><th style="padding:6px 8px;">p-valor</th><th style="padding:6px 8px;">Veredicto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for m in e.models %}
+                        <tr style="border-bottom:1px solid #D6DCE8; text-align:center; font-variant-numeric:tabular-nums; {% if m.rank7 == 1 %}font-weight:700; background:rgba(200,168,0,0.10);{% endif %}">
+                            <td style="padding:5px 8px; text-align:left;">{{ m.Modelo }}</td>
+                            <td style="padding:5px 8px;">{{ '%.4f'|format(m.MAE) if m.MAE is not none else '—' }}</td>
+                            <td style="padding:5px 8px;">{{ '%.4f'|format(m.RMSE) if m.RMSE is not none else '—' }}</td>
+                            <td style="padding:5px 8px;">{{ '%.4f'|format(m.MAPE) if m.MAPE is not none else '—' }}</td>
+                            <td style="padding:5px 8px;">{{ '%.4f'|format(m['R^2']) if m['R^2'] is not none else '—' }}</td>
+                            <td style="padding:5px 8px;">{{ m.rank6 if m.rank6 else '—' }}</td>
+                            <td style="padding:5px 8px;">{{ m.rank7 }}</td>
+                            <td style="padding:5px 8px;">{{ '%.3f'|format(m.DM) if m.DM is not none else '—' }}</td>
+                            <td style="padding:5px 8px;">{{ '%.4f'|format(m.p) if m.p is not none else '—' }}</td>
+                            <td style="padding:5px 8px; {% if m.veredicto == 'mejor que Naive' %}color:#1A7340; font-weight:700;{% elif m.veredicto == 'peor que Naive' %}color:#C0392B;{% endif %}">{{ m.veredicto }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+                <form method="POST" action="{{ url_for('banco.banco_run') }}" class="rerun-form d-flex flex-wrap gap-2 align-items-center" style="margin-top:8px;">
+                    <input type="hidden" name="element" value="{{ c.el }}">
+                    <select name="data_source" class="form-select" style="max-width:380px; font-size:0.82rem;">
+                        {% for k, v in data_sources.items() %}<option value="{{ k }}" {% if k == 'tesis' %}selected{% endif %}>{{ v }}</option>{% endfor %}
+                    </select>
+                    <button type="submit" class="btn-unam-gold">Re-ejecutar ahora y comparar</button>
+                    <span class="rerun-wait d-none" style="font-size:0.8rem; color:var(--text-muted);">Entrenando los 7 modelos… (5 y 10 años pueden tardar hasta 3 minutos)</span>
+                </form>
+            </div>
+        {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+</main>
+
+<!-- ============================================================
+     PIE DE PÁGINA
+     ============================================================ -->
+<footer class="site-footer">
+    <div class="footer-inner">
+        <p class="footer-copyright">
+            &copy; 2026 &nbsp;<span>Ing. Ricardo Javier Martínez Suástegui</span>
+            &nbsp;— Todos los derechos reservados
+        </p>
+        <p class="footer-institution">
+            Universidad Nacional Autónoma de México &nbsp;·&nbsp;
+            Facultad de Ingeniería &nbsp;·&nbsp; Tesis de Maestría
+        </p>
+        <p class="footer-motto">Por mi raza hablará el espíritu</p>
+    </div>
+</footer>
+
+<script>
+document.querySelectorAll('.rerun-form').forEach(function (f) {
+    f.addEventListener('submit', function () {
+        f.querySelector('button').disabled = true;
+        f.querySelector('.rerun-wait').classList.remove('d-none');
+    });
+});
+</script>
+</body>
+</html>
+
+══════════════════════════════════════════════════════════════════════
+
 ══ ARCHIVO: app\templates\forecast_vs_real.html ══════════════════════════════
 
 <!DOCTYPE html>
@@ -2433,6 +3042,13 @@ $(document).ready(function () {
 
 </header>
 
+<!-- Navegación secundaria -->
+<nav class="page-main" style="padding-top:14px; padding-bottom:0; font-size:0.86rem;">
+    <a href="{{ url_for('main.index') }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">Inicio</a>
+    <span style="color:var(--text-muted);">&nbsp;·&nbsp;</span>
+    <a href="{{ url_for('banco.banco') }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">Banco de pruebas de la tesis (54 experimentos)</a>
+</nav>
+
 <!-- ============================================================
      CONTENIDO PRINCIPAL
      ============================================================ -->
@@ -2605,6 +3221,28 @@ $(document).ready(function () {
                     </div>
                 </div>
 
+                <!-- Fuente de datos -->
+                <div class="mt-4">
+                    <p class="section-label">Fuente de datos</p>
+                    <div class="d-flex gap-4 flex-wrap">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="data_source" id="src_yahoo" value="yahoo"
+                                   {% if data_source != 'tesis' %}checked{% endif %}>
+                            <label class="form-check-label" for="src_yahoo">Yahoo Finance (descarga en vivo)</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="data_source" id="src_tesis" value="tesis"
+                                   {% if data_source == 'tesis' %}checked{% endif %}>
+                            <label class="form-check-label" for="src_tesis">Serie congelada de la tesis (USDMXN=X, 02/11/2015 → 31/12/2025)</label>
+                        </div>
+                    </div>
+                    <p style="font-size:0.78rem; color:var(--text-muted); margin-top:6px; line-height:1.6;">
+                        La serie congelada es la que se usó en los 54 experimentos del Capítulo 4 (descargada el 26/10/2026):
+                        garantiza que los resultados sean reproducibles aunque Yahoo revise sus datos. Con ella, el modo
+                        <em>Periodo predefinido</em> cuenta hacia atrás desde el <strong>01/01/2026</strong> (último cierre disponible: 31/12/2025).
+                    </p>
+                </div>
+
                 <!-- Porcentaje de testing -->
                 <div class="mt-4">
                     <label for="test_percent" class="form-label">Porcentaje para pruebas (1 – 80 %)</label>
@@ -2641,7 +3279,8 @@ $(document).ready(function () {
             <div class="alert-unam">
                 <strong>Última consulta:</strong>
                 Periodo: <strong>{{ display_period }}</strong> &nbsp;|&nbsp;
-                Porcentaje de pruebas: <strong>{{ display_test_percent }}%</strong>
+                Porcentaje de pruebas: <strong>{{ display_test_percent }}%</strong> &nbsp;|&nbsp;
+                Datos: <strong>{{ data_sources[data_source] }}</strong>
             </div>
             {% endif %}
         </div>
@@ -2651,6 +3290,67 @@ $(document).ready(function () {
     <!-- ============================================================
          TARJETA: Resultados de métricas
          ============================================================ -->
+    {% if banco_compare %}
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+            <h2>Reproducción del elemento {{ banco_compare.element }} — publicado vs. reproducido</h2>
+        </div>
+        <div class="card-body-unam">
+            <p style="font-size:0.84rem; color:var(--text-secondary); margin-bottom:12px; line-height:1.6;">
+                Elemento <strong>{{ banco_compare.element }}</strong>: historia de {{ banco_compare.info.periodo }} anclada al
+                {{ banco_compare.anchor }} ({{ banco_compare.info.fecha_inicio }} → {{ banco_compare.info.fecha_fin }}),
+                {{ banco_compare.info.test_pct }} % de prueba (n = {{ banco_compare.info.n }}; entrenamiento {{ banco_compare.info.n_train }},
+                prueba {{ banco_compare.info.n_test }}). Datos usados ahora: <strong>{{ banco_compare.data_source_label }}</strong>.
+                Resultado: <strong>{{ banco_compare.n_match }} de {{ banco_compare.n_total }}</strong> modelos reproducen el valor
+                publicado en el Apéndice C (|ΔMAE| ≤ 0.002). RNN y LSTM se publican como media de 3 semillas; aquí se comparan
+                con la semilla 0 publicada, que es la que usa la plataforma.
+            </p>
+            <div class="table-responsive">
+            <table style="border-collapse:collapse; width:100%; font-size:0.84rem;">
+                <thead>
+                    <tr style="background:linear-gradient(90deg,#003087,#005EB8); color:#fff;">
+                        <th rowspan="2" style="padding:10px 12px; text-align:left;">Modelo</th>
+                        <th colspan="3" style="padding:8px; text-align:center; border-left:1px solid rgba(255,255,255,0.25);">Publicado (Apéndice C)</th>
+                        <th colspan="3" style="padding:8px; text-align:center; border-left:1px solid rgba(255,255,255,0.25);">Reproducido ahora</th>
+                        <th rowspan="2" style="padding:8px; text-align:center; border-left:1px solid rgba(255,255,255,0.25);">Δ MAE</th>
+                        <th rowspan="2" style="padding:8px; text-align:center;">Estado</th>
+                    </tr>
+                    <tr style="background:#003087; color:#fff; font-size:0.72rem; letter-spacing:0.06em; text-transform:uppercase;">
+                        <th style="padding:6px 8px; border-left:1px solid rgba(255,255,255,0.25);">MAE</th><th style="padding:6px 8px;">R²</th><th style="padding:6px 8px;">DM p</th>
+                        <th style="padding:6px 8px; border-left:1px solid rgba(255,255,255,0.25);">MAE</th><th style="padding:6px 8px;">R²</th><th style="padding:6px 8px;">DM p</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for r in banco_compare.rows %}
+                    <tr style="border-bottom:1px solid #D6DCE8;">
+                        <td style="padding:8px 12px; font-weight:600;">{{ r.Modelo }}{% if r.pub_seed0 %} <span style="font-weight:400; color:var(--text-muted); font-size:0.72rem;">(semilla 0)</span>{% endif %}</td>
+                        <td style="padding:8px; text-align:center; border-left:1px solid #D6DCE8;">{{ '%.4f'|format(r.ref_mae) if r.ref_mae is not none else '—' }}</td>
+                        <td style="padding:8px; text-align:center;">{{ '%.4f'|format(r.ref_r2) if r.ref_r2 is not none else '—' }}</td>
+                        <td style="padding:8px; text-align:center;">{{ '%.4f'|format(r.pub_p) if r.pub_p is not none else '—' }}</td>
+                        <td style="padding:8px; text-align:center; border-left:1px solid #D6DCE8;">{{ '%.4f'|format(r.rep_mae) if r.rep_mae is not none else '—' }}</td>
+                        <td style="padding:8px; text-align:center;">{{ '%.4f'|format(r.rep_r2) if r.rep_r2 is not none else '—' }}</td>
+                        <td style="padding:8px; text-align:center;">{{ '%.4f'|format(r.rep_p) if r.rep_p is not none else '—' }}</td>
+                        <td style="padding:8px; text-align:center; border-left:1px solid #D6DCE8; font-variant-numeric:tabular-nums;">{{ '%+.4f'|format(r.delta) if r.delta is not none else '—' }}</td>
+                        <td style="padding:8px; text-align:center; font-weight:700; {% if r.status == 'coincide' %}color:#1A7340;{% elif r.status == '≈ coincide' %}color:#9A7F00;{% elif r.status == 'difiere' %}color:#C0392B;{% endif %}">{{ r.status }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:10px; line-height:1.6;">
+                Diferencias de milésimas en Random Forest provienen del ruido de punto flotante en los umbrales de los árboles;
+                el p-valor publicado de RNN/LSTM es la mediana de 3 semillas. Con datos en vivo de Yahoo Finance, cualquier
+                diferencia adicional indica una revisión de la serie (compárese la huella SHA-256 en la tarjeta de procedencia).
+            </p>
+            <a href="{{ url_for('banco.banco') }}#{{ banco_compare.info.P }}-{{ banco_compare.info.T }}"
+               style="font-size:0.84rem; font-weight:700; color:var(--unam-blue);">← Volver al banco de pruebas</a>
+        </div>
+    </div>
+    {% endif %}
+
     {% if semaforo %}
     <div class="card-unam">
         <div class="card-header-unam">
@@ -2749,6 +3449,107 @@ $(document).ready(function () {
             </div>
         </div>
     </div>
+
+    <!-- ============================================================
+         TARJETA: Horizontes de pronóstico
+         ============================================================ -->
+    {% if horizons_rows %}
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 10a8 8 0 1116 0 8 8 0 01-16 0zm9-4a1 1 0 10-2 0v4a1 1 0 00.293.707l2.5 2.5a1 1 0 001.414-1.414L11 9.586V6z"/>
+            </svg>
+            <h2>Horizontes de Pronóstico (h = 1, 5 y 20 días)</h2>
+        </div>
+        <div class="card-body-unam">
+            <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:12px; line-height:1.6;">
+                Mismo protocolo con <strong>origen móvil</strong>: desde cada día del conjunto de prueba, cada modelo pronostica el valor
+                h días adelante usando solo los datos reales hasta ese día (SARIMA y Holt-Winters por sus ecuaciones de estado;
+                Regresión Lineal, Random Forest, RNN y LSTM de forma recursiva, reinyectando sus propias predicciones). Naive a h pasos
+                repite el último valor observado. <strong>DM p</strong>: prueba de Diebold-Mariano frente a Naive al mismo horizonte
+                (corrección HLN con h). Orígenes evaluados:
+                {% for h in horizons %}h = {{ h }}: <strong>{{ horizon_neval[h] }}</strong>{% if not loop.last %} · {% endif %}{% endfor %}.
+            </p>
+            <div class="table-responsive">
+            <table style="border-collapse:collapse; width:100%; font-size:0.84rem;">
+                <thead>
+                    <tr style="background:linear-gradient(90deg,#003087,#005EB8); color:#fff;">
+                        <th rowspan="2" style="padding:10px 12px; text-align:left;">Modelo</th>
+                        {% for h in horizons %}
+                        <th colspan="4" style="padding:8px 12px; text-align:center; border-left:1px solid rgba(255,255,255,0.25);">h = {{ h }} {% if h == 1 %}día{% else %}días{% endif %}</th>
+                        {% endfor %}
+                    </tr>
+                    <tr style="background:#003087; color:#fff; font-size:0.72rem; letter-spacing:0.06em; text-transform:uppercase;">
+                        {% for h in horizons %}
+                        <th style="padding:6px 8px; border-left:1px solid rgba(255,255,255,0.25);">MAE</th>
+                        <th style="padding:6px 8px;">RMSE</th>
+                        <th style="padding:6px 8px;">DM p</th>
+                        <th style="padding:6px 8px;">Veredicto</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                {% for row in horizons_rows %}
+                    <tr style="border-bottom:1px solid #D6DCE8;">
+                        <td style="padding:8px 12px; font-weight:600;">{{ row.Modelo }}</td>
+                        {% for h in horizons %}{% set c = row.cells[h] %}
+                        <td style="padding:8px; text-align:center; border-left:1px solid #D6DCE8; font-variant-numeric:tabular-nums;">{{ c.MAE }}</td>
+                        <td style="padding:8px; text-align:center; font-variant-numeric:tabular-nums;">{{ c.RMSE }}</td>
+                        <td style="padding:8px; text-align:center; font-variant-numeric:tabular-nums;">{{ c.p }}</td>
+                        <td style="padding:8px; text-align:center; {% if c.Veredicto == 'mejor que Naive' %}color:#1A7340; font-weight:700;{% elif c.Veredicto == 'peor que Naive' %}color:#C0392B;{% else %}color:var(--text-secondary);{% endif %}">{{ c.Veredicto }}</td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:10px; line-height:1.6;">
+                El ranking de la tabla anterior y el "mejor modelo" se calculan con h = 1 (evaluación principal de la tesis).
+                A horizontes mayores la potencia de la prueba disminuye porque hay menos orígenes y los errores están autocorrelacionados.
+            </p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ============================================================
+         TARJETA: Procedencia y reproducibilidad
+         ============================================================ -->
+    {% if provenance %}
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <h2>Procedencia y Reproducibilidad del Resultado</h2>
+        </div>
+        <div class="card-body-unam">
+            <div class="row" style="font-size:0.84rem;">
+                <div class="col-md-6">
+                    <table style="width:100%; font-size:0.84rem; border-collapse:collapse;">
+                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); white-space:nowrap; vertical-align:top;">Fuente de datos</td><td style="padding:6px 0;">{{ provenance.source_label }}</td></tr>
+                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Descarga</td><td style="padding:6px 0;">{{ provenance.downloaded_at }}{% if provenance.source_note %} <span style="color:var(--text-muted);">— {{ provenance.source_note }}</span>{% endif %}</td></tr>
+                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Serie</td><td style="padding:6px 0;">{{ provenance.ticker }} · {{ provenance.first_date }} → {{ provenance.last_date }} · n = {{ provenance.n }} (entrenamiento {{ provenance.n_train }}, prueba {{ provenance.n_test }})</td></tr>
+                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Huella SHA-256</td><td style="padding:6px 0; word-break:break-all;"><code style="font-size:0.76rem;">{{ provenance.sha256 }}</code></td></tr>
+                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Semilla RNN/LSTM</td><td style="padding:6px 0;">{{ provenance.seed }}</td></tr>
+                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Código</td><td style="padding:6px 0;">v{{ provenance.app_version }} · commit <code>{{ provenance.git_commit }}</code>{% if provenance.build_time != 'n/d' %} · build {{ provenance.build_time }}{% endif %}</td></tr>
+                        <tr><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Generado</td><td style="padding:6px 0;">{{ provenance.generated_at }}</td></tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <div style="font-size:0.72rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px;">Versiones</div>
+                    <div style="font-family:monospace; font-size:0.78rem; line-height:1.7;">{% for k, v in provenance.versions.items() %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</div>
+                    <details style="margin-top:10px;">
+                        <summary style="font-size:0.75rem; font-weight:700; color:var(--text-muted); cursor:pointer; letter-spacing:0.06em; text-transform:uppercase;">Hiperparámetros fijos de los 7 modelos</summary>
+                        <table style="font-size:0.78rem; margin-top:6px;">
+                            {% for name, desc in provenance.hyperparams %}<tr><td style="font-weight:600; padding:3px 8px 3px 0; vertical-align:top; white-space:nowrap;">{{ name }}</td><td style="padding:3px 0;">{{ desc }}</td></tr>{% endfor %}
+                        </table>
+                    </details>
+                    <p style="font-size:0.78rem; color:var(--text-secondary); margin-top:10px; line-height:1.6;">{{ provenance.protocol }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <hr class="unam-divider">
 
@@ -4968,7 +5769,8 @@ deploy:
 		--timeout 300 \
 		--min-instances 0 \
 		--max-instances 3 \
-		--session-affinity
+		--session-affinity \
+		--update-env-vars GIT_COMMIT=$$(git rev-parse --short HEAD),BUILD_TIME=$$(date -u +%Y-%m-%dT%H:%MZ)
 
 ══════════════════════════════════════════════════════════════════════
 
@@ -5012,6 +5814,25 @@ Todos los modelos se evalúan de la misma forma:
 En la versión anterior (v1) SARIMA y Holt-Winters pronosticaban toda la ventana
 de prueba de una vez, lo que los hacía incomparables con el resto; el cambio de
 protocolo y sus efectos están documentados en `benchmark/`.
+
+## Novedades v2.1 — sustento y reproducibilidad
+
+* **Banco de pruebas de la tesis** (`/banco`): matriz P1–P6 × T1–T9 con los 54 resultados
+  publicados (`src/benchmark_data/resultados_tesis.json`, generado con
+  `scripts/build_published.py`) y un botón para re-ejecutar cualquier elemento en vivo y
+  ver *publicado vs. reproducido* lado a lado.
+* **Serie congelada** (`src/data/usdmxn_tesis.csv`): la serie USDMXN=X usada en los
+  experimentos (descargada el 26/10/2026). Seleccionable en el formulario como fuente de
+  datos; garantiza reproducibilidad aunque Yahoo revise sus datos.
+* **Sello de procedencia** en la página, el PDF y el Excel: fuente y fecha de descarga,
+  huella SHA-256 de la serie, versiones de las librerías, semilla, hiperparámetros y
+  commit del código (`src/provenance.py`; el commit llega por la variable `GIT_COMMIT`
+  que fija `make deploy`).
+* **Horizontes h = 1, 5 y 20 días** con el mismo protocolo y origen móvil
+  (`src/models/horizons.py`): SARIMA por su representación de espacio de estados,
+  Holt-Winters por sus ecuaciones de estado, ML/DL de forma recursiva; Diebold-Mariano
+  frente a Naive en cada horizonte. Con h = 1 se reproduce exactamente la evaluación a
+  un paso del Capítulo 4.
 
 ## Ejecución local
 
@@ -5068,7 +5889,7 @@ wsgi.py     punto de entrada (gunicorn / desarrollo)
 Flask==2.2.5
 flask-caching==2.1.0
 requests>=2.31
-yfinance>=0.2.37
+yfinance==1.7.0
 curl_cffi>=0.7.0
 pandas==1.5.3
 numpy==1.23.5
@@ -5083,6 +5904,96 @@ XlsxWriter==3.1.9
 reportlab==4.2.5
 matplotlib==3.7.5
 Pillow==10.4.0
+
+══════════════════════════════════════════════════════════════════════
+
+══ ARCHIVO: scripts\build_published.py ═══════════════════════════════════════
+
+"""Empaqueta los resultados publicados del banco de pruebas (Capítulo 4 / Apéndice C)
+en ``src/benchmark_data/resultados_tesis.json`` para la pestaña "Banco de pruebas".
+
+Fuentes: benchmark/out/apendice_c_v2.csv (métricas, ranking, DM) y
+benchmark/results/P*_T*.json (fechas, tamaños, orden auto_arima, semillas).
+
+Uso:  python scripts/build_published.py
+"""
+import csv
+import glob
+import json
+import os
+from datetime import date
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BENCH = os.path.join(ROOT, "benchmark")
+OUT = os.path.join(ROOT, "src", "benchmark_data", "resultados_tesis.json")
+
+PERIODS = {"P1": ("3mo", "3 meses"), "P2": ("6mo", "6 meses"), "P3": ("1y", "1 año"),
+           "P4": ("2y", "2 años"), "P5": ("5y", "5 años"), "P6": ("10y", "10 años")}
+TESTS = {f"T{i}": p for i, p in enumerate(range(10, 55, 5), start=1)}
+MODELS = ["Naive", "SARIMA", "Holt-Winters", "Regresión Lineal", "Random Forest", "RNN", "LSTM"]
+
+
+def _f(v):
+    return None if v in ("", None) else float(v)
+
+
+def main():
+    elements = {}
+    with open(os.path.join(BENCH, "out", "apendice_c_v2.csv"), encoding="utf-8-sig") as fh:
+        for r in csv.DictReader(fh):
+            el = r["Elemento"]
+            P, T = el.split(",")
+            e = elements.setdefault(el, {
+                "P": P, "T": T, "period_key": PERIODS[P][0], "periodo": PERIODS[P][1],
+                "test_pct": TESTS[T], "n": int(r["n"]), "n_train": int(r["n_train"]),
+                "n_test": int(r["n_test"]), "models": {},
+            })
+            e["models"][r["Modelo"]] = {
+                "MAE": _f(r["MAE"]), "RMSE": _f(r["RMSE"]), "MAPE": _f(r["MAPE"]), "R^2": _f(r["R^2"]),
+                "rank6": None if r["Rank (6 modelos)"] in ("", None) else int(float(r["Rank (6 modelos)"])),
+                "rank7": int(float(r["Rank (con Naive)"])),
+                "DM": _f(r["DM vs Naive"]), "p": _f(r["p-valor"]), "veredicto": r["Veredicto DM"],
+            }
+    for f in sorted(glob.glob(os.path.join(BENCH, "results", "P*_T*.json"))):
+        rec = json.load(open(f, encoding="utf-8"))
+        el = f'{rec["P"]},{rec["T"]}'
+        if el not in elements:
+            continue
+        e = elements[el]
+        e.update({"fecha_inicio": rec["fecha_inicio"], "fecha_test": rec["fecha_test"],
+                  "fecha_fin": rec["fecha_fin"], "sarima_order": rec.get("sarima_order", ""),
+                  "tiempo_s": rec.get("tiempos", {}).get("total")})
+        for name in ("RNN", "LSTM"):
+            s0 = rec["metrics"].get(name, {}).get("seed0")
+            if s0:
+                e["models"][name]["seed0"] = {k: s0[k] for k in ("MAE", "RMSE", "MAPE", "R^2")}
+    for el, e in elements.items():
+        e["models"] = [dict(Modelo=m, **e["models"][m]) for m in MODELS if m in e["models"]]
+    # resumen global
+    n_naive_best = sum(1 for e in elements.values() if next(m for m in e["models"] if m["Modelo"] == "Naive")["rank7"] == 1)
+    better = [(el, m["Modelo"], m["p"]) for el, e in elements.items() for m in e["models"] if m["veredicto"] == "mejor que Naive"]
+    worse = {m: 0 for m in MODELS if m != "Naive"}
+    for e in elements.values():
+        for m in e["models"]:
+            if m["veredicto"] == "peor que Naive":
+                worse[m["Modelo"]] += 1
+    out = {
+        "generated": date.today().isoformat(), "anchor": "2026-01-01",
+        "protocol": ("Evaluación a un paso adelante con parámetros estimados solo en entrenamiento; Naive como "
+                     "referencia; prueba de Diebold-Mariano (HLN) al 5 %; RNN y LSTM: promedio de 3 semillas (0, 1, 2)."),
+        "periods": {P: {"key": k, "label": l} for P, (k, l) in PERIODS.items()},
+        "tests": TESTS, "models": MODELS,
+        "summary": {"n_elements": len(elements), "naive_rank1": n_naive_best,
+                    "better_than_naive": [{"elemento": el, "modelo": m, "p": p} for el, m, p in better],
+                    "worse_than_naive": worse},
+        "elements": elements,
+    }
+    json.dump(out, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    print(f"{OUT}: {len(elements)} elementos; Naive rank 1 en {n_naive_best}; mejor que Naive: {better}; peor: {worse}")
+
+
+if __name__ == "__main__":
+    main()
 
 ══════════════════════════════════════════════════════════════════════
 
@@ -5390,6 +6301,56 @@ def get_usdmxn(period=None, start_date=None, end_date=None):
 
 ══════════════════════════════════════════════════════════════════════
 
+══ ARCHIVO: src\data\frozen.py ═══════════════════════════════════════════════
+
+"""Serie congelada de la tesis.
+
+``usdmxn_tesis.csv`` es la serie de cierre diario USDMXN=X descargada de Yahoo
+Finance el 26-oct-2026 para el banco de pruebas (``benchmark/usdmxn_cache.csv``).
+Se distribuye con la plataforma para que los 54 experimentos del Capítulo 4 y del
+Apéndice C puedan reproducirse aunque Yahoo revise o deje de servir los datos.
+"""
+
+import os
+from datetime import datetime
+
+import pandas as pd
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+FROZEN_CSV = os.path.join(HERE, "usdmxn_tesis.csv")
+FROZEN_ANCHOR = datetime(2026, 1, 1)        # fecha ancla de los 54 experimentos
+FROZEN_INFO = {
+    "ticker": "USDMXN=X",
+    "descargada": "2026-10-26",
+    "rango": "2015-11-02 → 2025-12-31",
+    "descripcion": ("Serie de cierre diario USDMXN=X descargada de Yahoo Finance el 26-oct-2026 "
+                    "para el banco de pruebas de la tesis (2,648 observaciones)."),
+}
+
+_FROZEN = None
+
+
+def load_frozen():
+    """Carga (una sola vez) la serie congelada completa."""
+    global _FROZEN
+    if _FROZEN is None:
+        df = pd.read_csv(FROZEN_CSV, parse_dates=["Date"])
+        _FROZEN = df[["Date", "Close"]].sort_values("Date").reset_index(drop=True)
+    return _FROZEN.copy()
+
+
+def get_frozen_usdmxn(start_date=None, end_date=None):
+    """Recorte de la serie congelada: ``start_date`` inclusivo y ``end_date``
+    exclusivo, igual que ``yfinance.Ticker.history(start, end)``."""
+    df = load_frozen()
+    if start_date:
+        df = df[df["Date"] >= pd.Timestamp(start_date)]
+    if end_date:
+        df = df[df["Date"] < pd.Timestamp(end_date)]
+    return df.reset_index(drop=True)
+
+══════════════════════════════════════════════════════════════════════
+
 ══ ARCHIVO: src\features\__init__.py ═════════════════════════════════════════
 
 
@@ -5472,8 +6433,10 @@ def compute_risk(ts_full):
 """Modelos de Deep Learning (PyTorch) para la serie USD/MXN.
 
 Idéntico al Apéndice A (RNN/LSTM de 50 unidades, Adam, MSE, 50 épocas, batch
-16, MinMaxScaler ajustado solo en train). Único cambio: semilla controlable
-para que las corridas sean reproducibles y repetibles.
+16, MinMaxScaler ajustado solo en train). Cambios: semilla controlable para que
+las corridas sean reproducibles, predicción en lote y pronósticos a h pasos
+recursivos en el espacio escalado (``src/models/horizons.py``). Devuelven
+``(metrics, predictions, forecast_next, multi)``.
 """
 
 import math
@@ -5481,6 +6444,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from sklearn.preprocessing import MinMaxScaler
+
+from src.models.horizons import HORIZONS, recursive_multi
 
 torch.set_num_threads(1)
 
@@ -5508,7 +6473,7 @@ def _compute_metrics(predictions, test_data, model_name):
 def _empty_metrics(model_name, n_test, forecast_steps):
     metrics = {"Modelo": model_name, "MAE": float("nan"), "RMSE": float("nan"),
                "MAPE": float("nan"), "R^2": float("nan")}
-    return metrics, np.full(n_test, float("nan")), [None] * forecast_steps
+    return metrics, np.full(n_test, float("nan")), [None] * forecast_steps, {}
 
 
 def prepare_data_dl(series, lag=20):
@@ -5564,14 +6529,16 @@ def _predict_batch(model, windows_np):
         return model(torch.FloatTensor(windows_np)).numpy().ravel()
 
 
-def _predict_and_forecast(model, train_data, test_data, forecast_steps, scaler, lag):
-    """Predicción en test (un paso adelante con el valor real) y pronóstico futuro."""
+def _predict_and_forecast(model, train_data, test_data, forecast_steps, scaler, lag, horizons=HORIZONS):
+    """Predicción en test (un paso adelante con el valor real), pronósticos a h pasos
+    (recursivos, en el espacio escalado) y pronóstico futuro."""
     full = np.concatenate([np.asarray(train_data, dtype=float), np.asarray(test_data, dtype=float)])
     full_s = scaler.transform(full.reshape(-1, 1)).ravel()
     n = len(train_data)
-    windows = np.array([full_s[t - lag:t] for t in range(n, n + len(test_data))]).reshape(-1, lag, 1)
-    preds_s = _predict_batch(model, windows)
-    predictions = scaler.inverse_transform(preds_s.reshape(-1, 1)).ravel()
+    multi_s = recursive_multi(lambda W: _predict_batch(model, W.reshape(-1, lag, 1)), full_s, n, lag,
+                              horizons=tuple(sorted(set(horizons) | {1})), newest_first=False)
+    multi = {h: scaler.inverse_transform(np.asarray(p).reshape(-1, 1)).ravel() for h, p in multi_s.items()}
+    predictions = multi[1]
     history = list(full_s)
     forecast_next = []
     for _ in range(forecast_steps):
@@ -5579,10 +6546,10 @@ def _predict_and_forecast(model, train_data, test_data, forecast_steps, scaler, 
         p_s = float(_predict_batch(model, w)[0])
         forecast_next.append(float(scaler.inverse_transform([[p_s]])[0][0]))
         history.append(p_s)
-    return np.array(predictions), forecast_next
+    return np.array(predictions), forecast_next, multi
 
 
-def _train(net_cls, name, train_data, test_data, forecast_steps, seed):
+def _train(net_cls, name, train_data, test_data, forecast_steps, seed, horizons=HORIZONS):
     lag = _effective_lag(train_data)
     if len(train_data) <= lag or len(test_data) == 0:
         return _empty_metrics(name, len(test_data), forecast_steps)
@@ -5593,16 +6560,17 @@ def _train(net_cls, name, train_data, test_data, forecast_steps, seed):
     X_train, y_train = prepare_data_dl(train_s, lag=lag)
     model = net_cls()
     _fit(model, X_train, y_train)
-    predictions, forecast_next = _predict_and_forecast(model, train_data, test_data, forecast_steps, scaler, lag)
-    return _compute_metrics(predictions, test_data, name), predictions, forecast_next
+    predictions, forecast_next, multi = _predict_and_forecast(
+        model, train_data, test_data, forecast_steps, scaler, lag, horizons)
+    return _compute_metrics(predictions, test_data, name), predictions, forecast_next, multi
 
 
-def train_rnn(train_data, test_data, forecast_steps=1, seed=0):
-    return _train(_RNNNet, "RNN", train_data, test_data, forecast_steps, seed)
+def train_rnn(train_data, test_data, forecast_steps=1, seed=0, horizons=HORIZONS):
+    return _train(_RNNNet, "RNN", train_data, test_data, forecast_steps, seed, horizons)
 
 
-def train_lstm(train_data, test_data, forecast_steps=1, seed=0):
-    return _train(_LSTMNet, "LSTM", train_data, test_data, forecast_steps, seed)
+def train_lstm(train_data, test_data, forecast_steps=1, seed=0, horizons=HORIZONS):
+    return _train(_LSTMNet, "LSTM", train_data, test_data, forecast_steps, seed, horizons)
 
 ══════════════════════════════════════════════════════════════════════
 
@@ -5647,16 +6615,172 @@ def diebold_mariano(y_true, pred_a, pred_b, h=1, loss="squared"):
 
 ══════════════════════════════════════════════════════════════════════
 
+══ ARCHIVO: src\models\horizons.py ═══════════════════════════════════════════
+
+"""Pronóstico a h pasos adelante con origen móvil sobre el conjunto de prueba.
+
+Para cada origen t del tramo de prueba (t = n_train−1, …, N−1−h) el modelo
+pronostica y_{t+h} usando únicamente los valores reales observados hasta t:
+
+* Naive: ŷ_{t+h} = y_t.
+* SARIMA: ŷ_{t+h} = Z (Tʰ a_{t|t} + Σ_{j<h} Tʲ c) + d, con los estados filtrados
+  a_{t|t} del modelo de espacio de estados (statsmodels) y parámetros fijos.
+* Holt-Winters: ŷ_{t+h} = (ℓ_t + h b_t) · s_{t+h−m k}, k = ⌊(h−1)/m⌋ + 1, con los
+  estados de nivel, tendencia y estacionalidad en t (parámetros fijos).
+* Regresión Lineal, Random Forest, RNN y LSTM: recursivo, alimentando la
+  ventana de rezagos con sus propias predicciones (todas las ventanas de prueba
+  se procesan en lote).
+
+Con h = 1 todas las fórmulas reproducen exactamente la evaluación a un paso.
+"""
+
+import numpy as np
+
+HORIZONS = (1, 5, 20)
+
+
+def targets(test_data, h):
+    """Valores reales y_{t+h} para los orígenes t = n_train−1 … N−1−h (longitud n_test−h+1)."""
+    test_data = np.asarray(test_data, dtype=float)
+    return test_data[h - 1:] if len(test_data) >= h else test_data[:0]
+
+
+def naive_multi(train_data, test_data, horizons=HORIZONS):
+    hist = np.concatenate([np.asarray(train_data, dtype=float), np.asarray(test_data, dtype=float)])
+    n, nt = len(train_data), len(test_data)
+    return {h: hist[n - 1: n - 1 + nt - h + 1] for h in horizons if nt >= h}
+
+
+def _ssm_matrix(obj, base_ndim):
+    """Matriz del sistema como arreglo invariante en el tiempo.
+
+    statsmodels guarda las matrices con ``base_ndim`` dimensiones cuando son
+    constantes y con una dimensión extra (el tiempo, último eje) cuando varían.
+    Devuelve ``None`` si la matriz realmente cambia a lo largo del tiempo.
+    """
+    arr = np.asarray(obj, dtype=float)
+    if arr.ndim == base_ndim:
+        return arr
+    if arr.ndim == base_ndim + 1:
+        first = arr[..., 0]
+        if arr.shape[-1] > 1 and not np.allclose(arr, first[..., None]):
+            return None
+        return first
+    return None
+
+
+def sarima_multi(res_ext, n, nt, horizons=HORIZONS):
+    """Pronósticos a h pasos desde cada origen del tramo de prueba, con los estados
+    filtrados del resultado extendido (``res.append(test, refit=False)``)."""
+    ssm = res_ext.model.ssm
+    T = _ssm_matrix(ssm["transition"], 2)
+    Z = _ssm_matrix(ssm["design"], 2)
+    c = _ssm_matrix(ssm["state_intercept"], 1)
+    d = _ssm_matrix(ssm["obs_intercept"], 1)
+    if T is None or Z is None or c is None or d is None:
+        return _sarima_multi_slow(res_ext, n, nt, horizons)
+    k = T.shape[0]
+    c = np.asarray(c, dtype=float).reshape(k)
+    d = float(np.asarray(d, dtype=float).reshape(-1)[0])
+    fs = np.asarray(res_ext.filter_results.filtered_state, dtype=float)      # (k, N)
+    N = fs.shape[1]
+    out = {}
+    for h in horizons:
+        if nt < h:
+            continue
+        Th = np.linalg.matrix_power(T, h)
+        acc = np.zeros(k)
+        Tj = np.eye(k)
+        for _ in range(h):
+            acc = acc + Tj @ c
+            Tj = Tj @ T
+        pred = (Z @ (Th @ fs + acc[:, None])).reshape(-1) + d          # pred[t] = ŷ_{t+h|t}
+        out[h] = pred[n - 1: N - h]
+    return out
+
+
+def _sarima_multi_slow(res_ext, n, nt, horizons):
+    """Camino lento (matrices variantes en el tiempo): predicción dinámica por origen."""
+    N = n + nt
+    out = {}
+    for h in horizons:
+        if nt < h:
+            continue
+        vals = []
+        for t in range(n - 1, N - h):
+            pm = res_ext.get_prediction(start=t + 1, end=t + h, dynamic=True).predicted_mean
+            vals.append(float(np.asarray(pm)[-1]))
+        out[h] = np.asarray(vals, dtype=float)
+    return out
+
+
+def hw_multi(fixed, seasonal, m, n, nt, horizons=HORIZONS):
+    """Pronósticos a h pasos de Holt-Winters desde los estados (nivel, tendencia, estacionalidad)."""
+    lvl = np.asarray(fixed.level, dtype=float)
+    trd = getattr(fixed, "trend", None)
+    trd = np.asarray(trd if trd is not None else fixed.slope, dtype=float)
+    sea = np.asarray(fixed.season, dtype=float) if seasonal else None
+    N = len(lvl)
+    out = {}
+    for h in horizons:
+        if nt < h:
+            continue
+        ts_ = np.arange(n - 1, N - h)
+        base = lvl[ts_] + h * trd[ts_]
+        if seasonal:
+            k = (h - 1) // m + 1
+            idx = ts_ + h - m * k
+            if idx.min() < 0:
+                continue
+            base = base * sea[idx]
+        out[h] = base
+    return out
+
+
+def recursive_multi(predict_batch, series, n, lag, horizons=HORIZONS, newest_first=False):
+    """Pronóstico recursivo en lote para modelos de ventana de rezagos.
+
+    ``predict_batch(W)`` recibe una matriz (n_orígenes × lag) con las ventanas
+    ordenadas de la observación más antigua a la más reciente (o al revés si
+    ``newest_first``) y devuelve una predicción por fila. Las predicciones se
+    reinyectan en la ventana para los pasos siguientes.
+    """
+    series = np.asarray(series, dtype=float)
+    N = len(series)
+    nt = N - n
+    if nt <= 0 or n < lag:
+        return {}
+    origins = np.arange(n - 1, N - 1)
+    W = np.stack([series[t - lag + 1: t + 1] for t in origins])
+    out = {}
+    h_max = max(horizons)
+    for step in range(1, h_max + 1):
+        p = np.asarray(predict_batch(W[:, ::-1] if newest_first else W), dtype=float).reshape(-1)
+        if step in horizons and nt >= step:
+            out[step] = p[: nt - step + 1]
+        if step == h_max:
+            break
+        W = np.concatenate([W[:, 1:], p[:, None]], axis=1)
+    return out
+
+══════════════════════════════════════════════════════════════════════
+
 ══ ARCHIVO: src\models\ml_models.py ══════════════════════════════════════════
 
-"""Modelos clásicos de Machine Learning para series temporales (sin cambios
-respecto al Apéndice A: ya evaluaban a un paso adelante con el valor real)."""
+"""Modelos clásicos de Machine Learning para series temporales.
+
+La evaluación a un paso adelante (con los valores reales en la ventana de rezagos)
+es la del Apéndice A original; los pronósticos a h pasos se obtienen de forma
+recursiva (``src/models/horizons.py``). Devuelven ``(metrics, predictions,
+forecast_next, multi)``."""
 
 import numpy as np
 import pandas as pd
 import math
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
+
+from src.models.horizons import HORIZONS, recursive_multi
 
 _ML_LAGS = 5
 
@@ -5700,28 +6824,26 @@ def _recursive_predict(model, seed_history, n_steps, lags):
     return preds
 
 
-def _fit_predict(model, name, train_data, test_data, forecast_steps):
+def _fit_predict(model, name, train_data, test_data, forecast_steps, horizons=HORIZONS):
     lags = _effective_lags(train_data)
     X, y = create_supervised_data(train_data, lags=lags)
     model.fit(X, y)
-    history = list(train_data)
-    test_preds = []
-    for actual in test_data:
-        x = np.array([history[-i] for i in range(1, lags + 1)]).reshape(1, -1)
-        test_preds.append(float(model.predict(x)[0]))
-        history.append(actual)
-    test_preds = np.array(test_preds)
+    full = np.concatenate([np.asarray(train_data, dtype=float), np.asarray(test_data, dtype=float)])
+    # Las columnas del modelo son lag_1 (más reciente) … lag_k: ventanas con la más reciente primero.
+    multi = recursive_multi(model.predict, full, len(train_data), lags,
+                            horizons=tuple(sorted(set(horizons) | {1})), newest_first=True)
+    test_preds = np.asarray(multi[1], dtype=float)      # h = 1: un paso adelante con el valor real
     forecast_next = _recursive_predict(model, list(train_data) + list(test_data), forecast_steps, lags)
-    return _compute_metrics(test_preds, test_data, name), test_preds, forecast_next
+    return _compute_metrics(test_preds, test_data, name), test_preds, forecast_next, multi
 
 
-def train_linear_regression(train_data, test_data, forecast_steps=1):
-    return _fit_predict(LinearRegression(), "Regresión Lineal", train_data, test_data, forecast_steps)
+def train_linear_regression(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
+    return _fit_predict(LinearRegression(), "Regresión Lineal", train_data, test_data, forecast_steps, horizons)
 
 
-def train_random_forest(train_data, test_data, forecast_steps=1):
+def train_random_forest(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
     return _fit_predict(RandomForestRegressor(n_estimators=100, random_state=42),
-                        "Random Forest", train_data, test_data, forecast_steps)
+                        "Random Forest", train_data, test_data, forecast_steps, horizons)
 
 ══════════════════════════════════════════════════════════════════════
 
@@ -5730,19 +6852,20 @@ def train_random_forest(train_data, test_data, forecast_steps=1):
 """Pipeline de entrenamiento y evaluación de los 7 modelos de pronóstico.
 
 Protocolo uniforme: todos los modelos se estiman solo con el conjunto de
-entrenamiento y se evalúan a un paso adelante sobre el conjunto de prueba,
-actualizando su estado con el valor real del día anterior. El modelo ingenuo
-(paseo aleatorio) es la referencia contra la que se contrasta cada modelo con
-la prueba de Diebold-Mariano.
+entrenamiento y se evalúan sobre el conjunto de prueba con origen móvil, a un
+paso adelante (evaluación principal) y a h = 5 y 20 días (``horizons``). El
+modelo ingenuo (paseo aleatorio) es la referencia contra la que se contrasta
+cada modelo, en cada horizonte, con la prueba de Diebold-Mariano.
 """
 
 import numpy as np
 import pandas as pd
 
-from src.models.ts_models import train_naive, train_sarima, train_holtwinters
+from src.models.ts_models import train_naive, train_sarima, train_holtwinters, _compute_metrics
 from src.models.ml_models import train_linear_regression, train_random_forest
 from src.models.dl_models import train_rnn, train_lstm
 from src.models.evaluation import diebold_mariano
+from src.models.horizons import HORIZONS, targets
 
 MODELS = [
     ("Naive",            train_naive),
@@ -5755,6 +6878,7 @@ MODELS = [
 ]
 REFERENCE = "Naive"
 DM_ALPHA = 0.05
+DL_MODELS = {"RNN", "LSTM"}
 
 
 def _dm_verdict(stat, p):
@@ -5765,16 +6889,23 @@ def _dm_verdict(stat, p):
     return "sin diferencia"
 
 
-def train_and_evaluate(df, forecast_steps=1, test_size=5):
+def _nan_row(name, h):
+    return {"Modelo": name, "h": h, "n_eval": 0, "MAE": float("nan"), "RMSE": float("nan"),
+            "MAPE": float("nan"), "R^2": float("nan"), "DM": float("nan"), "DM p-valor": float("nan"),
+            "Veredicto": "n/a"}
+
+
+def train_and_evaluate(df, forecast_steps=1, test_size=5, horizons=HORIZONS, seed=0):
     """Entrena los 7 modelos sobre ``df`` y devuelve métricas, pronósticos y series.
 
     Returns
     -------
     tuple
-        ``(metrics_df, forecast_values, train_series, test_series, predictions_dict)``
-        ``metrics_df`` incluye las columnas ``DM`` (estadístico de Diebold-Mariano
-        frente al modelo ingenuo, negativo = menor error), ``DM p-valor`` y
-        ``Veredicto``.
+        ``(metrics_df, forecast_values, train_series, test_series, predictions_dict, horizons_df)``
+        ``metrics_df`` (evaluación a un paso) incluye ``DM``, ``DM p-valor`` y
+        ``Veredicto`` frente al modelo ingenuo; ``horizons_df`` repite las métricas
+        y el contraste para cada horizonte ``h`` (formato largo: una fila por
+        modelo y horizonte, con ``n_eval`` orígenes evaluados).
     """
     ts = df["Close"].values
     if test_size >= len(ts):
@@ -5782,13 +6913,18 @@ def train_and_evaluate(df, forecast_steps=1, test_size=5):
 
     train_data = ts[:-test_size]
     test_data  = ts[-test_size:]
+    horizons = tuple(sorted(set(int(h) for h in horizons) | {1}))
 
-    metrics, preds, fcs = [], {}, {}
+    metrics, preds, fcs, multis = [], {}, {}, {}
     for name, fn in MODELS:
-        m, p, fc = fn(train_data, test_data, forecast_steps)
+        kwargs = {"horizons": horizons}
+        if name in DL_MODELS:
+            kwargs["seed"] = seed
+        m, p, fc, multi = fn(train_data, test_data, forecast_steps, **kwargs)
         metrics.append(m)
         preds[name] = np.asarray(p, dtype=float)
         fcs[name] = fc
+        multis[name] = multi or {}
 
     ref = preds[REFERENCE]
     for m in metrics:
@@ -5803,6 +6939,28 @@ def train_and_evaluate(df, forecast_steps=1, test_size=5):
 
     metrics_df = pd.DataFrame(metrics)
 
+    # Evaluación por horizonte (h = 1 reproduce metrics_df)
+    rows = []
+    for h in horizons:
+        y_h = targets(test_data, h)
+        ref_h = multis[REFERENCE].get(h)
+        for name, _ in MODELS:
+            p_h = multis[name].get(h)
+            if p_h is None or len(y_h) == 0 or len(p_h) != len(y_h) or not np.isfinite(p_h).any():
+                rows.append(_nan_row(name, h))
+                continue
+            mm = _compute_metrics(p_h, y_h, name)
+            if name == REFERENCE or ref_h is None:
+                stat, pv = float("nan"), float("nan")
+            else:
+                stat, pv = diebold_mariano(y_h, p_h, ref_h, h=h)
+            rows.append({"Modelo": name, "h": h, "n_eval": int(len(y_h)),
+                         **{k: mm[k] for k in ("MAE", "RMSE", "MAPE", "R^2")},
+                         "DM": round(stat, 3) if np.isfinite(stat) else float("nan"),
+                         "DM p-valor": round(pv, 4) if np.isfinite(pv) else float("nan"),
+                         "Veredicto": "referencia" if name == REFERENCE else _dm_verdict(stat, pv)})
+    horizons_df = pd.DataFrame(rows)
+
     n_train = len(train_data)
     n_test  = len(test_data)
 
@@ -5816,7 +6974,7 @@ def train_and_evaluate(df, forecast_steps=1, test_size=5):
     test_series  = _to_list([None] * n_train + test_data.tolist())
     predictions_dict = {name: [None] * n_train + _to_list(preds[name].tolist()) for name, _ in MODELS}
 
-    return metrics_df, fcs, train_series, test_series, predictions_dict
+    return metrics_df, fcs, train_series, test_series, predictions_dict, horizons_df
 
 ══════════════════════════════════════════════════════════════════════
 
@@ -5855,12 +7013,18 @@ def add_ranking(metrics_df):
 Protocolo de evaluación (idéntico al de los modelos ML/DL): los parámetros se
 estiman únicamente con el conjunto de entrenamiento y, sobre el conjunto de
 prueba, cada predicción es a un paso adelante actualizando el estado del modelo
-con el valor real observado el día anterior.
+con el valor real observado el día anterior. Además, cada modelo devuelve sus
+pronósticos a h pasos (h = 1, 5, 20) con origen móvil (``src/models/horizons.py``).
+
+Cada función devuelve ``(metrics, predictions, forecast_next, multi)`` donde
+``multi`` es ``{h: predicciones a h pasos}``.
 """
 
 import numpy as np
 import math
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+from src.models.horizons import HORIZONS, naive_multi, sarima_multi, hw_multi
 
 try:
     from pmdarima import auto_arima as _pm_auto_arima
@@ -5901,15 +7065,15 @@ def _empty_metrics(model_name, n_test, forecast_steps):
         "MAPE": float("nan"),
         "R^2": float("nan"),
     }
-    return metrics, np.full(n_test, float("nan")), [None] * forecast_steps
+    return metrics, np.full(n_test, float("nan")), [None] * forecast_steps, {}
 
 
 # ---------------------------------------------------------------------------
 # Modelo ingenuo (referencia): el pronóstico de mañana es el valor de hoy
 # ---------------------------------------------------------------------------
 
-def train_naive(train_data, test_data, forecast_steps=1):
-    """Pronóstico ingenuo (paseo aleatorio sin deriva), un paso adelante."""
+def train_naive(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
+    """Pronóstico ingenuo (paseo aleatorio sin deriva): ŷ_{t+h} = y_t."""
     if len(train_data) < 1 or len(test_data) == 0:
         return _empty_metrics("Naive", len(test_data), forecast_steps)
     history = np.concatenate([np.asarray(train_data, dtype=float), np.asarray(test_data, dtype=float)])
@@ -5917,14 +7081,14 @@ def train_naive(train_data, test_data, forecast_steps=1):
     predictions = history[n - 1:n - 1 + len(test_data)]
     forecast_next = [float(history[-1])] * forecast_steps
     metrics = _compute_metrics(predictions, test_data, "Naive")
-    return metrics, np.array(predictions), forecast_next
+    return metrics, np.array(predictions), forecast_next, naive_multi(train_data, test_data, horizons)
 
 
 # ---------------------------------------------------------------------------
 # SARIMA con auto_arima (con fallback a SARIMAX fijo si pmdarima no está)
 # ---------------------------------------------------------------------------
 
-def _sarima_one_step(res, train_data, test_data, forecast_steps):
+def _sarima_one_step(res, train_data, test_data, forecast_steps, horizons=HORIZONS):
     """Predicción a un paso sobre test con parámetros fijos (estimados en train).
 
     ``res.append`` incorpora las observaciones de prueba al filtro de Kalman sin
@@ -5936,10 +7100,11 @@ def _sarima_one_step(res, train_data, test_data, forecast_steps):
     pred = res_ext.get_prediction(start=n, end=n + len(test_data) - 1)
     predictions = np.asarray(pred.predicted_mean, dtype=float)
     forecast_next = np.asarray(res_ext.forecast(steps=forecast_steps), dtype=float).tolist()
-    return predictions, forecast_next
+    multi = sarima_multi(res_ext, n, len(test_data), horizons)
+    return predictions, forecast_next, multi
 
 
-def train_sarima(train_data, test_data, forecast_steps=1):
+def train_sarima(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
     """Entrena SARIMA usando auto_arima (selección automática de órdenes)."""
     if len(train_data) < 5 or len(test_data) == 0:
         return _empty_metrics("SARIMA", len(test_data), forecast_steps)
@@ -5969,9 +7134,9 @@ def train_sarima(train_data, test_data, forecast_steps=1):
                 enforce_invertibility=False,
             ).fit(disp=False)
 
-        predictions, forecast_next = _sarima_one_step(res, train_data, test_data, forecast_steps)
+        predictions, forecast_next, multi = _sarima_one_step(res, train_data, test_data, forecast_steps, horizons)
         metrics = _compute_metrics(predictions, test_data, "SARIMA")
-        return metrics, predictions, forecast_next
+        return metrics, predictions, forecast_next, multi
 
     except Exception:
         return _empty_metrics("SARIMA", len(test_data), forecast_steps)
@@ -5981,7 +7146,7 @@ def train_sarima(train_data, test_data, forecast_steps=1):
 # Holt-Winters
 # ---------------------------------------------------------------------------
 
-def train_holtwinters(train_data, test_data, forecast_steps=1):
+def train_holtwinters(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
     """Entrena un modelo Holt-Winters y devuelve métricas y pronósticos."""
     if len(train_data) < 4 or len(test_data) == 0:
         return _empty_metrics("Holt-Winters", len(test_data), forecast_steps)
@@ -6011,12 +7176,142 @@ def train_holtwinters(train_data, test_data, forecast_steps=1):
         )
         predictions = np.asarray(fixed.fittedvalues, dtype=float)[n:]
         forecast_next = np.asarray(fixed.forecast(forecast_steps), dtype=float).tolist()
+        multi = hw_multi(fixed, seasonal, 12, n, len(test_data), horizons)
 
         metrics = _compute_metrics(predictions, test_data, "Holt-Winters")
-        return metrics, predictions, forecast_next
+        return metrics, predictions, forecast_next, multi
 
     except Exception:
         return _empty_metrics("Holt-Winters", len(test_data), forecast_steps)
+
+══════════════════════════════════════════════════════════════════════
+
+══ ARCHIVO: src\provenance.py ════════════════════════════════════════════════
+
+"""Sello de procedencia: qué datos, qué versiones y qué parámetros produjeron cada resultado.
+
+Dos corridas que difieren deben poder explicarse: distinta serie (hash), distinta
+versión de una librería, distinta semilla o distinto commit del código.
+"""
+
+import hashlib
+import os
+import platform
+import subprocess
+from datetime import datetime, timezone
+
+import numpy
+import pandas
+import scipy
+import sklearn
+import statsmodels
+
+from src.version import APP_VERSION
+
+try:
+    import pmdarima
+    _PMDARIMA = pmdarima.__version__
+except ImportError:                                     # pragma: no cover
+    _PMDARIMA = "no disponible"
+try:
+    import torch
+    _TORCH = torch.__version__
+except ImportError:                                     # pragma: no cover
+    _TORCH = "no disponible"
+try:
+    import yfinance
+    _YFINANCE = yfinance.__version__
+except ImportError:                                     # pragma: no cover
+    _YFINANCE = "no disponible"
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+HYPERPARAMS = [
+    ("Naive",            "Paseo aleatorio sin deriva; sin parámetros."),
+    ("SARIMA",           "auto_arima (pmdarima): p,q ≤ 3; P,Q ≤ 1; m = 5; criterio AIC; búsqueda stepwise."),
+    ("Holt-Winters",     "Tendencia aditiva; estacionalidad multiplicativa de periodo 12 (si n ≥ 24); parámetros optimizados en entrenamiento."),
+    ("Regresión Lineal", "Mínimos cuadrados con 5 rezagos (mín(5, n/4))."),
+    ("Random Forest",    "100 árboles; 5 rezagos; random_state = 42."),
+    ("RNN",              "50 unidades tanh; ventana 20; Adam; MSE; 50 épocas; lote 16; MinMaxScaler ajustado en entrenamiento."),
+    ("LSTM",             "50 unidades; ventana 20; Adam; MSE; 50 épocas; lote 16; MinMaxScaler ajustado en entrenamiento."),
+]
+
+PROTOCOL = ("Parámetros estimados solo con el conjunto de entrenamiento. Sobre el conjunto de prueba, "
+            "pronóstico con origen móvil a h = 1, 5 y 20 días: cada pronóstico usa únicamente los valores "
+            "reales observados hasta el origen (SARIMA por su representación de espacio de estados, "
+            "Holt-Winters por sus ecuaciones de estado, ML/DL de forma recursiva). Cada modelo se contrasta "
+            "contra el modelo ingenuo con la prueba de Diebold-Mariano (corrección HLN) al 5 %.")
+
+
+def _git_commit():
+    env = os.environ.get("GIT_COMMIT", "").strip()
+    if env:
+        return env
+    try:
+        out = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
+                             capture_output=True, text=True, timeout=3)
+        return out.stdout.strip() or "n/d"
+    except Exception:
+        return "n/d"
+
+
+GIT_COMMIT = _git_commit()
+BUILD_TIME = os.environ.get("BUILD_TIME", "n/d")
+
+VERSIONS = {
+    "Python":       platform.python_version(),
+    "numpy":        numpy.__version__,
+    "pandas":       pandas.__version__,
+    "scipy":        scipy.__version__,
+    "scikit-learn": sklearn.__version__,
+    "statsmodels":  statsmodels.__version__,
+    "pmdarima":     _PMDARIMA,
+    "torch":        _TORCH,
+    "yfinance":     _YFINANCE,
+}
+
+
+def series_hash(df):
+    """SHA-256 de la serie (fecha y cierre a 6 decimales): identifica los datos usados."""
+    lines = "\n".join(f"{d.strftime('%Y-%m-%d')},{float(c):.6f}" for d, c in zip(df["Date"], df["Close"]))
+    return hashlib.sha256(lines.encode("utf-8")).hexdigest()
+
+
+def build_provenance(df, source_meta, test_size, seed=0, horizons=(1, 5, 20)):
+    """Diccionario con todo lo necesario para reproducir (o explicar) un resultado."""
+    n = len(df)
+    sha = series_hash(df)
+    return {
+        "app_version":  APP_VERSION,
+        "git_commit":   GIT_COMMIT,
+        "build_time":   BUILD_TIME,
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "source":       source_meta.get("source", "yahoo"),
+        "source_label": source_meta.get("label", ""),
+        "downloaded_at": source_meta.get("downloaded_at", ""),
+        "source_note":  source_meta.get("note", ""),
+        "ticker":       "USDMXN=X",
+        "n":            n,
+        "n_train":      n - test_size,
+        "n_test":       test_size,
+        "first_date":   df["Date"].iloc[0].strftime("%Y-%m-%d") if n else "",
+        "last_date":    df["Date"].iloc[-1].strftime("%Y-%m-%d") if n else "",
+        "sha256":       sha,
+        "sha256_short": sha[:16],
+        "seed":         seed,
+        "horizons":     list(horizons),
+        "versions":     dict(VERSIONS),
+        "hyperparams":  list(HYPERPARAMS),
+        "protocol":     PROTOCOL,
+    }
+
+══════════════════════════════════════════════════════════════════════
+
+══ ARCHIVO: src\version.py ═══════════════════════════════════════════════════
+
+"""Versión de la plataforma (se muestra en el sello de procedencia)."""
+
+APP_VERSION = "2.1.0"
 
 ══════════════════════════════════════════════════════════════════════
 

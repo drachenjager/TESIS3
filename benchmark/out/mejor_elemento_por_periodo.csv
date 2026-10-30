@@ -1,0 +1,7 @@
+﻿P,Elemento,Periodo,Test %,Modelo,MAE,R^2,MAE Naive,R^2 Naive,Veredicto DM
+P1,"P1,T9",3 meses,50,Holt-Winters,0.036,0.9401,0.0481,0.8944,mejor que Naive
+P2,"P2,T7",6 meses,40,SARIMA,0.0501,0.9075,0.0501,0.9075,
+P3,"P3,T7",1 año,40,Regresión Lineal,0.0529,0.9121,0.0523,0.9154,sin diferencia
+P4,"P4,T8",2 años,45,SARIMA,0.0757,0.9808,0.0744,0.9816,sin diferencia
+P5,"P5,T9",5 años,50,SARIMA,0.0966,0.9882,0.0966,0.9882,
+P6,"P6,T8",10 años,45,SARIMA,0.0945,0.9899,0.0945,0.9899,

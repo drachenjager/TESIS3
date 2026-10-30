@@ -2,6 +2,7 @@ tesis-forecast/
 ├── app/
 │   ├── routes/
 │   │   ├── __init__.py
+│   │   ├── banco.py
 │   │   ├── exports.py
 │   │   └── main.py
 │   ├── static/
@@ -11,6 +12,7 @@ tesis-forecast/
 │   │   └── js/
 │   │       └── main.js
 │   ├── templates/
+│   │   ├── banco.html
 │   │   ├── forecast_vs_real.html
 │   │   ├── index.html
 │   │   ├── plot.html
@@ -32,12 +34,17 @@ tesis-forecast/
 ├── data/
 ├── notebooks/
 ├── scripts/
+│   ├── build_published.py
 │   ├── export_apendice.py
 │   └── make_favicon.py
 ├── src/
+│   ├── benchmark_data/
+│   │   └── resultados_tesis.json
 │   ├── data/
 │   │   ├── __init__.py
-│   │   └── fetch.py
+│   │   ├── fetch.py
+│   │   ├── frozen.py
+│   │   └── usdmxn_tesis.csv
 │   ├── features/
 │   │   ├── __init__.py
 │   │   └── build.py
@@ -45,11 +52,14 @@ tesis-forecast/
 │   │   ├── __init__.py
 │   │   ├── dl_models.py
 │   │   ├── evaluation.py
+│   │   ├── horizons.py
 │   │   ├── ml_models.py
 │   │   ├── pipeline.py
 │   │   ├── ranking.py
 │   │   └── ts_models.py
-│   └── __init__.py
+│   ├── __init__.py
+│   ├── provenance.py
+│   └── version.py
 ├── .dockerignore
 ├── .gcloudignore
 ├── .gitignore

@@ -25,6 +25,42 @@ from src.models.ranking import add_ranking
 
 bp = Blueprint("exports", __name__)
 
+_VERDICT_SHORT = {"mejor que Naive": "mejor", "peor que Naive": "peor", "sin diferencia": "sin dif.",
+                  "referencia": "ref.", "n/a": "—"}
+_PDF_GLYPHS = {"≤": "<=", "≥": ">=", "→": "a", "·": "-"}
+
+
+def _pdf_safe(text):
+    """Las fuentes base de reportlab (Helvetica) no tienen ≤, ≥ ni →: se sustituyen."""
+    text = str(text)
+    for k, v in _PDF_GLYPHS.items():
+        text = text.replace(k, v)
+    return text
+
+
+def _provenance_rows(prov, compact=False):
+    """Pares (campo, valor) del sello de procedencia para Excel y PDF."""
+    rows = [
+        ("Plataforma", f"v{prov['app_version']} · commit {prov['git_commit']}"
+                       + (f" · build {prov['build_time']}" if prov.get("build_time") not in (None, "n/d") else "")),
+        ("Generado", prov["generated_at"]),
+        ("Fuente de datos", prov["source_label"]),
+        ("Descarga", prov["downloaded_at"]),
+        ("Serie", f"{prov['ticker']} · {prov['first_date']} → {prov['last_date']} · n = {prov['n']} "
+                  f"(entrenamiento {prov['n_train']}, prueba {prov['n_test']})"),
+        ("SHA-256 de la serie", prov["sha256"]),
+        ("Semilla (RNN/LSTM)", str(prov["seed"])),
+        ("Horizontes", ", ".join(str(h) for h in prov["horizons"])),
+        ("Protocolo", prov["protocol"]),
+    ]
+    versions = prov["versions"]
+    if compact:
+        rows.append(("Versiones", " · ".join(f"{k} {v}" for k, v in versions.items())))
+    else:
+        rows.extend((f"Versión {k}", str(v)) for k, v in versions.items())
+    rows.extend((f"Hiperparámetros {name}", desc) for name, desc in prov["hyperparams"])
+    return rows
+
 matplotlib.rcParams.update({
     "font.family":        "DejaVu Sans",
     "axes.spines.top":    False,
@@ -231,6 +267,17 @@ def download_excel():
                 "values":     ["Datos", 1, idx + 1, len(df), idx + 1],
             })
         worksheet.insert_chart("F2", chart)
+
+        # Métricas (un paso), horizontes y sello de procedencia
+        mdf, _ = add_ranking(cached["metrics_df"])
+        mdf.to_excel(writer, index=False, sheet_name="Métricas")
+        hdf = cached.get("horizons_df")
+        if hdf is not None:
+            hdf.to_excel(writer, index=False, sheet_name="Horizontes")
+        prov = cached.get("provenance")
+        if prov:
+            pd.DataFrame(_provenance_rows(prov), columns=["Campo", "Valor"]).to_excel(
+                writer, index=False, sheet_name="Procedencia")
     output.seek(0)
 
     return send_file(
@@ -311,6 +358,7 @@ def download_pdf():
         ["Fecha de generación:", now_str],
         ["Autor:", "Ing. Ricardo Javier Martínez Suástegui"],
         ["Mejor modelo:", best_model],
+        ["Datos:", _pdf_safe((cached.get("provenance") or {}).get("source_label", "Yahoo Finance"))],
     ], colWidths=[4.5*cm, AVAIL_W - 4.5*cm])
     meta.setStyle(TableStyle([
         ("FONT",          (0,0), (0,-1), "Helvetica-Bold", 8),
@@ -373,6 +421,55 @@ def download_pdf():
         "Evaluación a un paso adelante; DM p = p-valor de la prueba de Diebold-Mariano frente al modelo ingenuo (Naive).",
         small_s,
     ))
+
+    # ── Sección 1b: Error por horizonte de pronóstico ───────────────────────
+    hdf = cached.get("horizons_df")
+    if hdf is not None and len(hdf):
+        hs = sorted(int(h) for h in hdf["h"].unique())
+        story.append(Paragraph("1b. Error por Horizonte de Pronóstico (h = 1, 5 y 20 días)", section_s))
+        neval = " · ".join(f"h = {h}: {int(hdf[hdf['h'] == h]['n_eval'].max())} orígenes" for h in hs)
+        story.append(Paragraph(
+            "Origen móvil sobre el conjunto de prueba: desde cada día, cada modelo pronostica el valor h días "
+            "adelante usando solo la información real hasta ese día (SARIMA y Holt-Winters por sus ecuaciones de "
+            "estado; los modelos de ML/DL de forma recursiva). DM p: prueba de Diebold-Mariano frente a Naive al "
+            "mismo horizonte (corrección HLN); no se calcula cuando hay menos de 2h orígenes. "
+            f"Orígenes evaluados — {neval}.", body_s))
+        story.append(Spacer(1, 0.15*cm))
+        h_rows = [["Modelo"] + [f"{lbl} h={h}" for h in hs for lbl in ("MAE", "DM p", "Ver.")]]
+        for name in metrics_df["Modelo"]:
+            row = [str(name)]
+            for h in hs:
+                sub = hdf[(hdf["h"] == h) & (hdf["Modelo"] == name)]
+                if len(sub) == 0 or int(sub.iloc[0]["n_eval"]) == 0:
+                    row += ["—", "—", "—"]
+                else:
+                    r = sub.iloc[0]
+                    row += [_num(r["MAE"], "{:.4f}"), _num(r["DM p-valor"], "{:.3f}"),
+                            _VERDICT_SHORT.get(str(r["Veredicto"]), str(r["Veredicto"]))]
+            h_rows.append(row)
+        h_w = [3.2*cm] + [1.55*cm, 1.45*cm, 1.6*cm] * len(hs)
+        h_tbl = Table(h_rows, colWidths=h_w)
+        hts = [
+            ("BACKGROUND",    (0,0), (-1,0),  UNAM_BLUE),
+            ("TEXTCOLOR",     (0,0), (-1,0),  WHITE),
+            ("FONT",          (0,0), (-1,0),  "Helvetica-Bold", 6.5),
+            ("FONT",          (0,1), (-1,-1), "Helvetica",      7),
+            ("TEXTCOLOR",     (0,1), (-1,-1), DARK),
+            ("ALIGN",         (0,0), (-1,-1), "CENTER"),
+            ("ALIGN",         (0,1), (0,-1),  "LEFT"),
+            ("GRID",          (0,0), (-1,-1), 0.4, HexColor("#D6DCE8")),
+            ("TOPPADDING",    (0,0), (-1,-1), 4),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+            ("LEFTPADDING",   (0,0), (-1,-1), 4),
+            ("RIGHTPADDING",  (0,0), (-1,-1), 4),
+        ]
+        for r in range(1, len(h_rows)):
+            if r % 2 == 0:
+                hts.append(("BACKGROUND", (0, r), (-1, r), UNAM_LIGHT))
+        for j in range(len(hs)):
+            hts.append(("LINEBEFORE", (1 + 3*j, 0), (1 + 3*j, -1), 1.0, UNAM_GOLD))
+        h_tbl.setStyle(TableStyle(hts))
+        story.append(h_tbl)
 
     # ── Sección 2: Semáforo de riesgo ───────────────────────────────────────
     story.append(Paragraph("2. Semáforo de Riesgo Cambiario", section_s))
@@ -455,6 +552,28 @@ def download_pdf():
     ]:
         story.append(Paragraph(f"• {item}", body_s))
         story.append(Spacer(1, 0.1*cm))
+
+    # ── Sección 7: Procedencia y reproducibilidad ───────────────────────────
+    prov = cached.get("provenance")
+    if prov:
+        story.append(Paragraph("7. Procedencia y Reproducibilidad", section_s))
+        story.append(Paragraph(
+            "Datos, versiones y parámetros con los que se generó este reporte; permiten reproducir el "
+            "resultado o explicar por qué otra corrida difiere.", body_s))
+        story.append(Spacer(1, 0.15*cm))
+        p_rows = [[Paragraph(f"<b>{k}</b>", small_s), Paragraph(_pdf_safe(v), small_s)]
+                  for k, v in _provenance_rows(prov, compact=True)]
+        p_tbl = Table(p_rows, colWidths=[4.2*cm, AVAIL_W - 4.2*cm])
+        p_tbl.setStyle(TableStyle([
+            ("GRID",          (0,0), (-1,-1), 0.3, HexColor("#D6DCE8")),
+            ("BACKGROUND",    (0,0), (0,-1),  UNAM_LIGHT),
+            ("VALIGN",        (0,0), (-1,-1), "TOP"),
+            ("TOPPADDING",    (0,0), (-1,-1), 3),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+            ("LEFTPADDING",   (0,0), (-1,-1), 6),
+            ("RIGHTPADDING",  (0,0), (-1,-1), 6),
+        ]))
+        story.append(p_tbl)
 
     # ── Pie de página ────────────────────────────────────────────────────────
     story.append(Spacer(1, 0.4*cm))

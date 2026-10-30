@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Banco de pruebas — Pronóstico USD/MXN — UNAM</title>
+    <!-- Bootstrap base (sin tema Bootswatch) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css" />
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<!-- Filtro SVG para colorear el logo UNAM en RGB(203,168,71) exacto.
+     Fórmula: out = objetivo × luminancia(R,G,B)
+     R_out = 0.796×(0.2126R + 0.7152G + 0.0722B)
+     G_out = 0.659×(0.2126R + 0.7152G + 0.0722B)
+     B_out = 0.278×(0.2126R + 0.7152G + 0.0722B) -->
+<svg aria-hidden="true" focusable="false"
+     style="position:absolute;width:0;height:0;overflow:hidden">
+  <defs>
+    <!-- Fórmula: dorado_out = gold_ratio × (1 − luminancia)
+         → píxeles oscuros (escudo) → dorado brillante
+         → píxeles claros (fondo blanco) → negro (invisible sobre header azul)
+         R = −0.1692r − 0.5693g − 0.0575b + 0.796
+         G = −0.1401r − 0.4713g − 0.0476b + 0.659
+         B = −0.0591r − 0.1988g − 0.0201b + 0.278 -->
+    <filter id="unam-gold-filter" color-interpolation-filters="sRGB">
+      <feColorMatrix type="matrix" values="
+        -0.1692  -0.5693  -0.0575  0  0.796
+        -0.1401  -0.4713  -0.0476  0  0.659
+        -0.0591  -0.1988  -0.0201  0  0.278
+         0        0        0       1  0"/>
+    </filter>
+  </defs>
+</svg>
+
+<!-- ============================================================
+     ENCABEZADO INSTITUCIONAL
+     ============================================================ -->
+<header class="site-header">
+
+    <!-- ── Banda principal ──────────────────────────────────────── -->
+    <div class="header-inner">
+
+        <!-- Logo UNAM (izquierda) -->
+        <div class="header-logo-wrap">
+            <img src="{{ url_for('static', filename='img/unam_logo.png') }}"
+                 alt="Universidad Nacional Autónoma de México"
+                 class="header-logo-img header-logo-unam" />
+        </div>
+
+        <!-- Texto central -->
+        <div class="header-text">
+            <p class="header-institution">Universidad Nacional Autónoma de México &nbsp;·&nbsp; Facultad de Ingeniería</p>
+            <h1 class="header-title">Pronóstico del Tipo de Cambio USD/MXN</h1>
+            <p class="header-subtitle">Estudio comparativo entre métodos tradicionales, machine learning y deep learning por horizonte temporal</p>
+        </div>
+
+        <!-- Logo Facultad de Ingeniería (derecha) -->
+        <div class="header-logo-wrap">
+            <img src="{{ url_for('static', filename='img/fi_escudo.png') }}"
+                 alt="Facultad de Ingeniería UNAM"
+                 class="header-logo-img" />
+        </div>
+
+    </div>
+
+    <!-- ── Cinta inferior: Posgrado ─────────────────────────────── -->
+    <div class="header-subribbon">
+        <div class="header-subribbon-inner">
+            <img src="{{ url_for('static', filename='img/posgrado_logo.png') }}"
+                 alt="UNAM Posgrado"
+                 class="posgrado-logo-img" />
+            <span class="header-ribbon-badge">Maestría &nbsp;·&nbsp; 2026</span>
+        </div>
+    </div>
+
+</header>
+
+<!-- Navegación secundaria -->
+<nav class="page-main" style="padding-top:14px; padding-bottom:0; font-size:0.86rem;">
+    <a href="{{ url_for('main.index') }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">Inicio</a>
+    <span style="color:var(--text-muted);">&nbsp;·&nbsp;</span>
+    <a href="{{ url_for('banco.banco') }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">Banco de pruebas de la tesis (54 experimentos)</a>
+</nav>
+
+<!-- ============================================================
+     CONTENIDO PRINCIPAL — BANCO DE PRUEBAS
+     ============================================================ -->
+<main class="page-main">
+
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 6a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1v-2zm0 6a1 1 0 011-1h12a1 1 0 011 1v1a1 1 0 01-1 1H4a1 1 0 01-1-1v-1z"/>
+            </svg>
+            <h2>Banco de Pruebas de la Tesis — 54 experimentos reproducibles</h2>
+        </div>
+        <div class="card-body-unam">
+            <p style="font-size:0.86rem; color:var(--text-secondary); line-height:1.7; margin-bottom:14px;">
+                Resultados publicados en el Capítulo 4 y el Apéndice C: 6 longitudes de historia (P1–P6, de 3 meses a 10 años)
+                × 9 particiones de prueba (T1–T9, de 10 % a 50 %), todas ancladas al <strong>{{ anchor }}</strong> con la serie
+                congelada. {{ pub.protocol }}
+            </p>
+            <div class="forecast-grid">
+                <div class="forecast-item">
+                    <div class="forecast-model">Naive en primer lugar o empatado</div>
+                    <div class="forecast-value">{{ pub.summary.naive_rank1 }} / {{ pub.summary.n_elements }}</div>
+                </div>
+                <div class="forecast-item">
+                    <div class="forecast-model">Mejor que Naive con significancia</div>
+                    <div class="forecast-value">{{ pub.summary.better_than_naive|length }} / {{ pub.summary.n_elements * 6 }}
+                        <span style="font-size:0.72rem; font-weight:400; display:block; color:var(--text-muted);">
+                        {% for b in pub.summary.better_than_naive %}{{ b.modelo }} en {{ b.elemento }} (p = {{ '%.3f'|format(b.p) }}){% endfor %}</span>
+                    </div>
+                </div>
+                {% for name, k in worse %}
+                <div class="forecast-item">
+                    <div class="forecast-model">{{ name }} peor que Naive</div>
+                    <div class="forecast-value">{{ k }} / 54</div>
+                </div>
+                {% endfor %}
+            </div>
+            <p style="font-size:0.84rem; color:var(--text-secondary); line-height:1.7; margin-top:14px;">
+                Cada elemento puede <strong>re-ejecutarse ahora</strong> con la serie congelada (reproduce el Apéndice C) o con datos
+                descargados en vivo de Yahoo Finance; la plataforma muestra lado a lado el valor publicado y el reproducido y permite
+                abrir la gráfica, los residuales y el reporte PDF de la corrida. Las corridas de 5 y 10 años tardan entre 1 y 3 minutos.
+            </p>
+        </div>
+    </div>
+
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M5 4a3 3 0 00-3 3v6a3 3 0 003 3h10a3 3 0 003-3V7a3 3 0 00-3-3H5zm-1 9v-1h5v2H5a1 1 0 01-1-1zm7 1h4a1 1 0 001-1v-1h-5v2zm0-4h5V8h-5v2zM9 8H4v2h5V8z" clip-rule="evenodd"/>
+            </svg>
+            <h2>Matriz de experimentos — mejor modelo entre los seis propuestos (MAE) y referencia Naive</h2>
+        </div>
+        <div class="card-body-unam">
+            <div class="table-responsive">
+            <table style="border-collapse:collapse; width:100%; font-size:0.78rem;">
+                <thead>
+                    <tr style="background:linear-gradient(90deg,#003087,#005EB8); color:#fff;">
+                        <th style="padding:8px 10px; text-align:left;">Historia</th>
+                        {% for T, pct in pub.tests.items() %}
+                        <th style="padding:8px; text-align:center; border-left:1px solid rgba(255,255,255,0.25);">{{ T }}<br><span style="font-weight:400;">{{ pct }} %</span></th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                {% for row in matrix %}
+                    <tr style="border-bottom:1px solid #D6DCE8;">
+                        <td style="padding:8px 10px; font-weight:700; white-space:nowrap;">{{ row.P }} · {{ row.label }}</td>
+                        {% for c in row.cells %}
+                        <td style="padding:6px; text-align:center; vertical-align:top; border-left:1px solid #D6DCE8;
+                                   {% if c.significant %}background:rgba(26,115,64,0.14);{% elif c.naive_best %}background:rgba(0,48,135,0.05);{% endif %}">
+                            <a href="#{{ c.anchor }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">{{ c.winners|join(' / ') }}</a><br>
+                            <span style="font-variant-numeric:tabular-nums;">{{ '%.4f'|format(c.mae) if c.mae is not none else '—' }}</span><br>
+                            <span style="color:var(--text-muted); font-size:0.7rem;">Naive {{ '%.4f'|format(c.naive_mae) }}</span>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:10px; line-height:1.6;">
+                Cada celda muestra el modelo con Rank 1 entre los seis propuestos (criterio del Capítulo 4) y su MAE, y debajo el MAE del
+                modelo ingenuo. Fondo verde: algún modelo supera a Naive con significancia (DM, p &lt; 0.05). Fondo azul tenue: Naive en
+                primer lugar o empatado en el ranking con los 7 modelos. Haz clic en un modelo para ver la tabla completa del elemento.
+            </p>
+        </div>
+    </div>
+
+    {% for row in matrix %}
+    <div class="card-unam" id="{{ row.P }}">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-4a1 1 0 011-1h2a1 1 0 011 1v13a1 1 0 01-1 1h-2a1 1 0 01-1-1V3z"/>
+            </svg>
+            <h2>Horizonte de {{ row.label }} ({{ row.P }})</h2>
+        </div>
+        <div class="card-body-unam">
+        {% for c in row.cells %}{% set e = pub.elements[c.el] %}
+            <div id="{{ c.anchor }}" style="margin-bottom:26px; padding-top:4px;">
+                <p class="section-label">
+                    Elemento {{ c.el }} — {{ e.periodo }}, {{ e.test_pct }} % de prueba · n = {{ e.n }} (entrenamiento {{ e.n_train }}, prueba {{ e.n_test }})
+                    · {{ e.fecha_inicio }} → {{ e.fecha_fin }} · auto_arima {{ e.sarima_order }}
+                </p>
+                <div class="table-responsive">
+                <table style="border-collapse:collapse; width:100%; font-size:0.8rem;">
+                    <thead>
+                        <tr style="background:#003087; color:#fff; font-size:0.7rem; letter-spacing:0.06em; text-transform:uppercase;">
+                            <th style="padding:6px 8px; text-align:left;">Modelo</th><th style="padding:6px 8px;">MAE</th><th style="padding:6px 8px;">RMSE</th>
+                            <th style="padding:6px 8px;">MAPE</th><th style="padding:6px 8px;">R²</th><th style="padding:6px 8px;">Rank (6)</th>
+                            <th style="padding:6px 8px;">Rank (7)</th><th style="padding:6px 8px;">DM</th><th style="padding:6px 8px;">p-valor</th><th style="padding:6px 8px;">Veredicto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for m in e.models %}
+                        <tr style="border-bottom:1px solid #D6DCE8; text-align:center; font-variant-numeric:tabular-nums; {% if m.rank7 == 1 %}font-weight:700; background:rgba(200,168,0,0.10);{% endif %}">
+                            <td style="padding:5px 8px; text-align:left;">{{ m.Modelo }}</td>
+                            <td style="padding:5px 8px;">{{ '%.4f'|format(m.MAE) if m.MAE is not none else '—' }}</td>
+                            <td style="padding:5px 8px;">{{ '%.4f'|format(m.RMSE) if m.RMSE is not none else '—' }}</td>
+                            <td style="padding:5px 8px;">{{ '%.4f'|format(m.MAPE) if m.MAPE is not none else '—' }}</td>
+                            <td style="padding:5px 8px;">{{ '%.4f'|format(m['R^2']) if m['R^2'] is not none else '—' }}</td>
+                            <td style="padding:5px 8px;">{{ m.rank6 if m.rank6 else '—' }}</td>
+                            <td style="padding:5px 8px;">{{ m.rank7 }}</td>
+                            <td style="padding:5px 8px;">{{ '%.3f'|format(m.DM) if m.DM is not none else '—' }}</td>
+                            <td style="padding:5px 8px;">{{ '%.4f'|format(m.p) if m.p is not none else '—' }}</td>
+                            <td style="padding:5px 8px; {% if m.veredicto == 'mejor que Naive' %}color:#1A7340; font-weight:700;{% elif m.veredicto == 'peor que Naive' %}color:#C0392B;{% endif %}">{{ m.veredicto }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+                <form method="POST" action="{{ url_for('banco.banco_run') }}" class="rerun-form d-flex flex-wrap gap-2 align-items-center" style="margin-top:8px;">
+                    <input type="hidden" name="element" value="{{ c.el }}">
+                    <select name="data_source" class="form-select" style="max-width:380px; font-size:0.82rem;">
+                        {% for k, v in data_sources.items() %}<option value="{{ k }}" {% if k == 'tesis' %}selected{% endif %}>{{ v }}</option>{% endfor %}
+                    </select>
+                    <button type="submit" class="btn-unam-gold">Re-ejecutar ahora y comparar</button>
+                    <span class="rerun-wait d-none" style="font-size:0.8rem; color:var(--text-muted);">Entrenando los 7 modelos… (5 y 10 años pueden tardar hasta 3 minutos)</span>
+                </form>
+            </div>
+        {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+</main>
+
+<!-- ============================================================
+     PIE DE PÁGINA
+     ============================================================ -->
+<footer class="site-footer">
+    <div class="footer-inner">
+        <p class="footer-copyright">
+            &copy; 2026 &nbsp;<span>Ing. Ricardo Javier Martínez Suástegui</span>
+            &nbsp;— Todos los derechos reservados
+        </p>
+        <p class="footer-institution">
+            Universidad Nacional Autónoma de México &nbsp;·&nbsp;
+            Facultad de Ingeniería &nbsp;·&nbsp; Tesis de Maestría
+        </p>
+        <p class="footer-motto">Por mi raza hablará el espíritu</p>
+    </div>
+</footer>
+
+<script>
+document.querySelectorAll('.rerun-form').forEach(function (f) {
+    f.addEventListener('submit', function () {
+        f.querySelector('button').disabled = true;
+        f.querySelector('.rerun-wait').classList.remove('d-none');
+    });
+});
+</script>
+</body>
+</html>

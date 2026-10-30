@@ -16,7 +16,9 @@ def create_app():
 
     from app.routes.main import bp as main_bp
     from app.routes.exports import bp as exports_bp
+    from app.routes.banco import bp as banco_bp
     app.register_blueprint(main_bp)
     app.register_blueprint(exports_bp)
+    app.register_blueprint(banco_bp)
 
     return app

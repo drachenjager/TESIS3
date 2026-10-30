@@ -80,6 +80,13 @@
 
 </header>
 
+<!-- Navegación secundaria -->
+<nav class="page-main" style="padding-top:14px; padding-bottom:0; font-size:0.86rem;">
+    <a href="{{ url_for('main.index') }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">Inicio</a>
+    <span style="color:var(--text-muted);">&nbsp;·&nbsp;</span>
+    <a href="{{ url_for('banco.banco') }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">Banco de pruebas de la tesis (54 experimentos)</a>
+</nav>
+
 <!-- ============================================================
      CONTENIDO PRINCIPAL
      ============================================================ -->
@@ -252,6 +259,28 @@
                     </div>
                 </div>
 
+                <!-- Fuente de datos -->
+                <div class="mt-4">
+                    <p class="section-label">Fuente de datos</p>
+                    <div class="d-flex gap-4 flex-wrap">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="data_source" id="src_yahoo" value="yahoo"
+                                   {% if data_source != 'tesis' %}checked{% endif %}>
+                            <label class="form-check-label" for="src_yahoo">Yahoo Finance (descarga en vivo)</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="data_source" id="src_tesis" value="tesis"
+                                   {% if data_source == 'tesis' %}checked{% endif %}>
+                            <label class="form-check-label" for="src_tesis">Serie congelada de la tesis (USDMXN=X, 02/11/2015 → 31/12/2025)</label>
+                        </div>
+                    </div>
+                    <p style="font-size:0.78rem; color:var(--text-muted); margin-top:6px; line-height:1.6;">
+                        La serie congelada es la que se usó en los 54 experimentos del Capítulo 4 (descargada el 26/10/2026):
+                        garantiza que los resultados sean reproducibles aunque Yahoo revise sus datos. Con ella, el modo
+                        <em>Periodo predefinido</em> cuenta hacia atrás desde el <strong>01/01/2026</strong> (último cierre disponible: 31/12/2025).
+                    </p>
+                </div>
+
                 <!-- Porcentaje de testing -->
                 <div class="mt-4">
                     <label for="test_percent" class="form-label">Porcentaje para pruebas (1 – 80 %)</label>
@@ -288,7 +317,8 @@
             <div class="alert-unam">
                 <strong>Última consulta:</strong>
                 Periodo: <strong>{{ display_period }}</strong> &nbsp;|&nbsp;
-                Porcentaje de pruebas: <strong>{{ display_test_percent }}%</strong>
+                Porcentaje de pruebas: <strong>{{ display_test_percent }}%</strong> &nbsp;|&nbsp;
+                Datos: <strong>{{ data_sources[data_source] }}</strong>
             </div>
             {% endif %}
         </div>
@@ -298,6 +328,67 @@
     <!-- ============================================================
          TARJETA: Resultados de métricas
          ============================================================ -->
+    {% if banco_compare %}
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+            <h2>Reproducción del elemento {{ banco_compare.element }} — publicado vs. reproducido</h2>
+        </div>
+        <div class="card-body-unam">
+            <p style="font-size:0.84rem; color:var(--text-secondary); margin-bottom:12px; line-height:1.6;">
+                Elemento <strong>{{ banco_compare.element }}</strong>: historia de {{ banco_compare.info.periodo }} anclada al
+                {{ banco_compare.anchor }} ({{ banco_compare.info.fecha_inicio }} → {{ banco_compare.info.fecha_fin }}),
+                {{ banco_compare.info.test_pct }} % de prueba (n = {{ banco_compare.info.n }}; entrenamiento {{ banco_compare.info.n_train }},
+                prueba {{ banco_compare.info.n_test }}). Datos usados ahora: <strong>{{ banco_compare.data_source_label }}</strong>.
+                Resultado: <strong>{{ banco_compare.n_match }} de {{ banco_compare.n_total }}</strong> modelos reproducen el valor
+                publicado en el Apéndice C (|ΔMAE| ≤ 0.002). RNN y LSTM se publican como media de 3 semillas; aquí se comparan
+                con la semilla 0 publicada, que es la que usa la plataforma.
+            </p>
+            <div class="table-responsive">
+            <table style="border-collapse:collapse; width:100%; font-size:0.84rem;">
+                <thead>
+                    <tr style="background:linear-gradient(90deg,#003087,#005EB8); color:#fff;">
+                        <th rowspan="2" style="padding:10px 12px; text-align:left;">Modelo</th>
+                        <th colspan="3" style="padding:8px; text-align:center; border-left:1px solid rgba(255,255,255,0.25);">Publicado (Apéndice C)</th>
+                        <th colspan="3" style="padding:8px; text-align:center; border-left:1px solid rgba(255,255,255,0.25);">Reproducido ahora</th>
+                        <th rowspan="2" style="padding:8px; text-align:center; border-left:1px solid rgba(255,255,255,0.25);">Δ MAE</th>
+                        <th rowspan="2" style="padding:8px; text-align:center;">Estado</th>
+                    </tr>
+                    <tr style="background:#003087; color:#fff; font-size:0.72rem; letter-spacing:0.06em; text-transform:uppercase;">
+                        <th style="padding:6px 8px; border-left:1px solid rgba(255,255,255,0.25);">MAE</th><th style="padding:6px 8px;">R²</th><th style="padding:6px 8px;">DM p</th>
+                        <th style="padding:6px 8px; border-left:1px solid rgba(255,255,255,0.25);">MAE</th><th style="padding:6px 8px;">R²</th><th style="padding:6px 8px;">DM p</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for r in banco_compare.rows %}
+                    <tr style="border-bottom:1px solid #D6DCE8;">
+                        <td style="padding:8px 12px; font-weight:600;">{{ r.Modelo }}{% if r.pub_seed0 %} <span style="font-weight:400; color:var(--text-muted); font-size:0.72rem;">(semilla 0)</span>{% endif %}</td>
+                        <td style="padding:8px; text-align:center; border-left:1px solid #D6DCE8;">{{ '%.4f'|format(r.ref_mae) if r.ref_mae is not none else '—' }}</td>
+                        <td style="padding:8px; text-align:center;">{{ '%.4f'|format(r.ref_r2) if r.ref_r2 is not none else '—' }}</td>
+                        <td style="padding:8px; text-align:center;">{{ '%.4f'|format(r.pub_p) if r.pub_p is not none else '—' }}</td>
+                        <td style="padding:8px; text-align:center; border-left:1px solid #D6DCE8;">{{ '%.4f'|format(r.rep_mae) if r.rep_mae is not none else '—' }}</td>
+                        <td style="padding:8px; text-align:center;">{{ '%.4f'|format(r.rep_r2) if r.rep_r2 is not none else '—' }}</td>
+                        <td style="padding:8px; text-align:center;">{{ '%.4f'|format(r.rep_p) if r.rep_p is not none else '—' }}</td>
+                        <td style="padding:8px; text-align:center; border-left:1px solid #D6DCE8; font-variant-numeric:tabular-nums;">{{ '%+.4f'|format(r.delta) if r.delta is not none else '—' }}</td>
+                        <td style="padding:8px; text-align:center; font-weight:700; {% if r.status == 'coincide' %}color:#1A7340;{% elif r.status == '≈ coincide' %}color:#9A7F00;{% elif r.status == 'difiere' %}color:#C0392B;{% endif %}">{{ r.status }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:10px; line-height:1.6;">
+                Diferencias de milésimas en Random Forest provienen del ruido de punto flotante en los umbrales de los árboles;
+                el p-valor publicado de RNN/LSTM es la mediana de 3 semillas. Con datos en vivo de Yahoo Finance, cualquier
+                diferencia adicional indica una revisión de la serie (compárese la huella SHA-256 en la tarjeta de procedencia).
+            </p>
+            <a href="{{ url_for('banco.banco') }}#{{ banco_compare.info.P }}-{{ banco_compare.info.T }}"
+               style="font-size:0.84rem; font-weight:700; color:var(--unam-blue);">← Volver al banco de pruebas</a>
+        </div>
+    </div>
+    {% endif %}
+
     {% if semaforo %}
     <div class="card-unam">
         <div class="card-header-unam">
@@ -396,6 +487,107 @@
             </div>
         </div>
     </div>
+
+    <!-- ============================================================
+         TARJETA: Horizontes de pronóstico
+         ============================================================ -->
+    {% if horizons_rows %}
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 10a8 8 0 1116 0 8 8 0 01-16 0zm9-4a1 1 0 10-2 0v4a1 1 0 00.293.707l2.5 2.5a1 1 0 001.414-1.414L11 9.586V6z"/>
+            </svg>
+            <h2>Horizontes de Pronóstico (h = 1, 5 y 20 días)</h2>
+        </div>
+        <div class="card-body-unam">
+            <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:12px; line-height:1.6;">
+                Mismo protocolo con <strong>origen móvil</strong>: desde cada día del conjunto de prueba, cada modelo pronostica el valor
+                h días adelante usando solo los datos reales hasta ese día (SARIMA y Holt-Winters por sus ecuaciones de estado;
+                Regresión Lineal, Random Forest, RNN y LSTM de forma recursiva, reinyectando sus propias predicciones). Naive a h pasos
+                repite el último valor observado. <strong>DM p</strong>: prueba de Diebold-Mariano frente a Naive al mismo horizonte
+                (corrección HLN con h); no se calcula (n/a) cuando hay menos de 2h orígenes. Orígenes evaluados:
+                {% for h in horizons %}h = {{ h }}: <strong>{{ horizon_neval[h] }}</strong>{% if not loop.last %} · {% endif %}{% endfor %}.
+            </p>
+            <div class="table-responsive">
+            <table style="border-collapse:collapse; width:100%; font-size:0.84rem;">
+                <thead>
+                    <tr style="background:linear-gradient(90deg,#003087,#005EB8); color:#fff;">
+                        <th rowspan="2" style="padding:10px 12px; text-align:left;">Modelo</th>
+                        {% for h in horizons %}
+                        <th colspan="4" style="padding:8px 12px; text-align:center; border-left:1px solid rgba(255,255,255,0.25);">h = {{ h }} {% if h == 1 %}día{% else %}días{% endif %}</th>
+                        {% endfor %}
+                    </tr>
+                    <tr style="background:#003087; color:#fff; font-size:0.72rem; letter-spacing:0.06em; text-transform:uppercase;">
+                        {% for h in horizons %}
+                        <th style="padding:6px 8px; border-left:1px solid rgba(255,255,255,0.25);">MAE</th>
+                        <th style="padding:6px 8px;">RMSE</th>
+                        <th style="padding:6px 8px;">DM p</th>
+                        <th style="padding:6px 8px;">Veredicto</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                {% for row in horizons_rows %}
+                    <tr style="border-bottom:1px solid #D6DCE8;">
+                        <td style="padding:8px 12px; font-weight:600;">{{ row.Modelo }}</td>
+                        {% for h in horizons %}{% set c = row.cells[h] %}
+                        <td style="padding:8px; text-align:center; border-left:1px solid #D6DCE8; font-variant-numeric:tabular-nums;">{{ c.MAE }}</td>
+                        <td style="padding:8px; text-align:center; font-variant-numeric:tabular-nums;">{{ c.RMSE }}</td>
+                        <td style="padding:8px; text-align:center; font-variant-numeric:tabular-nums;">{{ c.p }}</td>
+                        <td style="padding:8px; text-align:center; {% if c.Veredicto == 'mejor que Naive' %}color:#1A7340; font-weight:700;{% elif c.Veredicto == 'peor que Naive' %}color:#C0392B;{% else %}color:var(--text-secondary);{% endif %}">{{ c.Veredicto }}</td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:10px; line-height:1.6;">
+                El ranking de la tabla anterior y el "mejor modelo" se calculan con h = 1 (evaluación principal de la tesis).
+                A horizontes mayores la potencia de la prueba disminuye porque hay menos orígenes y los errores están autocorrelacionados.
+            </p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ============================================================
+         TARJETA: Procedencia y reproducibilidad
+         ============================================================ -->
+    {% if provenance %}
+    <div class="card-unam">
+        <div class="card-header-unam">
+            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <h2>Procedencia y Reproducibilidad del Resultado</h2>
+        </div>
+        <div class="card-body-unam">
+            <div class="row" style="font-size:0.84rem;">
+                <div class="col-md-6">
+                    <table style="width:100%; font-size:0.84rem; border-collapse:collapse;">
+                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); white-space:nowrap; vertical-align:top;">Fuente de datos</td><td style="padding:6px 0;">{{ provenance.source_label }}</td></tr>
+                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Descarga</td><td style="padding:6px 0;">{{ provenance.downloaded_at }}{% if provenance.source_note %} <span style="color:var(--text-muted);">— {{ provenance.source_note }}</span>{% endif %}</td></tr>
+                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Serie</td><td style="padding:6px 0;">{{ provenance.ticker }} · {{ provenance.first_date }} → {{ provenance.last_date }} · n = {{ provenance.n }} (entrenamiento {{ provenance.n_train }}, prueba {{ provenance.n_test }})</td></tr>
+                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Huella SHA-256</td><td style="padding:6px 0; word-break:break-all;"><code style="font-size:0.76rem;">{{ provenance.sha256 }}</code></td></tr>
+                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Semilla RNN/LSTM</td><td style="padding:6px 0;">{{ provenance.seed }}</td></tr>
+                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Código</td><td style="padding:6px 0;">v{{ provenance.app_version }} · commit <code>{{ provenance.git_commit }}</code>{% if provenance.build_time != 'n/d' %} · build {{ provenance.build_time }}{% endif %}</td></tr>
+                        <tr><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Generado</td><td style="padding:6px 0;">{{ provenance.generated_at }}</td></tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <div style="font-size:0.72rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px;">Versiones</div>
+                    <div style="font-family:monospace; font-size:0.78rem; line-height:1.7;">{% for k, v in provenance.versions.items() %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</div>
+                    <details style="margin-top:10px;">
+                        <summary style="font-size:0.75rem; font-weight:700; color:var(--text-muted); cursor:pointer; letter-spacing:0.06em; text-transform:uppercase;">Hiperparámetros fijos de los 7 modelos</summary>
+                        <table style="font-size:0.78rem; margin-top:6px;">
+                            {% for name, desc in provenance.hyperparams %}<tr><td style="font-weight:600; padding:3px 8px 3px 0; vertical-align:top; white-space:nowrap;">{{ name }}</td><td style="padding:3px 0;">{{ desc }}</td></tr>{% endfor %}
+                        </table>
+                    </details>
+                    <p style="font-size:0.78rem; color:var(--text-secondary); margin-top:10px; line-height:1.6;">{{ provenance.protocol }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <hr class="unam-divider">
 

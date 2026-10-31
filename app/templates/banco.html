@@ -3,30 +3,121 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Banco de pruebas — Pronóstico USD/MXN — UNAM</title>
-    <!-- Bootstrap base (sin tema Bootswatch) -->
+    <title>Banco de Tesis — Pronóstico USD/MXN — UNAM</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css" />
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="32x32" />
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <style>
+        /* ---------- Banco de Tesis: estilo propio (solo esta página) ---------- */
+        .bt-wrap { max-width: 1180px; margin: 0 auto; padding: 18px 0 48px; color: #1F2937; }
+        .bt-nav { font-size: 0.86rem; padding-top: 14px; }
+        .bt-nav a { font-weight: 700; color: var(--unam-blue, #003087); text-decoration: none; }
+        .bt-nav .sep { color: #9AA3B2; margin: 0 8px; }
+        .bt-nav .current { color: #0D1B3E; border-bottom: 2px solid #C8A800; padding-bottom: 2px; }
+
+        .bt-hero { display: grid; grid-template-columns: 1.15fr 1fr; gap: 28px; align-items: center;
+                   background: linear-gradient(135deg, #0D1B3E 0%, #1B3063 60%, #24427F 100%); color: #fff;
+                   border-radius: 14px; padding: 34px 36px; margin-bottom: 22px; box-shadow: 0 12px 30px rgba(13,27,62,0.18); }
+        .bt-kicker { font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: #E7CF5A; margin: 0 0 8px; font-weight: 700; }
+        .bt-title { font-family: Georgia, "Times New Roman", serif; font-size: 2.4rem; font-weight: 700; margin: 0 0 12px; letter-spacing: 0.01em; }
+        .bt-lead { font-size: 0.98rem; line-height: 1.7; color: #DCE3F2; margin: 0; }
+        .bt-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .bt-stat { background: rgba(255,255,255,0.09); border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; padding: 14px 16px; }
+        .bt-stat-label { display: block; font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: #B9C6E4; margin-bottom: 6px; }
+        .bt-stat-value { display: block; font-size: 1.35rem; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; line-height: 1.15; }
+        .bt-stat-note { display: block; font-size: 0.72rem; color: #B9C6E4; margin-top: 5px; line-height: 1.4; }
+
+        .bt-card { background: #fff; border: 1px solid #E3E8F0; border-radius: 12px; padding: 26px 28px; margin-bottom: 20px;
+                   box-shadow: 0 2px 10px rgba(13,27,62,0.05); }
+        .bt-card h3 { font-family: Georgia, "Times New Roman", serif; font-size: 1.35rem; color: #0D1B3E; margin: 0 0 10px; }
+        .bt-card h4 { font-size: 0.95rem; font-weight: 700; color: #0D1B3E; margin: 0 0 6px; }
+        .bt-help { font-size: 0.9rem; line-height: 1.65; color: #4A5568; margin: 0 0 14px; }
+        .bt-foot { font-size: 0.8rem; line-height: 1.6; color: #6B7280; margin: 12px 0 0; }
+        .bt-two { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+        .bt-two p { font-size: 0.9rem; line-height: 1.65; color: #374151; }
+        .bt-scroll { overflow-x: auto; }
+
+        .bt-mini { width: 100%; border-collapse: collapse; font-size: 0.84rem; margin-bottom: 14px; }
+        .bt-mini th { background: #F3F5F9; color: #0D1B3E; font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
+                      padding: 8px 10px; text-align: left; border-bottom: 1px solid #D9DFEA; }
+        .bt-mini td { padding: 7px 10px; border-bottom: 1px solid #ECEFF4; }
+        .bt-key { font-weight: 800; color: #003087; }
+        .bt-num { text-align: right; font-variant-numeric: tabular-nums; }
+        .bt-counts th:not(:first-child), .bt-counts td:not(:first-child) { text-align: center; }
+        .bt-zero { color: #B7BECB; }
+        .bt-total { font-weight: 800; background: #FBF6DF; }
+        .bt-good { color: #1A7340; font-weight: 700; }
+        .bt-bad { color: #B03A2E; font-weight: 700; }
+        .bt-naive-row td { background: #F3F5F9; font-weight: 600; }
+        .bt-defs { font-size: 0.86rem; line-height: 1.6; margin: 0; }
+        .bt-defs dt { font-weight: 700; color: #0D1B3E; margin-top: 8px; }
+        .bt-defs dd { margin: 0; color: #374151; }
+
+        .bt-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 0.8rem; color: #374151; margin: 0 0 12px; }
+        .bt-legend span { display: inline-flex; align-items: center; gap: 6px; }
+        .bt-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.08); }
+
+        .bt-heat { border-collapse: separate; border-spacing: 4px; width: 100%; font-size: 0.8rem; }
+        .bt-heat th { font-size: 0.72rem; color: #0D1B3E; text-align: center; padding: 6px 4px; }
+        .bt-heat th small { display: block; font-weight: 400; color: #6B7280; }
+        .bt-heat .bt-corner { text-align: left; color: #6B7280; font-weight: 400; }
+        .bt-heat .bt-rowhead { text-align: left; white-space: nowrap; font-weight: 800; color: #003087; }
+        .bt-heat .bt-rowhead small { display: block; font-weight: 400; color: #6B7280; }
+        .bt-cell { padding: 0; border-radius: 8px; min-width: 92px; }
+        .bt-cell a { display: block; padding: 9px 8px; text-decoration: none; color: inherit; border-radius: 8px; transition: transform .12s, box-shadow .12s; }
+        .bt-cell a:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(13,27,62,0.18); }
+        .bt-cell-model { display: block; font-weight: 700; font-size: 0.78rem; line-height: 1.25; }
+        .bt-cell-rel { display: block; font-size: 0.78rem; margin-top: 3px; font-variant-numeric: tabular-nums; }
+        .bt-sig    { background: #1A7340; color: #fff; }
+        .bt-better { background: #DDF3E4; color: #175C33; }
+        .bt-equal  { background: #EEF1F5; color: #4A5568; }
+        .bt-worse  { background: #FBE4DF; color: #8E2A1C; }
+        .bt-na     { background: #F7F7F7; color: #9AA3B2; }
+
+        .bt-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 18px; }
+        .bt-tab { border: 1px solid #C9D2E3; background: #fff; color: #0D1B3E; border-radius: 999px; padding: 7px 16px;
+                  font-size: 0.84rem; font-weight: 700; cursor: pointer; transition: all .12s; }
+        .bt-tab:hover { border-color: #003087; }
+        .bt-tab.active { background: #0D1B3E; color: #fff; border-color: #0D1B3E; }
+        .bt-detail[hidden] { display: none; }
+
+        .bt-exp { border: 1px solid #E3E8F0; border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; background: #FCFCFD; }
+        .bt-exp-head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: baseline; margin-bottom: 10px; }
+        .bt-exp-key { display: inline-block; background: #0D1B3E; color: #fff; font-weight: 800; border-radius: 6px; padding: 3px 10px; margin-right: 10px; font-size: 0.86rem; }
+        .bt-exp-title { font-weight: 700; color: #0D1B3E; font-size: 0.98rem; }
+        .bt-exp-meta { font-size: 0.78rem; color: #6B7280; }
+        .bt-res { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+        .bt-res th { background: #F3F5F9; color: #0D1B3E; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 8px 8px; border-bottom: 1px solid #D9DFEA; text-align: right; }
+        .bt-res th:nth-child(2), .bt-res th:last-child { text-align: left; }
+        .bt-res td { padding: 7px 8px; border-bottom: 1px solid #ECEFF4; vertical-align: middle; }
+        .bt-res tr.bt-top td { background: #FBF6DF; font-weight: 700; }
+        .bt-res tr.bt-ref td { color: #4A5568; font-style: italic; }
+        .bt-model { display: block; }
+        .bt-family { display: block; font-size: 0.68rem; color: #9AA3B2; font-style: normal; font-weight: 400; }
+        .bt-maecell { position: relative; min-width: 110px; }
+        .bt-bar { position: absolute; left: 6px; bottom: 5px; height: 4px; background: #C9D2E3; border-radius: 2px; max-width: calc(100% - 12px); }
+        .bt-top .bt-bar { background: #C8A800; }
+        .bt-badge { display: inline-block; font-size: 0.72rem; font-weight: 700; border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
+        .bt-badge-mejor-que-Naive { background: #1A7340; color: #fff; }
+        .bt-badge-peor-que-Naive { background: #FBE4DF; color: #8E2A1C; }
+        .bt-badge-sin-diferencia { background: #EEF1F5; color: #4A5568; }
+        .bt-badge-referencia { background: #E8EEF9; color: #003087; }
+        .bt-badge-na { background: #F3F3F3; color: #9AA3B2; }
+        .bt-lectura { margin: 12px 0 0; font-size: 0.86rem; line-height: 1.65; color: #1F2937; border-left: 3px solid #C8A800; padding-left: 12px; }
+        .bt-source { font-size: 0.78rem; color: #6B7280; line-height: 1.6; margin: 6px 4px 0; }
+
+        @media (max-width: 900px) {
+            .bt-hero, .bt-two { grid-template-columns: 1fr; }
+            .bt-title { font-size: 1.9rem; }
+            .bt-card { padding: 18px; }
+        }
+    </style>
 </head>
 <body>
 
-<!-- Filtro SVG para colorear el logo UNAM en RGB(203,168,71) exacto.
-     Fórmula: out = objetivo × luminancia(R,G,B)
-     R_out = 0.796×(0.2126R + 0.7152G + 0.0722B)
-     G_out = 0.659×(0.2126R + 0.7152G + 0.0722B)
-     B_out = 0.278×(0.2126R + 0.7152G + 0.0722B) -->
-<svg aria-hidden="true" focusable="false"
-     style="position:absolute;width:0;height:0;overflow:hidden">
+<svg aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden">
   <defs>
-    <!-- Fórmula: dorado_out = gold_ratio × (1 − luminancia)
-         → píxeles oscuros (escudo) → dorado brillante
-         → píxeles claros (fondo blanco) → negro (invisible sobre header azul)
-         R = −0.1692r − 0.5693g − 0.0575b + 0.796
-         G = −0.1401r − 0.4713g − 0.0476b + 0.659
-         B = −0.0591r − 0.1988g − 0.0201b + 0.278 -->
     <filter id="unam-gold-filter" color-interpolation-filters="sRGB">
       <feColorMatrix type="matrix" values="
         -0.1692  -0.5693  -0.0575  0  0.796
@@ -37,38 +128,24 @@
   </defs>
 </svg>
 
-<!-- ============================================================
-     ENCABEZADO INSTITUCIONAL
-     ============================================================ -->
 <header class="site-header">
-
-    <!-- ── Banda principal ──────────────────────────────────────── -->
     <div class="header-inner">
-
-        <!-- Logo UNAM (izquierda) -->
         <div class="header-logo-wrap">
             <img src="{{ url_for('static', filename='img/unam_logo.png') }}"
                  alt="Universidad Nacional Autónoma de México"
                  class="header-logo-img header-logo-unam" />
         </div>
-
-        <!-- Texto central -->
         <div class="header-text">
             <p class="header-institution">Universidad Nacional Autónoma de México &nbsp;·&nbsp; Facultad de Ingeniería</p>
             <h1 class="header-title">Pronóstico del Tipo de Cambio USD/MXN</h1>
             <p class="header-subtitle">Estudio comparativo entre métodos tradicionales, machine learning y deep learning por horizonte temporal</p>
         </div>
-
-        <!-- Logo Facultad de Ingeniería (derecha) -->
         <div class="header-logo-wrap">
             <img src="{{ url_for('static', filename='img/fi_escudo.png') }}"
                  alt="Facultad de Ingeniería UNAM"
                  class="header-logo-img" />
         </div>
-
     </div>
-
-    <!-- ── Cinta inferior: Posgrado ─────────────────────────────── -->
     <div class="header-subribbon">
         <div class="header-subribbon-inner">
             <img src="{{ url_for('static', filename='img/posgrado_logo.png') }}"
@@ -77,165 +154,241 @@
             <span class="header-ribbon-badge">Maestría &nbsp;·&nbsp; 2026</span>
         </div>
     </div>
-
 </header>
 
-<!-- Navegación secundaria -->
-<nav class="page-main" style="padding-top:14px; padding-bottom:0; font-size:0.86rem;">
-    <a href="{{ url_for('main.index') }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">Inicio</a>
-    <span style="color:var(--text-muted);">&nbsp;·&nbsp;</span>
-    <a href="{{ url_for('banco.banco') }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">Banco de pruebas de la tesis (54 experimentos)</a>
+<nav class="page-main bt-nav">
+    <a href="{{ url_for('main.index') }}">Inicio</a><span class="sep">·</span><span class="current">Banco de Tesis</span>
 </nav>
 
-<!-- ============================================================
-     CONTENIDO PRINCIPAL — BANCO DE PRUEBAS
-     ============================================================ -->
 <main class="page-main">
+<div class="bt-wrap">
 
-    <div class="card-unam">
-        <div class="card-header-unam">
-            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 6a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1v-2zm0 6a1 1 0 011-1h12a1 1 0 011 1v1a1 1 0 01-1 1H4a1 1 0 01-1-1v-1z"/>
-            </svg>
-            <h2>Banco de Pruebas de la Tesis — 54 experimentos reproducibles</h2>
-        </div>
-        <div class="card-body-unam">
-            <p style="font-size:0.86rem; color:var(--text-secondary); line-height:1.7; margin-bottom:14px;">
-                Resultados publicados en el Capítulo 4 y el Apéndice C: 6 longitudes de historia (P1–P6, de 3 meses a 10 años)
-                × 9 particiones de prueba (T1–T9, de 10 % a 50 %), todas ancladas al <strong>{{ anchor }}</strong> con la serie
-                congelada. {{ pub.protocol }}
+    <!-- ============================ Portada ============================ -->
+    <section class="bt-hero">
+        <div>
+            <p class="bt-kicker">Capítulo 4 · Apéndice C · solo lectura</p>
+            <h2 class="bt-title">Banco de Tesis</h2>
+            <p class="bt-lead">
+                Los 54 experimentos con los que se evaluaron los modelos de pronóstico del USD/MXN: seis longitudes de
+                historia por nueve particiones de prueba, todas terminando el 31 de diciembre de 2025 (fecha ancla:
+                1 de enero de 2026). Esta página reproduce las cifras publicadas tal cual; no entrena ni modifica nada.
             </p>
-            <div class="forecast-grid">
-                <div class="forecast-item">
-                    <div class="forecast-model">Naive en primer lugar o empatado</div>
-                    <div class="forecast-value">{{ pub.summary.naive_rank1 }} / {{ pub.summary.n_elements }}</div>
-                </div>
-                <div class="forecast-item">
-                    <div class="forecast-model">Mejor que Naive con significancia</div>
-                    <div class="forecast-value">{{ pub.summary.better_than_naive|length }} / {{ pub.summary.n_elements * 6 }}
-                        <span style="font-size:0.72rem; font-weight:400; display:block; color:var(--text-muted);">
-                        {% for b in pub.summary.better_than_naive %}{{ b.modelo }} en {{ b.elemento }} (p = {{ '%.3f'|format(b.p) }}){% endfor %}</span>
-                    </div>
-                </div>
-                {% for name, k in worse %}
-                <div class="forecast-item">
-                    <div class="forecast-model">{{ name }} peor que Naive</div>
-                    <div class="forecast-value">{{ k }} / 54</div>
-                </div>
-                {% endfor %}
+        </div>
+        <div class="bt-stats">
+            <div class="bt-stat">
+                <span class="bt-stat-label">Periodo cubierto</span>
+                <span class="bt-stat-value">{{ span.inicio }} → {{ span.fin }}</span>
+                <span class="bt-stat-note">Cierre diario USD/MXN (Yahoo Finance, USDMXN=X); la historia más larga abarca 10 años</span>
             </div>
-            <p style="font-size:0.84rem; color:var(--text-secondary); line-height:1.7; margin-top:14px;">
-                Cada elemento puede <strong>re-ejecutarse ahora</strong> con la serie congelada (reproduce el Apéndice C) o con datos
-                descargados en vivo de Yahoo Finance; la plataforma muestra lado a lado el valor publicado y el reproducido y permite
-                abrir la gráfica, los residuales y el reporte PDF de la corrida. Las corridas de 5 y 10 años tardan entre 1 y 3 minutos.
-            </p>
-        </div>
-    </div>
-
-    <div class="card-unam">
-        <div class="card-header-unam">
-            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path fill-rule="evenodd" d="M5 4a3 3 0 00-3 3v6a3 3 0 003 3h10a3 3 0 003-3V7a3 3 0 00-3-3H5zm-1 9v-1h5v2H5a1 1 0 01-1-1zm7 1h4a1 1 0 001-1v-1h-5v2zm0-4h5V8h-5v2zM9 8H4v2h5V8z" clip-rule="evenodd"/>
-            </svg>
-            <h2>Matriz de experimentos — mejor modelo entre los seis propuestos (MAE) y referencia Naive</h2>
-        </div>
-        <div class="card-body-unam">
-            <div class="table-responsive">
-            <table style="border-collapse:collapse; width:100%; font-size:0.78rem;">
-                <thead>
-                    <tr style="background:linear-gradient(90deg,#003087,#005EB8); color:#fff;">
-                        <th style="padding:8px 10px; text-align:left;">Historia</th>
-                        {% for T, pct in pub.tests.items() %}
-                        <th style="padding:8px; text-align:center; border-left:1px solid rgba(255,255,255,0.25);">{{ T }}<br><span style="font-weight:400;">{{ pct }} %</span></th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                {% for row in matrix %}
-                    <tr style="border-bottom:1px solid #D6DCE8;">
-                        <td style="padding:8px 10px; font-weight:700; white-space:nowrap;">{{ row.P }} · {{ row.label }}</td>
-                        {% for c in row.cells %}
-                        <td style="padding:6px; text-align:center; vertical-align:top; border-left:1px solid #D6DCE8;
-                                   {% if c.significant %}background:rgba(26,115,64,0.14);{% elif c.naive_best %}background:rgba(0,48,135,0.05);{% endif %}">
-                            <a href="#{{ c.anchor }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">{{ c.winners|join(' / ') }}</a><br>
-                            <span style="font-variant-numeric:tabular-nums;">{{ '%.4f'|format(c.mae) if c.mae is not none else '—' }}</span><br>
-                            <span style="color:var(--text-muted); font-size:0.7rem;">Naive {{ '%.4f'|format(c.naive_mae) }}</span>
-                        </td>
-                        {% endfor %}
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
+            <div class="bt-stat">
+                <span class="bt-stat-label">Experimentos</span>
+                <span class="bt-stat-value">{{ summary.n_elements }}</span>
+                <span class="bt-stat-note">6 longitudes de historia × 9 particiones de prueba</span>
             </div>
-            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:10px; line-height:1.6;">
-                Cada celda muestra el modelo con Rank 1 entre los seis propuestos (criterio del Capítulo 4) y su MAE, y debajo el MAE del
-                modelo ingenuo. Fondo verde: algún modelo supera a Naive con significancia (DM, p &lt; 0.05). Fondo azul tenue: Naive en
-                primer lugar o empatado en el ranking con los 7 modelos. Haz clic en un modelo para ver la tabla completa del elemento.
-            </p>
+            <div class="bt-stat">
+                <span class="bt-stat-label">Modelos comparados</span>
+                <span class="bt-stat-value">6 + 1</span>
+                <span class="bt-stat-note">SARIMA, Holt-Winters, Regresión Lineal, Random Forest, RNN y LSTM, más la referencia ingenua (Naive)</span>
+            </div>
+            <div class="bt-stat">
+                <span class="bt-stat-label">Naive en primer lugar</span>
+                <span class="bt-stat-value">{{ summary.naive_first }} de {{ summary.n_elements }}</span>
+                <span class="bt-stat-note">Solo o empatado, en el ranking con los siete modelos</span>
+            </div>
         </div>
-    </div>
+    </section>
 
-    {% for row in matrix %}
-    <div class="card-unam" id="{{ row.P }}">
-        <div class="card-header-unam">
-            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-4a1 1 0 011-1h2a1 1 0 011 1v13a1 1 0 01-1 1h-2a1 1 0 01-1-1V3z"/>
-            </svg>
-            <h2>Horizonte de {{ row.label }} ({{ row.P }})</h2>
-        </div>
-        <div class="card-body-unam">
-        {% for c in row.cells %}{% set e = pub.elements[c.el] %}
-            <div id="{{ c.anchor }}" style="margin-bottom:26px; padding-top:4px;">
-                <p class="section-label">
-                    Elemento {{ c.el }} — {{ e.periodo }}, {{ e.test_pct }} % de prueba · n = {{ e.n }} (entrenamiento {{ e.n_train }}, prueba {{ e.n_test }})
-                    · {{ e.fecha_inicio }} → {{ e.fecha_fin }} · auto_arima {{ e.sarima_order }}
+    <!-- ============================ Cómo leer ============================ -->
+    <section class="bt-card">
+        <h3>Cómo está organizado el banco</h3>
+        <div class="bt-two">
+            <div>
+                <p>
+                    Cada experimento se identifica con una clave <strong>P,T</strong>. <strong>P</strong> dice cuánta historia
+                    se usó (de 3 meses a 10 años hacia atrás desde el 1 de enero de 2026) y <strong>T</strong> qué fracción
+                    final de esa historia se apartó para medir el error. Los modelos se estiman solo con la parte de
+                    entrenamiento y después predicen, día por día, cada valor del tramo de prueba.
                 </p>
-                <div class="table-responsive">
-                <table style="border-collapse:collapse; width:100%; font-size:0.8rem;">
-                    <thead>
-                        <tr style="background:#003087; color:#fff; font-size:0.7rem; letter-spacing:0.06em; text-transform:uppercase;">
-                            <th style="padding:6px 8px; text-align:left;">Modelo</th><th style="padding:6px 8px;">MAE</th><th style="padding:6px 8px;">RMSE</th>
-                            <th style="padding:6px 8px;">MAPE</th><th style="padding:6px 8px;">R²</th><th style="padding:6px 8px;">Rank (6)</th>
-                            <th style="padding:6px 8px;">Rank (7)</th><th style="padding:6px 8px;">DM</th><th style="padding:6px 8px;">p-valor</th><th style="padding:6px 8px;">Veredicto</th>
+                <table class="bt-mini">
+                    <thead><tr><th>Clave</th><th>Historia</th><th>Desde</th><th>Hasta</th><th style="text-align:right;">Días hábiles</th></tr></thead>
+                    <tbody>
+                    {% for p in periods %}
+                        <tr><td class="bt-key">{{ p.P }}</td><td>{{ p.label }}</td><td>{{ p.fecha_inicio }}</td><td>{{ p.fecha_fin }}</td><td class="bt-num">{{ p.n }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                <table class="bt-mini">
+                    <thead><tr><th>Clave</th>{% for t in tests %}<th style="text-align:center;">{{ t.T }}</th>{% endfor %}</tr></thead>
+                    <tbody><tr><td class="bt-key">Prueba</td>{% for t in tests %}<td style="text-align:center; white-space:nowrap;">{{ t.pct }}&nbsp;%</td>{% endfor %}</tr></tbody>
+                </table>
+            </div>
+            <div>
+                <dl class="bt-defs">
+                    <dt>MAE, RMSE y MAPE</dt>
+                    <dd>Errores medios de predicción en pesos (MAE y RMSE) y en porcentaje (MAPE). Menor es mejor; el MAE es la métrica principal de lectura.</dd>
+                    <dt>R²</dt>
+                    <dd>Fracción de la variación de la serie que el modelo reproduce. Cuando un modelo sigue de cerca el nivel del día anterior, el R² es alto para casi cualquiera; por eso se lee junto con el MAE y no por separado.</dd>
+                    <dt>Rank</dt>
+                    <dd>Posición promedio en las cuatro métricas. "Rank 6" se calcula entre los seis modelos propuestos (criterio del Capítulo 4); el número de la primera columna incluye además a Naive.</dd>
+                    <dt>Naive (modelo ingenuo)</dt>
+                    <dd>Pronostica para mañana el valor de hoy. Es la vara de medir: un modelo solo aporta si le gana de forma consistente.</dd>
+                    <dt>Prueba DM y veredicto</dt>
+                    <dd>La prueba de Diebold-Mariano decide si la diferencia de error frente a Naive es estadísticamente significativa (p &lt; 0.05): <em>mejor</em>, <em>sin diferencia</em> o <em>peor</em>.</dd>
+                </dl>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================ Mapa ============================ -->
+    <section class="bt-card">
+        <h3>Mapa de resultados</h3>
+        <p class="bt-help">
+            Una celda por experimento. Arriba, el mejor de los seis modelos propuestos en ese experimento; abajo, cuánto
+            menor (−) o mayor (+) fue su error que el del modelo ingenuo. El color resume la comparación con Naive.
+            Pasa el cursor para ver los valores y haz clic para abrir el detalle.
+        </p>
+        <div class="bt-legend">
+            <span><i class="bt-swatch bt-sig"></i> ★ supera a Naive con significancia estadística</span>
+            <span><i class="bt-swatch bt-better"></i> ▲ menor error que Naive, sin significancia</span>
+            <span><i class="bt-swatch bt-equal"></i> = mismo error que Naive</span>
+            <span><i class="bt-swatch bt-worse"></i> ▼ mayor error que Naive</span>
+        </div>
+        <div class="bt-scroll">
+        <table class="bt-heat">
+            <thead>
+                <tr>
+                    <th class="bt-corner">Historia ↓ &nbsp;·&nbsp; Prueba →</th>
+                    {% for t in tests %}<th>{{ t.T }}<small>{{ t.pct }} %</small></th>{% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in heat %}
+                <tr>
+                    <th class="bt-rowhead">{{ row.P }}<small>{{ row.label }}</small></th>
+                    {% for c in row.cells %}
+                    <td class="bt-cell bt-{{ c.cls }}" title="{{ c.title }}">
+                        <a href="#{{ c.anchor }}" data-p="{{ row.P }}">
+                            <span class="bt-cell-model">{{ c.winners|join(' / ') }}</span>
+                            <span class="bt-cell-rel">{% if c.cls == 'sig' %}★{% elif c.cls == 'better' %}▲{% elif c.cls == 'equal' %}={% elif c.cls == 'worse' %}▼{% endif %}
+                                {% if c.rel is not none %}{% if c.cls == 'equal' %}Naive{% else %}{{ '%+.1f'|format(c.rel) }} %{% endif %}{% else %}—{% endif %}</span>
+                        </a>
+                    </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        <p class="bt-foot">
+            Lectura rápida: la única celda con estrella es P1,T9 (Holt-Winters, p = 0.026). En el resto, el mejor modelo
+            propuesto empata con el paseo aleatorio (SARIMA converge a él cuando auto_arima elige el orden (0,1,0)) o la
+            diferencia no alcanza significancia estadística.
+        </p>
+    </section>
+
+    <!-- ============================ Resúmenes ============================ -->
+    <section class="bt-card">
+        <h3>Dos resúmenes por modelo</h3>
+        <div class="bt-two">
+            <div>
+                <h4>Primeros lugares por historia</h4>
+                <p class="bt-help">
+                    Cuántas de las nueve particiones de cada historia ganó cada modelo (ranking entre los seis propuestos,
+                    como en las tablas de conteo del Capítulo 4). Los empates cuentan para ambos modelos.
+                </p>
+                <table class="bt-mini bt-counts">
+                    <thead><tr><th>Modelo</th>{% for r in rank1 %}<th title="{{ r.label }}">{{ r.P }}</th>{% endfor %}<th>Total</th></tr></thead>
+                    <tbody>
+                    {% for m in models6 %}
+                        <tr><td>{{ m }}</td>{% for r in rank1 %}<td class="bt-num{% if r.counts[m] == 0 %} bt-zero{% endif %}">{{ r.counts[m] }}</td>{% endfor %}<td class="bt-num bt-total">{{ rank1_total[m] }}</td></tr>
+                    {% endfor %}
+                        <tr class="bt-naive-row"><td>Naive primero o empatado (con los 7)</td>{% for r in rank1 %}<td class="bt-num">{{ r.naive_first }}</td>{% endfor %}<td class="bt-num bt-total">{{ summary.naive_first }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div>
+                <h4>Veredicto frente al modelo ingenuo</h4>
+                <p class="bt-help">
+                    Resultado de la prueba de Diebold-Mariano en los 54 experimentos: en cuántos fue cada modelo mejor,
+                    igual o peor que Naive con significancia al 5 %.
+                </p>
+                <table class="bt-mini bt-counts">
+                    <thead><tr><th>Modelo</th><th>Mejor</th><th>Sin diferencia</th><th>Peor</th><th>No calculable</th></tr></thead>
+                    <tbody>
+                    {% for m in models6 %}
+                        <tr>
+                            <td>{{ m }}</td>
+                            <td class="bt-num {% if dm_counts[m]['mejor que Naive'] %}bt-good{% else %}bt-zero{% endif %}">{{ dm_counts[m]['mejor que Naive'] }}</td>
+                            <td class="bt-num">{{ dm_counts[m]['sin diferencia'] }}</td>
+                            <td class="bt-num {% if dm_counts[m]['peor que Naive'] %}bt-bad{% else %}bt-zero{% endif %}">{{ dm_counts[m]['peor que Naive'] }}</td>
+                            <td class="bt-num bt-zero">{{ dm_counts[m]['n/a'] }}</td>
                         </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                <p class="bt-foot">"No calculable": las predicciones son idénticas a las de Naive (SARIMA con orden (0,1,0)), por lo que no hay diferencia que probar.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================ Detalle ============================ -->
+    <section class="bt-card" id="detalle">
+        <h3>Detalle por experimento</h3>
+        <p class="bt-help">
+            Elige una historia; se muestran sus nueve experimentos con la tabla completa de métricas, el modelo ganador
+            resaltado y una lectura breve de cada uno. La barra bajo el MAE compara visualmente los errores dentro del experimento.
+        </p>
+        <div class="bt-tabs">
+            {% for p in periods %}<button type="button" class="bt-tab" data-p="{{ p.P }}">{{ p.P }} · {{ p.label }}</button>{% endfor %}
+        </div>
+
+        {% for d in details %}
+        <div class="bt-detail" data-p="{{ d.P }}" hidden>
+            {% for e in d.elements %}
+            <article class="bt-exp" id="{{ e.anchor }}">
+                <header class="bt-exp-head">
+                    <div><span class="bt-exp-key">{{ e.el }}</span><span class="bt-exp-title">{{ d.label }} de historia · {{ e.pct }} % de prueba</span></div>
+                    <div class="bt-exp-meta">{{ e.fecha_inicio }} → {{ e.fecha_fin }} · {{ e.n }} días hábiles · entrenamiento {{ e.n_train }} (hasta {{ e.fecha_test }}) · prueba {{ e.n_test }} · auto_arima {{ e.sarima_order }}</div>
+                </header>
+                <div class="bt-scroll">
+                <table class="bt-res">
+                    <thead>
+                        <tr><th>#</th><th>Modelo</th><th>MAE</th><th>vs Naive</th><th>RMSE</th><th>MAPE %</th><th>R²</th><th>Rank 6</th><th>DM p</th><th>Veredicto</th></tr>
                     </thead>
                     <tbody>
-                    {% for m in e.models %}
-                        <tr style="border-bottom:1px solid #D6DCE8; text-align:center; font-variant-numeric:tabular-nums; {% if m.rank7 == 1 %}font-weight:700; background:rgba(200,168,0,0.10);{% endif %}">
-                            <td style="padding:5px 8px; text-align:left;">{{ m.Modelo }}</td>
-                            <td style="padding:5px 8px;">{{ '%.4f'|format(m.MAE) if m.MAE is not none else '—' }}</td>
-                            <td style="padding:5px 8px;">{{ '%.4f'|format(m.RMSE) if m.RMSE is not none else '—' }}</td>
-                            <td style="padding:5px 8px;">{{ '%.4f'|format(m.MAPE) if m.MAPE is not none else '—' }}</td>
-                            <td style="padding:5px 8px;">{{ '%.4f'|format(m['R^2']) if m['R^2'] is not none else '—' }}</td>
-                            <td style="padding:5px 8px;">{{ m.rank6 if m.rank6 else '—' }}</td>
-                            <td style="padding:5px 8px;">{{ m.rank7 }}</td>
-                            <td style="padding:5px 8px;">{{ '%.3f'|format(m.DM) if m.DM is not none else '—' }}</td>
-                            <td style="padding:5px 8px;">{{ '%.4f'|format(m.p) if m.p is not none else '—' }}</td>
-                            <td style="padding:5px 8px; {% if m.veredicto == 'mejor que Naive' %}color:#1A7340; font-weight:700;{% elif m.veredicto == 'peor que Naive' %}color:#C0392B;{% endif %}">{{ m.veredicto }}</td>
+                    {% for r in e.rows %}
+                        <tr class="{% if r.rank7 == 1 %}bt-top{% endif %}{% if r.is_naive %} bt-ref{% endif %}">
+                            <td class="bt-num">{{ r.rank7 }}</td>
+                            <td><span class="bt-model">{{ r.Modelo }}</span><small class="bt-family">{{ r.family }}</small></td>
+                            <td class="bt-num bt-maecell"><div class="bt-bar" style="width:{{ '%.0f'|format(r.bar) }}%;"></div>{{ '%.4f'|format(r.MAE) if r.MAE is not none else '—' }}</td>
+                            <td class="bt-num">{% if r.is_naive %}referencia{% elif r.rel is not none %}{% if r.rel|abs <= 0.05 %}igual{% else %}{{ '%+.1f'|format(r.rel) }} %{% endif %}{% else %}—{% endif %}</td>
+                            <td class="bt-num">{{ '%.4f'|format(r.RMSE) if r.RMSE is not none else '—' }}</td>
+                            <td class="bt-num">{{ '%.3f'|format(r.MAPE) if r.MAPE is not none else '—' }}</td>
+                            <td class="bt-num">{{ '%.4f'|format(r['R^2']) if r['R^2'] is not none else '—' }}</td>
+                            <td class="bt-num">{{ r.rank6 if r.rank6 else '—' }}</td>
+                            <td class="bt-num">{{ '%.4f'|format(r.p) if r.p is not none else '—' }}</td>
+                            <td><span class="bt-badge bt-badge-{{ r.veredicto|replace(' ', '-')|replace('/', '') }}">{{ r.veredicto }}</span></td>
                         </tr>
                     {% endfor %}
                     </tbody>
                 </table>
                 </div>
-                <form method="POST" action="{{ url_for('banco.banco_run') }}" class="rerun-form d-flex flex-wrap gap-2 align-items-center" style="margin-top:8px;">
-                    <input type="hidden" name="element" value="{{ c.el }}">
-                    <select name="data_source" class="form-select" style="max-width:380px; font-size:0.82rem;">
-                        {% for k, v in data_sources.items() %}<option value="{{ k }}" {% if k == 'tesis' %}selected{% endif %}>{{ v }}</option>{% endfor %}
-                    </select>
-                    <button type="submit" class="btn-unam-gold">Re-ejecutar ahora y comparar</button>
-                    <span class="rerun-wait d-none" style="font-size:0.8rem; color:var(--text-muted);">Entrenando los 7 modelos… (5 y 10 años pueden tardar hasta 3 minutos)</span>
-                </form>
-            </div>
-        {% endfor %}
+                <p class="bt-lectura">{{ e.lectura }}</p>
+            </article>
+            {% endfor %}
         </div>
-    </div>
-    {% endfor %}
+        {% endfor %}
+    </section>
 
+    <p class="bt-source">
+        Fuente: Apéndice C de la tesis. Serie USDMXN=X (cierre diario) de Yahoo Finance descargada el 26/10/2026; RNN y LSTM
+        reportan el promedio de tres semillas. Esta página no ejecuta modelos: para experimentar con otros periodos usa la
+        página de inicio.
+    </p>
+
+</div>
 </main>
 
-<!-- ============================================================
-     PIE DE PÁGINA
-     ============================================================ -->
 <footer class="site-footer">
     <div class="footer-inner">
         <p class="footer-copyright">
@@ -251,12 +404,30 @@
 </footer>
 
 <script>
-document.querySelectorAll('.rerun-form').forEach(function (f) {
-    f.addEventListener('submit', function () {
-        f.querySelector('button').disabled = true;
-        f.querySelector('.rerun-wait').classList.remove('d-none');
+(function () {
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('.bt-tab'));
+    var panels = Array.prototype.slice.call(document.querySelectorAll('.bt-detail'));
+    function show(p) {
+        tabs.forEach(function (t) { t.classList.toggle('active', t.dataset.p === p); });
+        panels.forEach(function (d) { d.hidden = (d.dataset.p !== p); });
+    }
+    tabs.forEach(function (t) { t.addEventListener('click', function () { show(t.dataset.p); }); });
+    document.querySelectorAll('.bt-heat a').forEach(function (a) {
+        a.addEventListener('click', function () { show(a.dataset.p); });
     });
-});
+    function fromHash() {
+        var k = location.hash.replace('#', '');
+        if (k && /^P\d-T\d$/.test(k)) {
+            show(k.split('-')[0]);
+            var el = document.getElementById(k);
+            if (el) { setTimeout(function () { el.scrollIntoView({ block: 'start' }); }, 0); }
+        } else {
+            show('P1');
+        }
+    }
+    window.addEventListener('hashchange', fromHash);
+    fromHash();
+})();
 </script>
 </body>
 </html>

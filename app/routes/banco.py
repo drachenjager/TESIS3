@@ -1,24 +1,28 @@
-"""Banco de pruebas de la tesis: los 54 experimentos publicados (Capítulo 4 y
-Apéndice C) y su re-ejecución en vivo para contrastar publicado vs. reproducido."""
+"""Banco de Tesis: los 54 experimentos publicados en el Capítulo 4 y el Apéndice C.
+
+Página de solo lectura. Los resultados provienen de ``src/benchmark_data/resultados_tesis.json``
+(generado por ``scripts/build_published.py`` a partir de ``benchmark/``); aquí no se entrena nada.
+"""
 
 import json
 import os
-from datetime import datetime
 
-from flask import Blueprint, render_template, request
-
-from app.routes.main import (CACHE_PREFIX, DATA_SOURCES, _render_index, period_bounds,
-                             results_context, run_experiment)
-from src.data.frozen import FROZEN_ANCHOR
-from src.models.ranking import add_ranking
+from flask import Blueprint, render_template
 
 bp = Blueprint("banco", __name__)
 
 _PUB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                          "src", "benchmark_data", "resultados_tesis.json")
 _PUB = None
-MATCH_TOL = 0.0005        # |ΔMAE| para considerar que una corrida reproduce el valor publicado
-NEAR_TOL = 0.002          # ruido de punto flotante (p. ej. umbrales de Random Forest)
+_CTX = None
+
+MODELS6 = ["SARIMA", "Holt-Winters", "Regresión Lineal", "Random Forest", "RNN", "LSTM"]
+ABBR = {"Naive": "Naive", "SARIMA": "SARIMA", "Holt-Winters": "H-W", "Regresión Lineal": "Reg. Lin.",
+        "Random Forest": "R. Forest", "RNN": "RNN", "LSTM": "LSTM"}
+FAMILY = {"Naive": "Referencia", "SARIMA": "Series de tiempo", "Holt-Winters": "Series de tiempo",
+          "Regresión Lineal": "Machine Learning", "Random Forest": "Machine Learning",
+          "RNN": "Deep Learning", "LSTM": "Deep Learning"}
+EQUAL_TOL = 0.05        # % de diferencia de MAE frente a Naive por debajo del cual se considera "igual"
 
 
 def published():
@@ -29,91 +33,123 @@ def published():
     return _PUB
 
 
-def _matrix(pub):
-    rows = []
+def _rel(mae, naive_mae):
+    """Diferencia porcentual del MAE frente al modelo ingenuo (negativo = mejor que Naive)."""
+    if mae is None or not naive_mae:
+        return None
+    return (mae / naive_mae - 1.0) * 100.0
+
+
+def _cell_class(rel, winner_verdict):
+    if winner_verdict == "mejor que Naive":
+        return "sig"
+    if rel is None:
+        return "na"
+    if rel < -EQUAL_TOL:
+        return "better"
+    if rel <= EQUAL_TOL:
+        return "equal"
+    return "worse"
+
+
+def _lectura(e, models, naive):
+    """Una frase de lectura para el elemento, construida solo con hechos de la tabla."""
+    top7 = [m["Modelo"] for m in models if m["rank7"] == 1]
+    best6 = [m for m in models if m.get("rank6") == 1]
+    parts = []
+    if "Naive" in top7:
+        others = [ABBR[m] for m in top7 if m != "Naive"]
+        parts.append("El modelo ingenuo queda en primer lugar" + (f" (empatado con {', '.join(others)})" if others else "") + ".")
+    else:
+        parts.append(f"Primer lugar en el ranking con los 7 modelos: {', '.join(ABBR[m] for m in top7)}.")
+    if best6:
+        b = best6[0]
+        rel = _rel(b["MAE"], naive["MAE"])
+        rel_txt = ("igual que Naive" if rel is not None and abs(rel) <= EQUAL_TOL
+                   else f"{rel:+.1f} % de MAE frente a Naive" if rel is not None else "")
+        parts.append(f"Mejor de los seis propuestos: {', '.join(ABBR[m['Modelo']] for m in best6)} (MAE {b['MAE']:.4f}, {rel_txt}).")
+    sig_better = [ABBR[m["Modelo"]] for m in models if m["veredicto"] == "mejor que Naive"]
+    sig_worse = [ABBR[m["Modelo"]] for m in models if m["veredicto"] == "peor que Naive"]
+    if sig_better:
+        parts.append(f"Supera a Naive con significancia: {', '.join(sig_better)}.")
+    else:
+        parts.append("Ningún modelo supera a Naive con significancia estadística.")
+    if sig_worse:
+        parts.append(f"Significativamente peores que Naive: {', '.join(sig_worse)}.")
+    sarima = next((m for m in models if m["Modelo"] == "SARIMA"), None)
+    if sarima and sarima["MAE"] == naive["MAE"] and "(0, 1, 0)" in e.get("sarima_order", ""):
+        parts.append("auto_arima eligió (0,1,0): SARIMA es idéntico al paseo aleatorio.")
+    return " ".join(parts)
+
+
+def _build_context(pub):
+    periods, tests = [], [{"T": T, "pct": pct} for T, pct in pub["tests"].items()]
     for P, per in pub["periods"].items():
-        cells = []
-        for T, pct in pub["tests"].items():
-            el = f"{P},{T}"
+        e1 = pub["elements"][f"{P},T1"]
+        periods.append({"P": P, "key": per["key"], "label": per["label"], "n": e1["n"],
+                        "fecha_inicio": e1["fecha_inicio"], "fecha_fin": e1["fecha_fin"]})
+
+    heat, rank1, details = [], [], []
+    dm_counts = {m: {"mejor que Naive": 0, "sin diferencia": 0, "peor que Naive": 0, "n/a": 0} for m in MODELS6}
+    for per in periods:
+        P = per["P"]
+        cells, counts, elems = [], {m: 0 for m in MODELS6}, []
+        for t in tests:
+            el = f"{P},{t['T']}"
             e = pub["elements"][el]
-            models = {m["Modelo"]: m for m in e["models"]}
-            winners = [m["Modelo"] for m in e["models"] if m.get("rank6") == 1]
-            naive = models["Naive"]
+            models = sorted(e["models"], key=lambda m: (m["rank7"], m["MAE"] if m["MAE"] is not None else 9e9))
+            by = {m["Modelo"]: m for m in models}
+            naive = by["Naive"]
+            winners = [m for m in models if m.get("rank6") == 1]
+            w = winners[0] if winners else None
+            rel = _rel(w["MAE"], naive["MAE"]) if w else None
+            cls = _cell_class(rel, w["veredicto"] if w else None)
+            for m in models:
+                if m["Modelo"] != "Naive":
+                    dm_counts[m["Modelo"]][m["veredicto"]] += 1
+                if m.get("rank6") == 1:
+                    counts[m["Modelo"]] += 1
             cells.append({
-                "el": el, "anchor": f"{P}-{T}", "pct": pct, "winners": winners,
-                "mae": min(models[w]["MAE"] for w in winners) if winners else None,
-                "naive_mae": naive["MAE"], "naive_best": naive["rank7"] == 1,
-                "significant": any(m["veredicto"] == "mejor que Naive" for m in e["models"]),
+                "el": el, "anchor": el.replace(",", "-"), "T": t["T"], "pct": t["pct"],
+                "winners": [ABBR[m["Modelo"]] for m in winners],
+                "mae": w["MAE"] if w else None, "naive_mae": naive["MAE"], "rel": rel, "cls": cls,
+                "naive_first": naive["rank7"] == 1,
+                "title": (f"{el}: historia de {per['label']}, {t['pct']} % de prueba (n = {e['n']}). "
+                          f"Mejor de los seis: {', '.join(ABBR[m['Modelo']] for m in winners)} con MAE {w['MAE']:.4f}; "
+                          f"Naive {naive['MAE']:.4f}." if w else el),
             })
-        rows.append({"P": P, "label": per["label"], "cells": cells})
-    return rows
+            max_mae = max(m["MAE"] for m in models if m["MAE"] is not None)
+            rows = []
+            for m in models:
+                r = _rel(m["MAE"], naive["MAE"])
+                rows.append({**m, "abbr": ABBR[m["Modelo"]], "family": FAMILY[m["Modelo"]],
+                             "bar": (m["MAE"] / max_mae * 100.0) if m["MAE"] is not None and max_mae else 0.0,
+                             "rel": r, "is_naive": m["Modelo"] == "Naive"})
+            elems.append({"el": el, "anchor": el.replace(",", "-"), "T": t["T"], "pct": t["pct"], "n": e["n"],
+                          "n_train": e["n_train"], "n_test": e["n_test"], "fecha_inicio": e["fecha_inicio"],
+                          "fecha_test": e["fecha_test"], "fecha_fin": e["fecha_fin"],
+                          "sarima_order": e.get("sarima_order", ""), "rows": rows,
+                          "lectura": _lectura(e, models, naive)})
+        heat.append({**per, "cells": cells})
+        rank1.append({**per, "counts": counts, "naive_first": sum(1 for c in cells if c["naive_first"])})
+        details.append({**per, "elements": elems})
+
+    rank1_total = {m: sum(r["counts"][m] for r in rank1) for m in MODELS6}
+    span = {"inicio": min(p["fecha_inicio"] for p in periods), "fin": max(p["fecha_fin"] for p in periods)}
+    summary = {
+        "n_elements": pub["summary"]["n_elements"],
+        "naive_first": sum(r["naive_first"] for r in rank1),
+        "better": pub["summary"]["better_than_naive"],
+        "worse": pub["summary"]["worse_than_naive"],
+    }
+    return dict(pub=pub, periods=periods, tests=tests, heat=heat, rank1=rank1, rank1_total=rank1_total,
+                dm_counts=dm_counts, details=details, span=span, summary=summary,
+                models6=MODELS6, abbr=ABBR, anchor=pub["anchor"])
 
 
 @bp.route("/banco")
 def banco():
-    pub = published()
-    worse = sorted(pub["summary"]["worse_than_naive"].items(), key=lambda kv: -kv[1])
-    return render_template(
-        "banco.html", pub=pub, matrix=_matrix(pub), worse=worse,
-        data_sources=DATA_SOURCES, anchor=pub["anchor"],
-    )
-
-
-@bp.route("/banco/run", methods=["POST"])
-def banco_run():
-    pub = published()
-    el = request.form.get("element", "").strip()
-    data_source = request.form.get("data_source", "tesis")
-    e = pub["elements"].get(el)
-    if e is None or data_source not in DATA_SOURCES:
-        return "Elemento o fuente de datos inválidos.", 400
-
-    start, end = period_bounds(FROZEN_ANCHOR, e["period_key"])
-    start_date, end_date = start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")
-    today = datetime.now().strftime("%Y%m%d")
-    cache_key = f"{CACHE_PREFIX}_{today}_banco_{e['P']}{e['T']}_{data_source}"
-
-    cached, err = run_experiment(cache_key, data_source, None, start_date, end_date, e["test_pct"])
-    if err:
-        return _render_index(error=err, data_source=data_source), 400
-
-    rep, _ = add_ranking(cached["metrics_df"])
-    rep = rep.set_index("Modelo")
-    rows, n_match = [], 0
-    for m in e["models"]:
-        name = m["Modelo"]
-        r = rep.loc[name]
-        seed0 = m.get("seed0")
-        ref_mae = seed0["MAE"] if seed0 else m["MAE"]
-        ref_r2 = seed0["R^2"] if seed0 else m["R^2"]
-        rep_mae = None if r["MAE"] != r["MAE"] else float(r["MAE"])
-        delta = None if (rep_mae is None or ref_mae is None) else rep_mae - ref_mae
-        if delta is None:
-            status = "n/a"
-        elif abs(delta) <= MATCH_TOL:
-            status = "coincide"; n_match += 1
-        elif abs(delta) <= NEAR_TOL:
-            status = "≈ coincide"; n_match += 1
-        else:
-            status = "difiere"
-        rows.append({
-            "Modelo": name,
-            "pub_mae": m["MAE"], "pub_r2": m["R^2"], "pub_p": m["p"], "pub_rank": m["rank7"],
-            "pub_seed0": bool(seed0), "ref_mae": ref_mae, "ref_r2": ref_r2,
-            "rep_mae": rep_mae, "rep_r2": None if r["R^2"] != r["R^2"] else float(r["R^2"]),
-            "rep_p": None if r["DM p-valor"] != r["DM p-valor"] else float(r["DM p-valor"]),
-            "rep_rank": int(r["Rank"]), "delta": delta, "status": status,
-        })
-
-    banco_compare = {
-        "element": el, "info": e, "rows": rows, "n_match": n_match, "n_total": len(rows),
-        "data_source_label": DATA_SOURCES[data_source], "anchor": pub["anchor"],
-    }
-    display_period = f"{start_date} → {end_date}  (historia de {e['periodo']}, elemento {el} de la tesis)"
-    return _render_index(
-        **results_context(cached),
-        banco_compare=banco_compare, display_period=display_period,
-        display_test_percent=e["test_pct"], cache_key=cache_key,
-        query_mode="anchor", selected_anchor_date=pub["anchor"], selected_anchor_period=e["period_key"],
-        selected_test_percent=e["test_pct"], data_source=data_source,
-    )
+    global _CTX
+    if _CTX is None:
+        _CTX = _build_context(published())
+    return render_template("banco.html", **_CTX)

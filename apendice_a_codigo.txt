@@ -47,9 +47,7 @@ tesis-forecast/
 │   │   └── resultados_tesis.json
 │   ├── data/
 │   │   ├── __init__.py
-│   │   ├── fetch.py
-│   │   ├── frozen.py
-│   │   └── usdmxn_tesis.csv
+│   │   └── fetch.py
 │   ├── features/
 │   │   ├── __init__.py
 │   │   └── build.py
@@ -57,18 +55,16 @@ tesis-forecast/
 │   │   ├── __init__.py
 │   │   ├── dl_models.py
 │   │   ├── evaluation.py
-│   │   ├── horizons.py
 │   │   ├── ml_models.py
 │   │   ├── pipeline.py
 │   │   ├── ranking.py
 │   │   └── ts_models.py
-│   ├── __init__.py
-│   ├── provenance.py
-│   └── version.py
+│   └── __init__.py
 ├── .dockerignore
 ├── .gcloudignore
 ├── .gitignore
 ├── Dockerfile
+├── LICENSE
 ├── Makefile
 ├── README.md
 ├── requirements.txt
@@ -190,27 +186,31 @@ def create_app():
 
 ══ ARCHIVO: app\routes\banco.py ══════════════════════════════════════════════
 
-"""Banco de pruebas de la tesis: los 54 experimentos publicados (Capítulo 4 y
-Apéndice C) y su re-ejecución en vivo para contrastar publicado vs. reproducido."""
+"""Banco de Tesis: los 54 experimentos publicados en el Capítulo 4 y el Apéndice C.
+
+Página de solo lectura. Los resultados provienen de ``src/benchmark_data/resultados_tesis.json``
+(generado por ``scripts/build_published.py`` a partir de ``benchmark/``); aquí no se entrena nada.
+"""
 
 import json
 import os
-from datetime import datetime
 
-from flask import Blueprint, render_template, request
-
-from app.routes.main import (CACHE_PREFIX, DATA_SOURCES, _render_index, period_bounds,
-                             results_context, run_experiment)
-from src.data.frozen import FROZEN_ANCHOR
-from src.models.ranking import add_ranking
+from flask import Blueprint, render_template
 
 bp = Blueprint("banco", __name__)
 
 _PUB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                          "src", "benchmark_data", "resultados_tesis.json")
 _PUB = None
-MATCH_TOL = 0.0005        # |ΔMAE| para considerar que una corrida reproduce el valor publicado
-NEAR_TOL = 0.002          # ruido de punto flotante (p. ej. umbrales de Random Forest)
+_CTX = None
+
+MODELS6 = ["SARIMA", "Holt-Winters", "Regresión Lineal", "Random Forest", "RNN", "LSTM"]
+ABBR = {"Naive": "Naive", "SARIMA": "SARIMA", "Holt-Winters": "H-W", "Regresión Lineal": "Reg. Lin.",
+        "Random Forest": "R. Forest", "RNN": "RNN", "LSTM": "LSTM"}
+FAMILY = {"Naive": "Referencia", "SARIMA": "Series de tiempo", "Holt-Winters": "Series de tiempo",
+          "Regresión Lineal": "Machine Learning", "Random Forest": "Machine Learning",
+          "RNN": "Deep Learning", "LSTM": "Deep Learning"}
+EQUAL_TOL = 0.05        # % de diferencia de MAE frente a Naive por debajo del cual se considera "igual"
 
 
 def published():
@@ -221,94 +221,126 @@ def published():
     return _PUB
 
 
-def _matrix(pub):
-    rows = []
+def _rel(mae, naive_mae):
+    """Diferencia porcentual del MAE frente al modelo ingenuo (negativo = mejor que Naive)."""
+    if mae is None or not naive_mae:
+        return None
+    return (mae / naive_mae - 1.0) * 100.0
+
+
+def _cell_class(rel, winner_verdict):
+    if winner_verdict == "mejor que Naive":
+        return "sig"
+    if rel is None:
+        return "na"
+    if rel < -EQUAL_TOL:
+        return "better"
+    if rel <= EQUAL_TOL:
+        return "equal"
+    return "worse"
+
+
+def _lectura(e, models, naive):
+    """Una frase de lectura para el elemento, construida solo con hechos de la tabla."""
+    top7 = [m["Modelo"] for m in models if m["rank7"] == 1]
+    best6 = [m for m in models if m.get("rank6") == 1]
+    parts = []
+    if "Naive" in top7:
+        others = [ABBR[m] for m in top7 if m != "Naive"]
+        parts.append("El modelo ingenuo queda en primer lugar" + (f" (empatado con {', '.join(others)})" if others else "") + ".")
+    else:
+        parts.append(f"Primer lugar en el ranking con los 7 modelos: {', '.join(ABBR[m] for m in top7)}.")
+    if best6:
+        b = best6[0]
+        rel = _rel(b["MAE"], naive["MAE"])
+        rel_txt = ("igual que Naive" if rel is not None and abs(rel) <= EQUAL_TOL
+                   else f"{rel:+.1f} % de MAE frente a Naive" if rel is not None else "")
+        parts.append(f"Mejor de los seis propuestos: {', '.join(ABBR[m['Modelo']] for m in best6)} (MAE {b['MAE']:.4f}, {rel_txt}).")
+    sig_better = [ABBR[m["Modelo"]] for m in models if m["veredicto"] == "mejor que Naive"]
+    sig_worse = [ABBR[m["Modelo"]] for m in models if m["veredicto"] == "peor que Naive"]
+    if sig_better:
+        parts.append(f"Supera a Naive con significancia: {', '.join(sig_better)}.")
+    else:
+        parts.append("Ningún modelo supera a Naive con significancia estadística.")
+    if sig_worse:
+        parts.append(f"Significativamente peores que Naive: {', '.join(sig_worse)}.")
+    sarima = next((m for m in models if m["Modelo"] == "SARIMA"), None)
+    if sarima and sarima["MAE"] == naive["MAE"] and "(0, 1, 0)" in e.get("sarima_order", ""):
+        parts.append("auto_arima eligió (0,1,0): SARIMA es idéntico al paseo aleatorio.")
+    return " ".join(parts)
+
+
+def _build_context(pub):
+    periods, tests = [], [{"T": T, "pct": pct} for T, pct in pub["tests"].items()]
     for P, per in pub["periods"].items():
-        cells = []
-        for T, pct in pub["tests"].items():
-            el = f"{P},{T}"
+        e1 = pub["elements"][f"{P},T1"]
+        periods.append({"P": P, "key": per["key"], "label": per["label"], "n": e1["n"],
+                        "fecha_inicio": e1["fecha_inicio"], "fecha_fin": e1["fecha_fin"]})
+
+    heat, rank1, details = [], [], []
+    dm_counts = {m: {"mejor que Naive": 0, "sin diferencia": 0, "peor que Naive": 0, "n/a": 0} for m in MODELS6}
+    for per in periods:
+        P = per["P"]
+        cells, counts, elems = [], {m: 0 for m in MODELS6}, []
+        for t in tests:
+            el = f"{P},{t['T']}"
             e = pub["elements"][el]
-            models = {m["Modelo"]: m for m in e["models"]}
-            winners = [m["Modelo"] for m in e["models"] if m.get("rank6") == 1]
-            naive = models["Naive"]
+            models = sorted(e["models"], key=lambda m: (m["rank7"], m["MAE"] if m["MAE"] is not None else 9e9))
+            by = {m["Modelo"]: m for m in models}
+            naive = by["Naive"]
+            winners = [m for m in models if m.get("rank6") == 1]
+            w = winners[0] if winners else None
+            rel = _rel(w["MAE"], naive["MAE"]) if w else None
+            cls = _cell_class(rel, w["veredicto"] if w else None)
+            for m in models:
+                if m["Modelo"] != "Naive":
+                    dm_counts[m["Modelo"]][m["veredicto"]] += 1
+                if m.get("rank6") == 1:
+                    counts[m["Modelo"]] += 1
             cells.append({
-                "el": el, "anchor": f"{P}-{T}", "pct": pct, "winners": winners,
-                "mae": min(models[w]["MAE"] for w in winners) if winners else None,
-                "naive_mae": naive["MAE"], "naive_best": naive["rank7"] == 1,
-                "significant": any(m["veredicto"] == "mejor que Naive" for m in e["models"]),
+                "el": el, "anchor": el.replace(",", "-"), "T": t["T"], "pct": t["pct"],
+                "winners": [ABBR[m["Modelo"]] for m in winners],
+                "mae": w["MAE"] if w else None, "naive_mae": naive["MAE"], "rel": rel, "cls": cls,
+                "naive_first": naive["rank7"] == 1,
+                "title": (f"{el}: historia de {per['label']}, {t['pct']} % de prueba (n = {e['n']}). "
+                          f"Mejor de los seis: {', '.join(ABBR[m['Modelo']] for m in winners)} con MAE {w['MAE']:.4f}; "
+                          f"Naive {naive['MAE']:.4f}." if w else el),
             })
-        rows.append({"P": P, "label": per["label"], "cells": cells})
-    return rows
+            max_mae = max(m["MAE"] for m in models if m["MAE"] is not None)
+            rows = []
+            for m in models:
+                r = _rel(m["MAE"], naive["MAE"])
+                rows.append({**m, "abbr": ABBR[m["Modelo"]], "family": FAMILY[m["Modelo"]],
+                             "bar": (m["MAE"] / max_mae * 100.0) if m["MAE"] is not None and max_mae else 0.0,
+                             "rel": r, "is_naive": m["Modelo"] == "Naive"})
+            elems.append({"el": el, "anchor": el.replace(",", "-"), "T": t["T"], "pct": t["pct"], "n": e["n"],
+                          "n_train": e["n_train"], "n_test": e["n_test"], "fecha_inicio": e["fecha_inicio"],
+                          "fecha_test": e["fecha_test"], "fecha_fin": e["fecha_fin"],
+                          "sarima_order": e.get("sarima_order", ""), "rows": rows,
+                          "lectura": _lectura(e, models, naive)})
+        heat.append({**per, "cells": cells})
+        rank1.append({**per, "counts": counts, "naive_first": sum(1 for c in cells if c["naive_first"])})
+        details.append({**per, "elements": elems})
+
+    rank1_total = {m: sum(r["counts"][m] for r in rank1) for m in MODELS6}
+    span = {"inicio": min(p["fecha_inicio"] for p in periods), "fin": max(p["fecha_fin"] for p in periods)}
+    summary = {
+        "n_elements": pub["summary"]["n_elements"],
+        "naive_first": sum(r["naive_first"] for r in rank1),
+        "better": pub["summary"]["better_than_naive"],
+        "worse": pub["summary"]["worse_than_naive"],
+    }
+    return dict(pub=pub, periods=periods, tests=tests, heat=heat, rank1=rank1, rank1_total=rank1_total,
+                dm_counts=dm_counts, details=details, span=span, summary=summary,
+                models6=MODELS6, abbr=ABBR, anchor=pub["anchor"])
 
 
 @bp.route("/banco")
 def banco():
-    pub = published()
-    worse = sorted(pub["summary"]["worse_than_naive"].items(), key=lambda kv: -kv[1])
-    return render_template(
-        "banco.html", pub=pub, matrix=_matrix(pub), worse=worse,
-        data_sources=DATA_SOURCES, anchor=pub["anchor"],
-    )
-
-
-@bp.route("/banco/run", methods=["POST"])
-def banco_run():
-    pub = published()
-    el = request.form.get("element", "").strip()
-    data_source = request.form.get("data_source", "tesis")
-    e = pub["elements"].get(el)
-    if e is None or data_source not in DATA_SOURCES:
-        return "Elemento o fuente de datos inválidos.", 400
-
-    start, end = period_bounds(FROZEN_ANCHOR, e["period_key"])
-    start_date, end_date = start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")
-    today = datetime.now().strftime("%Y%m%d")
-    cache_key = f"{CACHE_PREFIX}_{today}_banco_{e['P']}{e['T']}_{data_source}"
-
-    cached, err = run_experiment(cache_key, data_source, None, start_date, end_date, e["test_pct"])
-    if err:
-        return _render_index(error=err, data_source=data_source), 400
-
-    rep, _ = add_ranking(cached["metrics_df"])
-    rep = rep.set_index("Modelo")
-    rows, n_match = [], 0
-    for m in e["models"]:
-        name = m["Modelo"]
-        r = rep.loc[name]
-        seed0 = m.get("seed0")
-        ref_mae = seed0["MAE"] if seed0 else m["MAE"]
-        ref_r2 = seed0["R^2"] if seed0 else m["R^2"]
-        rep_mae = None if r["MAE"] != r["MAE"] else float(r["MAE"])
-        delta = None if (rep_mae is None or ref_mae is None) else rep_mae - ref_mae
-        if delta is None:
-            status = "n/a"
-        elif abs(delta) <= MATCH_TOL:
-            status = "coincide"; n_match += 1
-        elif abs(delta) <= NEAR_TOL:
-            status = "≈ coincide"; n_match += 1
-        else:
-            status = "difiere"
-        rows.append({
-            "Modelo": name,
-            "pub_mae": m["MAE"], "pub_r2": m["R^2"], "pub_p": m["p"], "pub_rank": m["rank7"],
-            "pub_seed0": bool(seed0), "ref_mae": ref_mae, "ref_r2": ref_r2,
-            "rep_mae": rep_mae, "rep_r2": None if r["R^2"] != r["R^2"] else float(r["R^2"]),
-            "rep_p": None if r["DM p-valor"] != r["DM p-valor"] else float(r["DM p-valor"]),
-            "rep_rank": int(r["Rank"]), "delta": delta, "status": status,
-        })
-
-    banco_compare = {
-        "element": el, "info": e, "rows": rows, "n_match": n_match, "n_total": len(rows),
-        "data_source_label": DATA_SOURCES[data_source], "anchor": pub["anchor"],
-    }
-    display_period = f"{start_date} → {end_date}  (historia de {e['periodo']}, elemento {el} de la tesis)"
-    return _render_index(
-        **results_context(cached),
-        banco_compare=banco_compare, display_period=display_period,
-        display_test_percent=e["test_pct"], cache_key=cache_key,
-        query_mode="anchor", selected_anchor_date=pub["anchor"], selected_anchor_period=e["period_key"],
-        selected_test_percent=e["test_pct"], data_source=data_source,
-    )
+    global _CTX
+    if _CTX is None:
+        _CTX = _build_context(published())
+    return render_template("banco.html", **_CTX)
 
 ══════════════════════════════════════════════════════════════════════
 
@@ -340,33 +372,6 @@ from app import cache
 from src.models.ranking import add_ranking
 
 bp = Blueprint("exports", __name__)
-
-_VERDICT_SHORT = {"mejor que Naive": "mejor", "peor que Naive": "peor", "sin diferencia": "sin dif.",
-                  "referencia": "ref.", "n/a": "—"}
-
-
-def _provenance_rows(prov, compact=False):
-    """Pares (campo, valor) del sello de procedencia para Excel y PDF."""
-    rows = [
-        ("Plataforma", f"v{prov['app_version']} · commit {prov['git_commit']}"
-                       + (f" · build {prov['build_time']}" if prov.get("build_time") not in (None, "n/d") else "")),
-        ("Generado", prov["generated_at"]),
-        ("Fuente de datos", prov["source_label"]),
-        ("Descarga", prov["downloaded_at"]),
-        ("Serie", f"{prov['ticker']} · {prov['first_date']} → {prov['last_date']} · n = {prov['n']} "
-                  f"(entrenamiento {prov['n_train']}, prueba {prov['n_test']})"),
-        ("SHA-256 de la serie", prov["sha256"]),
-        ("Semilla (RNN/LSTM)", str(prov["seed"])),
-        ("Horizontes", ", ".join(str(h) for h in prov["horizons"])),
-        ("Protocolo", prov["protocol"]),
-    ]
-    versions = prov["versions"]
-    if compact:
-        rows.append(("Versiones", " · ".join(f"{k} {v}" for k, v in versions.items())))
-    else:
-        rows.extend((f"Versión {k}", str(v)) for k, v in versions.items())
-    rows.extend((f"Hiperparámetros {name}", desc) for name, desc in prov["hyperparams"])
-    return rows
 
 matplotlib.rcParams.update({
     "font.family":        "DejaVu Sans",
@@ -574,17 +579,6 @@ def download_excel():
                 "values":     ["Datos", 1, idx + 1, len(df), idx + 1],
             })
         worksheet.insert_chart("F2", chart)
-
-        # Métricas (un paso), horizontes y sello de procedencia
-        mdf, _ = add_ranking(cached["metrics_df"])
-        mdf.to_excel(writer, index=False, sheet_name="Métricas")
-        hdf = cached.get("horizons_df")
-        if hdf is not None:
-            hdf.to_excel(writer, index=False, sheet_name="Horizontes")
-        prov = cached.get("provenance")
-        if prov:
-            pd.DataFrame(_provenance_rows(prov), columns=["Campo", "Valor"]).to_excel(
-                writer, index=False, sheet_name="Procedencia")
     output.seek(0)
 
     return send_file(
@@ -665,7 +659,6 @@ def download_pdf():
         ["Fecha de generación:", now_str],
         ["Autor:", "Ing. Ricardo Javier Martínez Suástegui"],
         ["Mejor modelo:", best_model],
-        ["Datos:", (cached.get("provenance") or {}).get("source_label", "Yahoo Finance")],
     ], colWidths=[4.5*cm, AVAIL_W - 4.5*cm])
     meta.setStyle(TableStyle([
         ("FONT",          (0,0), (0,-1), "Helvetica-Bold", 8),
@@ -728,54 +721,6 @@ def download_pdf():
         "Evaluación a un paso adelante; DM p = p-valor de la prueba de Diebold-Mariano frente al modelo ingenuo (Naive).",
         small_s,
     ))
-
-    # ── Sección 1b: Error por horizonte de pronóstico ───────────────────────
-    hdf = cached.get("horizons_df")
-    if hdf is not None and len(hdf):
-        hs = sorted(int(h) for h in hdf["h"].unique())
-        story.append(Paragraph("1b. Error por Horizonte de Pronóstico (h = 1, 5 y 20 días)", section_s))
-        neval = " · ".join(f"h = {h}: {int(hdf[hdf['h'] == h]['n_eval'].max())} orígenes" for h in hs)
-        story.append(Paragraph(
-            "Origen móvil sobre el conjunto de prueba: desde cada día, cada modelo pronostica el valor h días "
-            "adelante usando solo la información real hasta ese día (SARIMA y Holt-Winters por sus ecuaciones de "
-            "estado; los modelos de ML/DL de forma recursiva). DM p: prueba de Diebold-Mariano frente a Naive al "
-            f"mismo horizonte (corrección HLN). Orígenes evaluados — {neval}.", body_s))
-        story.append(Spacer(1, 0.15*cm))
-        h_rows = [["Modelo"] + [f"{lbl} h={h}" for h in hs for lbl in ("MAE", "DM p", "Ver.")]]
-        for name in metrics_df["Modelo"]:
-            row = [str(name)]
-            for h in hs:
-                sub = hdf[(hdf["h"] == h) & (hdf["Modelo"] == name)]
-                if len(sub) == 0 or int(sub.iloc[0]["n_eval"]) == 0:
-                    row += ["—", "—", "—"]
-                else:
-                    r = sub.iloc[0]
-                    row += [_num(r["MAE"], "{:.4f}"), _num(r["DM p-valor"], "{:.3f}"),
-                            _VERDICT_SHORT.get(str(r["Veredicto"]), str(r["Veredicto"]))]
-            h_rows.append(row)
-        h_w = [3.2*cm] + [1.55*cm, 1.45*cm, 1.6*cm] * len(hs)
-        h_tbl = Table(h_rows, colWidths=h_w)
-        hts = [
-            ("BACKGROUND",    (0,0), (-1,0),  UNAM_BLUE),
-            ("TEXTCOLOR",     (0,0), (-1,0),  WHITE),
-            ("FONT",          (0,0), (-1,0),  "Helvetica-Bold", 6.5),
-            ("FONT",          (0,1), (-1,-1), "Helvetica",      7),
-            ("TEXTCOLOR",     (0,1), (-1,-1), DARK),
-            ("ALIGN",         (0,0), (-1,-1), "CENTER"),
-            ("ALIGN",         (0,1), (0,-1),  "LEFT"),
-            ("GRID",          (0,0), (-1,-1), 0.4, HexColor("#D6DCE8")),
-            ("TOPPADDING",    (0,0), (-1,-1), 4),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 4),
-            ("LEFTPADDING",   (0,0), (-1,-1), 4),
-            ("RIGHTPADDING",  (0,0), (-1,-1), 4),
-        ]
-        for r in range(1, len(h_rows)):
-            if r % 2 == 0:
-                hts.append(("BACKGROUND", (0, r), (-1, r), UNAM_LIGHT))
-        for j in range(len(hs)):
-            hts.append(("LINEBEFORE", (1 + 3*j, 0), (1 + 3*j, -1), 1.0, UNAM_GOLD))
-        h_tbl.setStyle(TableStyle(hts))
-        story.append(h_tbl)
 
     # ── Sección 2: Semáforo de riesgo ───────────────────────────────────────
     story.append(Paragraph("2. Semáforo de Riesgo Cambiario", section_s))
@@ -859,28 +804,6 @@ def download_pdf():
         story.append(Paragraph(f"• {item}", body_s))
         story.append(Spacer(1, 0.1*cm))
 
-    # ── Sección 7: Procedencia y reproducibilidad ───────────────────────────
-    prov = cached.get("provenance")
-    if prov:
-        story.append(Paragraph("7. Procedencia y Reproducibilidad", section_s))
-        story.append(Paragraph(
-            "Datos, versiones y parámetros con los que se generó este reporte; permiten reproducir el "
-            "resultado o explicar por qué otra corrida difiere.", body_s))
-        story.append(Spacer(1, 0.15*cm))
-        p_rows = [[Paragraph(f"<b>{k}</b>", small_s), Paragraph(str(v), small_s)]
-                  for k, v in _provenance_rows(prov, compact=True)]
-        p_tbl = Table(p_rows, colWidths=[4.2*cm, AVAIL_W - 4.2*cm])
-        p_tbl.setStyle(TableStyle([
-            ("GRID",          (0,0), (-1,-1), 0.3, HexColor("#D6DCE8")),
-            ("BACKGROUND",    (0,0), (0,-1),  UNAM_LIGHT),
-            ("VALIGN",        (0,0), (-1,-1), "TOP"),
-            ("TOPPADDING",    (0,0), (-1,-1), 3),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 3),
-            ("LEFTPADDING",   (0,0), (-1,-1), 6),
-            ("RIGHTPADDING",  (0,0), (-1,-1), 6),
-        ]))
-        story.append(p_tbl)
-
     # ── Pie de página ────────────────────────────────────────────────────────
     story.append(Spacer(1, 0.4*cm))
     story.append(HRFlowable(width="100%", thickness=1, color=UNAM_GOLD, spaceBefore=4))
@@ -900,33 +823,23 @@ def download_pdf():
 
 ══ ARCHIVO: app\routes\main.py ═══════════════════════════════════════════════
 
-"""Rutas principales: dashboard, gráfica, residuales, estacionalidad, forecast vs real.
+"""Rutas principales: dashboard, gráfica, residuales, estacionalidad, forecast vs real."""
 
-``run_experiment`` y ``results_context`` concentran la lógica de una consulta
-(descarga o serie congelada → 7 modelos → caché → tablas) para que la ruta
-principal y el banco de pruebas (``app/routes/banco.py``) compartan el mismo camino.
-"""
-
-from datetime import datetime, timezone
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
-import yfinance as yf
 from dateutil.relativedelta import relativedelta
 from flask import Blueprint, render_template, request
 
 from app import cache
 from src.data.fetch import get_usdmxn
-from src.data.frozen import get_frozen_usdmxn, FROZEN_ANCHOR, FROZEN_INFO
 from src.features.build import compute_risk
-from src.models.horizons import HORIZONS
 from src.models.pipeline import train_and_evaluate
 from src.models.ranking import add_ranking
-from src.provenance import build_provenance
 
 bp = Blueprint("main", __name__)
 
-CACHE_PREFIX = "v3"
 VALID_PERIODS = {"3mo", "6mo", "1y", "2y", "5y", "10y", "1mo", "5d", "ytd", "max"}
 PERIOD_LABELS = {
     "3mo": "3 meses (corto plazo)",
@@ -940,38 +853,6 @@ PERIOD_LABELS = {
     "ytd": "Año en curso (YTD)",
     "max": "Máximo histórico",
 }
-DATA_SOURCES = {
-    "yahoo": "Yahoo Finance (descarga en vivo)",
-    "tesis": f"Serie congelada de la tesis (USDMXN=X, {FROZEN_INFO['rango']})",
-}
-_OFFSETS = {
-    "5d":  relativedelta(days=5),
-    "1mo": relativedelta(months=1),
-    "3mo": relativedelta(months=3),
-    "6mo": relativedelta(months=6),
-    "1y":  relativedelta(years=1),
-    "2y":  relativedelta(years=2),
-    "5y":  relativedelta(years=5),
-    "10y": relativedelta(years=10),
-}
-
-
-def period_bounds(anchor_dt, period):
-    """(inicio, fin) de un periodo contado hacia atrás desde ``anchor_dt`` (fin exclusivo)."""
-    if period == "ytd":
-        start = datetime(anchor_dt.year, 1, 1)
-        if start >= anchor_dt:                      # 1 de enero: usa el año anterior
-            start = datetime(anchor_dt.year - 1, 1, 1)
-    elif period == "max":
-        start = datetime(1993, 1, 1)
-    else:
-        start = anchor_dt - _OFFSETS[period]
-    if start >= anchor_dt:
-        raise ValueError(
-            f"El periodo '{PERIOD_LABELS.get(period, period)}' no genera un rango válido "
-            "desde la fecha de referencia indicada."
-        )
-    return start, anchor_dt
 
 
 def _render_index(**kwargs):
@@ -981,90 +862,144 @@ def _render_index(**kwargs):
         error=None, selected_period="1y", selected_test_percent=20,
         query_mode="period", selected_start_date="", selected_end_date="",
         selected_anchor_date="", selected_anchor_period="1y",
-        semaforo=None, data_source="yahoo", data_sources=DATA_SOURCES,
-        banco_compare=None, horizons_rows=None, horizon_neval=None,
-        horizons=list(HORIZONS), provenance=None,
+        semaforo=None,
     )
     defaults.update(kwargs)
     return render_template("index.html", **defaults)
 
 
 # ---------------------------------------------------------------------------
-# Datos → modelos → caché (compartido con el banco de pruebas)
+# Ruta principal
 # ---------------------------------------------------------------------------
 
-def load_series(data_source, selected_period=None, start_date=None, end_date=None):
-    """Devuelve ``(df, source_meta)``; ``df`` es ``None`` si no hay datos."""
-    if data_source == "tesis":
-        if selected_period:                          # periodo contado desde el cierre de la serie congelada
-            s, e = period_bounds(FROZEN_ANCHOR, selected_period)
-            start_date, end_date = s.strftime("%Y-%m-%d"), e.strftime("%Y-%m-%d")
-        df = get_frozen_usdmxn(start_date, end_date)
-        meta = {"source": "tesis", "label": DATA_SOURCES["tesis"],
-                "downloaded_at": FROZEN_INFO["descargada"], "note": FROZEN_INFO["descripcion"]}
-        return (df if len(df) else None), meta
+@bp.route("/", methods=["GET", "POST"])
+def index():
+    if request.method != "POST":
+        return _render_index()
 
-    df = get_usdmxn(period=selected_period, start_date=start_date, end_date=end_date)
-    meta = {"source": "yahoo", "label": DATA_SOURCES["yahoo"],
-            "downloaded_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
-            "note": f"yfinance {yf.__version__}, ticker USDMXN=X, intervalo diario"}
-    return df, meta
+    query_mode = request.form.get("query_mode", "period")
 
+    try:
+        test_percent = float(request.form.get("test_percent", 20))
+        if not (1 <= test_percent <= 80):
+            raise ValueError()
+    except (ValueError, TypeError):
+        return _render_index(error="El porcentaje de testing debe estar entre 1 y 80."), 400
 
-def run_experiment(cache_key, data_source, selected_period, start_date, end_date, test_percent):
-    """Ejecuta (o recupera de caché) los 7 modelos. Devuelve ``(cached, error)``."""
+    # Estado ancla — solo se usa en modo "anchor"; valores neutros para los otros modos
+    anchor_date_str = ""
+    anchor_period   = "1y"
+
+    if query_mode == "period":
+        selected_period = request.form.get("period_select", "")
+        if selected_period not in VALID_PERIODS:
+            return _render_index(error="Periodo inválido seleccionado."), 400
+        start_date = end_date = None
+
+    elif query_mode == "custom":
+        selected_period = None
+        start_date = request.form.get("start_date", "").strip()
+        end_date   = request.form.get("end_date",   "").strip()
+        try:
+            dt_start = datetime.strptime(start_date, "%Y-%m-%d")
+            dt_end   = datetime.strptime(end_date,   "%Y-%m-%d")
+            if dt_start >= dt_end:
+                raise ValueError("La fecha de inicio debe ser anterior a la fecha fin.")
+            if dt_end > datetime.now():
+                raise ValueError("La fecha fin no puede ser futura.")
+        except (ValueError, TypeError) as exc:
+            return _render_index(
+                error=f"Fechas inválidas: {exc}", query_mode="custom",
+                selected_start_date=start_date, selected_end_date=end_date,
+                selected_test_percent=test_percent,
+            ), 400
+
+    elif query_mode == "anchor":
+        selected_period = None
+        anchor_date_str = request.form.get("anchor_date", "").strip()
+        anchor_period   = request.form.get("anchor_period", "").strip()
+        if anchor_period not in VALID_PERIODS:
+            return _render_index(
+                error="Periodo inválido en modo fecha ancla.", query_mode="anchor",
+                selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
+                selected_test_percent=test_percent,
+            ), 400
+        try:
+            dt_anchor = datetime.strptime(anchor_date_str, "%Y-%m-%d")
+            if dt_anchor > datetime.now():
+                raise ValueError("La fecha de referencia no puede ser futura.")
+            if dt_anchor < datetime(1993, 1, 1):
+                raise ValueError("La fecha de referencia mínima disponible es el 01/01/1993.")
+
+            _OFFSETS = {
+                "5d":  relativedelta(days=5),
+                "1mo": relativedelta(months=1),
+                "3mo": relativedelta(months=3),
+                "6mo": relativedelta(months=6),
+                "1y":  relativedelta(years=1),
+                "2y":  relativedelta(years=2),
+                "5y":  relativedelta(years=5),
+                "10y": relativedelta(years=10),
+            }
+            if anchor_period == "ytd":
+                dt_start = datetime(dt_anchor.year, 1, 1)
+            elif anchor_period == "max":
+                dt_start = datetime(1993, 1, 1)
+            else:
+                dt_start = dt_anchor - _OFFSETS[anchor_period]
+
+            if dt_start >= dt_anchor:
+                raise ValueError(
+                    f"El periodo '{PERIOD_LABELS.get(anchor_period, anchor_period)}' no genera "
+                    "un rango válido desde la fecha de referencia indicada."
+                )
+            start_date = dt_start.strftime("%Y-%m-%d")
+            end_date   = anchor_date_str
+        except (ValueError, TypeError) as exc:
+            return _render_index(
+                error=f"Fecha de referencia inválida: {exc}", query_mode="anchor",
+                selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
+                selected_test_percent=test_percent,
+            ), 400
+
+    else:
+        return _render_index(error="Modo de consulta inválido."), 400
+
+    today = datetime.now().strftime("%Y%m%d")
+    if query_mode == "period":
+        cache_key = f"v2_{today}_period_{selected_period}_{int(test_percent)}"
+    elif query_mode == "custom":
+        cache_key = f"v2_{today}_custom_{start_date}_{end_date}_{int(test_percent)}"
+    else:
+        cache_key = f"v2_{today}_anchor_{anchor_date_str}_{anchor_period}_{int(test_percent)}"
+
     cached = cache.get(cache_key)
-    if cached is not None:
-        return cached, None
+    if cached is None:
+        df = get_usdmxn(period=selected_period, start_date=start_date, end_date=end_date)
+        if df is None or len(df) < 10:
+            return _render_index(
+                error="No se obtuvieron suficientes datos. Prueba con otro periodo o rango de fechas.",
+                query_mode=query_mode, selected_period=selected_period,
+                selected_start_date=start_date or "", selected_end_date=end_date or "",
+                selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
+                selected_test_percent=test_percent,
+            ), 400
 
-    df, meta = load_series(data_source, selected_period, start_date, end_date)
-    if df is None or len(df) < 10:
-        return None, "No se obtuvieron suficientes datos. Prueba con otro periodo o rango de fechas."
+        test_size = max(1, int(len(df) * test_percent / 100))
+        metrics_df, forecast_values, train_series, test_series, predictions_dict = (
+            train_and_evaluate(df, forecast_steps=test_size, test_size=test_size)
+        )
+        dates = df["Date"].dt.strftime("%Y-%m-%d").tolist()
+        semaforo = compute_risk(df["Close"].values)
 
-    test_size = max(1, int(len(df) * test_percent / 100))
-    metrics_df, forecast_values, train_series, test_series, predictions_dict, horizons_df = (
-        train_and_evaluate(df, forecast_steps=test_size, test_size=test_size, horizons=HORIZONS, seed=0)
-    )
-    cached = {
-        "metrics_df": metrics_df, "forecast_values": forecast_values,
-        "train_series": train_series, "test_series": test_series,
-        "predictions_dict": predictions_dict,
-        "dates": df["Date"].dt.strftime("%Y-%m-%d").tolist(),
-        "semaforo": compute_risk(df["Close"].values),
-        "horizons_df": horizons_df,
-        "provenance": build_provenance(df, meta, test_size, seed=0, horizons=HORIZONS),
-        "data_source": data_source, "test_percent": test_percent,
-    }
-    cache.set(cache_key, cached)
-    return cached, None
+        cached = {
+            "metrics_df": metrics_df, "forecast_values": forecast_values,
+            "train_series": train_series, "test_series": test_series,
+            "predictions_dict": predictions_dict, "dates": dates, "semaforo": semaforo,
+        }
+        cache.set(cache_key, cached)
 
-
-def _fmt(v, fmt="{:.4f}"):
-    return fmt.format(v) if v is not None and not pd.isna(v) else "—"
-
-
-def horizons_rows(horizons_df, model_order):
-    """Filas (una por modelo) con las celdas por horizonte, ya formateadas."""
-    rows, neval = [], {}
-    for h in HORIZONS:
-        sub = horizons_df[horizons_df["h"] == h]
-        neval[h] = int(sub["n_eval"].max()) if len(sub) else 0
-    for name in model_order:
-        cells = {}
-        for h in HORIZONS:
-            sub = horizons_df[(horizons_df["h"] == h) & (horizons_df["Modelo"] == name)]
-            if len(sub) == 0 or sub.iloc[0]["n_eval"] == 0:
-                cells[h] = {"MAE": "—", "RMSE": "—", "p": "—", "Veredicto": "sin datos"}
-                continue
-            r = sub.iloc[0]
-            cells[h] = {"MAE": _fmt(r["MAE"]), "RMSE": _fmt(r["RMSE"]),
-                        "p": _fmt(r["DM p-valor"]), "Veredicto": r["Veredicto"]}
-        rows.append({"Modelo": name, "cells": cells})
-    return rows, neval
-
-
-def results_context(cached):
-    """Tablas y objetos listos para la plantilla a partir de una entrada de caché."""
+    # Tabla de métricas con ranking
     metrics_df, best_idx = add_ranking(cached["metrics_df"])
 
     format_dict = {"MAE": "{:.4f}", "RMSE": "{:.4f}", "MAPE": "{:.4f}", "R^2": "{:.4f}",
@@ -1106,116 +1041,8 @@ def results_context(cached):
             return f"{vals:.2f}" if vals is not None else ""
 
     formatted_forecasts = {m: format_forecast(v) for m, v in cached["forecast_values"].items()}
-    rows, neval = horizons_rows(cached["horizons_df"], metrics_df["Modelo"].tolist())
-
-    return dict(
-        metrics_table=metrics_table, forecast_values=formatted_forecasts,
-        predictions_dict=cached["predictions_dict"], semaforo=cached.get("semaforo"),
-        horizons_rows=rows, horizon_neval=neval, provenance=cached.get("provenance"),
-    )
-
-
-# ---------------------------------------------------------------------------
-# Ruta principal
-# ---------------------------------------------------------------------------
-
-@bp.route("/", methods=["GET", "POST"])
-def index():
-    if request.method != "POST":
-        return _render_index()
-
-    query_mode = request.form.get("query_mode", "period")
-    data_source = request.form.get("data_source", "yahoo")
-    if data_source not in DATA_SOURCES:
-        return _render_index(error="Fuente de datos inválida."), 400
-
-    try:
-        test_percent = float(request.form.get("test_percent", 20))
-        if not (1 <= test_percent <= 80):
-            raise ValueError()
-    except (ValueError, TypeError):
-        return _render_index(error="El porcentaje de testing debe estar entre 1 y 80.",
-                             data_source=data_source), 400
-
-    # Estado ancla — solo se usa en modo "anchor"; valores neutros para los otros modos
-    anchor_date_str = ""
-    anchor_period   = "1y"
-
-    if query_mode == "period":
-        selected_period = request.form.get("period_select", "")
-        if selected_period not in VALID_PERIODS:
-            return _render_index(error="Periodo inválido seleccionado.", data_source=data_source), 400
-        start_date = end_date = None
-
-    elif query_mode == "custom":
-        selected_period = None
-        start_date = request.form.get("start_date", "").strip()
-        end_date   = request.form.get("end_date",   "").strip()
-        try:
-            dt_start = datetime.strptime(start_date, "%Y-%m-%d")
-            dt_end   = datetime.strptime(end_date,   "%Y-%m-%d")
-            if dt_start >= dt_end:
-                raise ValueError("La fecha de inicio debe ser anterior a la fecha fin.")
-            if dt_end > datetime.now():
-                raise ValueError("La fecha fin no puede ser futura.")
-        except (ValueError, TypeError) as exc:
-            return _render_index(
-                error=f"Fechas inválidas: {exc}", query_mode="custom",
-                selected_start_date=start_date, selected_end_date=end_date,
-                selected_test_percent=test_percent, data_source=data_source,
-            ), 400
-
-    elif query_mode == "anchor":
-        selected_period = None
-        anchor_date_str = request.form.get("anchor_date", "").strip()
-        anchor_period   = request.form.get("anchor_period", "").strip()
-        if anchor_period not in VALID_PERIODS:
-            return _render_index(
-                error="Periodo inválido en modo fecha ancla.", query_mode="anchor",
-                selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
-                selected_test_percent=test_percent, data_source=data_source,
-            ), 400
-        try:
-            dt_anchor = datetime.strptime(anchor_date_str, "%Y-%m-%d")
-            if dt_anchor > datetime.now():
-                raise ValueError("La fecha de referencia no puede ser futura.")
-            if dt_anchor < datetime(1993, 1, 1):
-                raise ValueError("La fecha de referencia mínima disponible es el 01/01/1993.")
-            dt_start, _ = period_bounds(dt_anchor, anchor_period)
-            start_date = dt_start.strftime("%Y-%m-%d")
-            end_date   = anchor_date_str
-        except (ValueError, TypeError) as exc:
-            return _render_index(
-                error=f"Fecha de referencia inválida: {exc}", query_mode="anchor",
-                selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
-                selected_test_percent=test_percent, data_source=data_source,
-            ), 400
-
-    else:
-        return _render_index(error="Modo de consulta inválido.", data_source=data_source), 400
-
-    today = datetime.now().strftime("%Y%m%d")
-    if query_mode == "period":
-        cache_key = f"{CACHE_PREFIX}_{today}_{data_source}_period_{selected_period}_{int(test_percent)}"
-    elif query_mode == "custom":
-        cache_key = f"{CACHE_PREFIX}_{today}_{data_source}_custom_{start_date}_{end_date}_{int(test_percent)}"
-    else:
-        cache_key = f"{CACHE_PREFIX}_{today}_{data_source}_anchor_{anchor_date_str}_{anchor_period}_{int(test_percent)}"
-
-    cached, err = run_experiment(cache_key, data_source, selected_period, start_date, end_date, test_percent)
-    if err:
-        return _render_index(
-            error=err, query_mode=query_mode, selected_period=selected_period,
-            selected_start_date=start_date or "", selected_end_date=end_date or "",
-            selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
-            selected_test_percent=test_percent, data_source=data_source,
-        ), 400
-
     if query_mode == "period":
         display_period = PERIOD_LABELS.get(selected_period, selected_period)
-        if data_source == "tesis":
-            s, e = period_bounds(FROZEN_ANCHOR, selected_period)
-            display_period = f"{s:%Y-%m-%d} → {e:%Y-%m-%d}  ({display_period}, contado desde el cierre de la serie de la tesis)"
     elif query_mode == "anchor":
         display_period = (
             f"{start_date} → {end_date}"
@@ -1225,12 +1052,13 @@ def index():
         display_period = f"{start_date} → {end_date}"
 
     return _render_index(
-        **results_context(cached),
-        display_period=display_period, display_test_percent=test_percent, cache_key=cache_key,
-        query_mode=query_mode, selected_period=selected_period,
-        selected_start_date=start_date or "", selected_end_date=end_date or "",
-        selected_test_percent=test_percent, selected_anchor_date=anchor_date_str,
-        selected_anchor_period=anchor_period, data_source=data_source,
+        metrics_table=metrics_table, forecast_values=formatted_forecasts,
+        predictions_dict=cached["predictions_dict"], display_period=display_period,
+        display_test_percent=test_percent, cache_key=cache_key, query_mode=query_mode,
+        selected_period=selected_period, selected_start_date=start_date or "",
+        selected_end_date=end_date or "", selected_test_percent=test_percent,
+        selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
+        semaforo=cached.get("semaforo"),
     )
 
 
@@ -2333,30 +2161,121 @@ $(document).ready(function () {
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Banco de pruebas — Pronóstico USD/MXN — UNAM</title>
-    <!-- Bootstrap base (sin tema Bootswatch) -->
+    <title>Banco de Tesis — Pronóstico USD/MXN — UNAM</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css" />
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="32x32" />
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <style>
+        /* ---------- Banco de Tesis: estilo propio (solo esta página) ---------- */
+        .bt-wrap { max-width: 1180px; margin: 0 auto; padding: 18px 0 48px; color: #1F2937; }
+        .bt-nav { font-size: 0.86rem; padding-top: 14px; }
+        .bt-nav a { font-weight: 700; color: var(--unam-blue, #003087); text-decoration: none; }
+        .bt-nav .sep { color: #9AA3B2; margin: 0 8px; }
+        .bt-nav .current { color: #0D1B3E; border-bottom: 2px solid #C8A800; padding-bottom: 2px; }
+
+        .bt-hero { display: grid; grid-template-columns: 1.15fr 1fr; gap: 28px; align-items: center;
+                   background: linear-gradient(135deg, #0D1B3E 0%, #1B3063 60%, #24427F 100%); color: #fff;
+                   border-radius: 14px; padding: 34px 36px; margin-bottom: 22px; box-shadow: 0 12px 30px rgba(13,27,62,0.18); }
+        .bt-kicker { font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: #E7CF5A; margin: 0 0 8px; font-weight: 700; }
+        .bt-title { font-family: Georgia, "Times New Roman", serif; font-size: 2.4rem; font-weight: 700; margin: 0 0 12px; letter-spacing: 0.01em; }
+        .bt-lead { font-size: 0.98rem; line-height: 1.7; color: #DCE3F2; margin: 0; }
+        .bt-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .bt-stat { background: rgba(255,255,255,0.09); border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; padding: 14px 16px; }
+        .bt-stat-label { display: block; font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: #B9C6E4; margin-bottom: 6px; }
+        .bt-stat-value { display: block; font-size: 1.35rem; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; line-height: 1.15; }
+        .bt-stat-note { display: block; font-size: 0.72rem; color: #B9C6E4; margin-top: 5px; line-height: 1.4; }
+
+        .bt-card { background: #fff; border: 1px solid #E3E8F0; border-radius: 12px; padding: 26px 28px; margin-bottom: 20px;
+                   box-shadow: 0 2px 10px rgba(13,27,62,0.05); }
+        .bt-card h3 { font-family: Georgia, "Times New Roman", serif; font-size: 1.35rem; color: #0D1B3E; margin: 0 0 10px; }
+        .bt-card h4 { font-size: 0.95rem; font-weight: 700; color: #0D1B3E; margin: 0 0 6px; }
+        .bt-help { font-size: 0.9rem; line-height: 1.65; color: #4A5568; margin: 0 0 14px; }
+        .bt-foot { font-size: 0.8rem; line-height: 1.6; color: #6B7280; margin: 12px 0 0; }
+        .bt-two { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+        .bt-two p { font-size: 0.9rem; line-height: 1.65; color: #374151; }
+        .bt-scroll { overflow-x: auto; }
+
+        .bt-mini { width: 100%; border-collapse: collapse; font-size: 0.84rem; margin-bottom: 14px; }
+        .bt-mini th { background: #F3F5F9; color: #0D1B3E; font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
+                      padding: 8px 10px; text-align: left; border-bottom: 1px solid #D9DFEA; }
+        .bt-mini td { padding: 7px 10px; border-bottom: 1px solid #ECEFF4; }
+        .bt-key { font-weight: 800; color: #003087; }
+        .bt-num { text-align: right; font-variant-numeric: tabular-nums; }
+        .bt-counts th:not(:first-child), .bt-counts td:not(:first-child) { text-align: center; }
+        .bt-zero { color: #B7BECB; }
+        .bt-total { font-weight: 800; background: #FBF6DF; }
+        .bt-good { color: #1A7340; font-weight: 700; }
+        .bt-bad { color: #B03A2E; font-weight: 700; }
+        .bt-naive-row td { background: #F3F5F9; font-weight: 600; }
+        .bt-defs { font-size: 0.86rem; line-height: 1.6; margin: 0; }
+        .bt-defs dt { font-weight: 700; color: #0D1B3E; margin-top: 8px; }
+        .bt-defs dd { margin: 0; color: #374151; }
+
+        .bt-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 0.8rem; color: #374151; margin: 0 0 12px; }
+        .bt-legend span { display: inline-flex; align-items: center; gap: 6px; }
+        .bt-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.08); }
+
+        .bt-heat { border-collapse: separate; border-spacing: 4px; width: 100%; font-size: 0.8rem; }
+        .bt-heat th { font-size: 0.72rem; color: #0D1B3E; text-align: center; padding: 6px 4px; }
+        .bt-heat th small { display: block; font-weight: 400; color: #6B7280; }
+        .bt-heat .bt-corner { text-align: left; color: #6B7280; font-weight: 400; }
+        .bt-heat .bt-rowhead { text-align: left; white-space: nowrap; font-weight: 800; color: #003087; }
+        .bt-heat .bt-rowhead small { display: block; font-weight: 400; color: #6B7280; }
+        .bt-cell { padding: 0; border-radius: 8px; min-width: 92px; }
+        .bt-cell a { display: block; padding: 9px 8px; text-decoration: none; color: inherit; border-radius: 8px; transition: transform .12s, box-shadow .12s; }
+        .bt-cell a:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(13,27,62,0.18); }
+        .bt-cell-model { display: block; font-weight: 700; font-size: 0.78rem; line-height: 1.25; }
+        .bt-cell-rel { display: block; font-size: 0.78rem; margin-top: 3px; font-variant-numeric: tabular-nums; }
+        .bt-sig    { background: #1A7340; color: #fff; }
+        .bt-better { background: #DDF3E4; color: #175C33; }
+        .bt-equal  { background: #EEF1F5; color: #4A5568; }
+        .bt-worse  { background: #FBE4DF; color: #8E2A1C; }
+        .bt-na     { background: #F7F7F7; color: #9AA3B2; }
+
+        .bt-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 18px; }
+        .bt-tab { border: 1px solid #C9D2E3; background: #fff; color: #0D1B3E; border-radius: 999px; padding: 7px 16px;
+                  font-size: 0.84rem; font-weight: 700; cursor: pointer; transition: all .12s; }
+        .bt-tab:hover { border-color: #003087; }
+        .bt-tab.active { background: #0D1B3E; color: #fff; border-color: #0D1B3E; }
+        .bt-detail[hidden] { display: none; }
+
+        .bt-exp { border: 1px solid #E3E8F0; border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; background: #FCFCFD; }
+        .bt-exp-head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: baseline; margin-bottom: 10px; }
+        .bt-exp-key { display: inline-block; background: #0D1B3E; color: #fff; font-weight: 800; border-radius: 6px; padding: 3px 10px; margin-right: 10px; font-size: 0.86rem; }
+        .bt-exp-title { font-weight: 700; color: #0D1B3E; font-size: 0.98rem; }
+        .bt-exp-meta { font-size: 0.78rem; color: #6B7280; }
+        .bt-res { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+        .bt-res th { background: #F3F5F9; color: #0D1B3E; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 8px 8px; border-bottom: 1px solid #D9DFEA; text-align: right; }
+        .bt-res th:nth-child(2), .bt-res th:last-child { text-align: left; }
+        .bt-res td { padding: 7px 8px; border-bottom: 1px solid #ECEFF4; vertical-align: middle; }
+        .bt-res tr.bt-top td { background: #FBF6DF; font-weight: 700; }
+        .bt-res tr.bt-ref td { color: #4A5568; font-style: italic; }
+        .bt-model { display: block; }
+        .bt-family { display: block; font-size: 0.68rem; color: #9AA3B2; font-style: normal; font-weight: 400; }
+        .bt-maecell { position: relative; min-width: 110px; }
+        .bt-bar { position: absolute; left: 6px; bottom: 5px; height: 4px; background: #C9D2E3; border-radius: 2px; max-width: calc(100% - 12px); }
+        .bt-top .bt-bar { background: #C8A800; }
+        .bt-badge { display: inline-block; font-size: 0.72rem; font-weight: 700; border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
+        .bt-badge-mejor-que-Naive { background: #1A7340; color: #fff; }
+        .bt-badge-peor-que-Naive { background: #FBE4DF; color: #8E2A1C; }
+        .bt-badge-sin-diferencia { background: #EEF1F5; color: #4A5568; }
+        .bt-badge-referencia { background: #E8EEF9; color: #003087; }
+        .bt-badge-na { background: #F3F3F3; color: #9AA3B2; }
+        .bt-lectura { margin: 12px 0 0; font-size: 0.86rem; line-height: 1.65; color: #1F2937; border-left: 3px solid #C8A800; padding-left: 12px; }
+        .bt-source { font-size: 0.78rem; color: #6B7280; line-height: 1.6; margin: 6px 4px 0; }
+
+        @media (max-width: 900px) {
+            .bt-hero, .bt-two { grid-template-columns: 1fr; }
+            .bt-title { font-size: 1.9rem; }
+            .bt-card { padding: 18px; }
+        }
+    </style>
 </head>
 <body>
 
-<!-- Filtro SVG para colorear el logo UNAM en RGB(203,168,71) exacto.
-     Fórmula: out = objetivo × luminancia(R,G,B)
-     R_out = 0.796×(0.2126R + 0.7152G + 0.0722B)
-     G_out = 0.659×(0.2126R + 0.7152G + 0.0722B)
-     B_out = 0.278×(0.2126R + 0.7152G + 0.0722B) -->
-<svg aria-hidden="true" focusable="false"
-     style="position:absolute;width:0;height:0;overflow:hidden">
+<svg aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden">
   <defs>
-    <!-- Fórmula: dorado_out = gold_ratio × (1 − luminancia)
-         → píxeles oscuros (escudo) → dorado brillante
-         → píxeles claros (fondo blanco) → negro (invisible sobre header azul)
-         R = −0.1692r − 0.5693g − 0.0575b + 0.796
-         G = −0.1401r − 0.4713g − 0.0476b + 0.659
-         B = −0.0591r − 0.1988g − 0.0201b + 0.278 -->
     <filter id="unam-gold-filter" color-interpolation-filters="sRGB">
       <feColorMatrix type="matrix" values="
         -0.1692  -0.5693  -0.0575  0  0.796
@@ -2367,38 +2286,24 @@ $(document).ready(function () {
   </defs>
 </svg>
 
-<!-- ============================================================
-     ENCABEZADO INSTITUCIONAL
-     ============================================================ -->
 <header class="site-header">
-
-    <!-- ── Banda principal ──────────────────────────────────────── -->
     <div class="header-inner">
-
-        <!-- Logo UNAM (izquierda) -->
         <div class="header-logo-wrap">
             <img src="{{ url_for('static', filename='img/unam_logo.png') }}"
                  alt="Universidad Nacional Autónoma de México"
                  class="header-logo-img header-logo-unam" />
         </div>
-
-        <!-- Texto central -->
         <div class="header-text">
             <p class="header-institution">Universidad Nacional Autónoma de México &nbsp;·&nbsp; Facultad de Ingeniería</p>
             <h1 class="header-title">Pronóstico del Tipo de Cambio USD/MXN</h1>
             <p class="header-subtitle">Estudio comparativo entre métodos tradicionales, machine learning y deep learning por horizonte temporal</p>
         </div>
-
-        <!-- Logo Facultad de Ingeniería (derecha) -->
         <div class="header-logo-wrap">
             <img src="{{ url_for('static', filename='img/fi_escudo.png') }}"
                  alt="Facultad de Ingeniería UNAM"
                  class="header-logo-img" />
         </div>
-
     </div>
-
-    <!-- ── Cinta inferior: Posgrado ─────────────────────────────── -->
     <div class="header-subribbon">
         <div class="header-subribbon-inner">
             <img src="{{ url_for('static', filename='img/posgrado_logo.png') }}"
@@ -2407,165 +2312,241 @@ $(document).ready(function () {
             <span class="header-ribbon-badge">Maestría &nbsp;·&nbsp; 2026</span>
         </div>
     </div>
-
 </header>
 
-<!-- Navegación secundaria -->
-<nav class="page-main" style="padding-top:14px; padding-bottom:0; font-size:0.86rem;">
-    <a href="{{ url_for('main.index') }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">Inicio</a>
-    <span style="color:var(--text-muted);">&nbsp;·&nbsp;</span>
-    <a href="{{ url_for('banco.banco') }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">Banco de pruebas de la tesis (54 experimentos)</a>
+<nav class="page-main bt-nav">
+    <a href="{{ url_for('main.index') }}">Inicio</a><span class="sep">·</span><span class="current">Banco de Tesis</span>
 </nav>
 
-<!-- ============================================================
-     CONTENIDO PRINCIPAL — BANCO DE PRUEBAS
-     ============================================================ -->
 <main class="page-main">
+<div class="bt-wrap">
 
-    <div class="card-unam">
-        <div class="card-header-unam">
-            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 6a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1v-2zm0 6a1 1 0 011-1h12a1 1 0 011 1v1a1 1 0 01-1 1H4a1 1 0 01-1-1v-1z"/>
-            </svg>
-            <h2>Banco de Pruebas de la Tesis — 54 experimentos reproducibles</h2>
-        </div>
-        <div class="card-body-unam">
-            <p style="font-size:0.86rem; color:var(--text-secondary); line-height:1.7; margin-bottom:14px;">
-                Resultados publicados en el Capítulo 4 y el Apéndice C: 6 longitudes de historia (P1–P6, de 3 meses a 10 años)
-                × 9 particiones de prueba (T1–T9, de 10 % a 50 %), todas ancladas al <strong>{{ anchor }}</strong> con la serie
-                congelada. {{ pub.protocol }}
+    <!-- ============================ Portada ============================ -->
+    <section class="bt-hero">
+        <div>
+            <p class="bt-kicker">Capítulo 4 · Apéndice C · solo lectura</p>
+            <h2 class="bt-title">Banco de Tesis</h2>
+            <p class="bt-lead">
+                Los 54 experimentos con los que se evaluaron los modelos de pronóstico del USD/MXN: seis longitudes de
+                historia por nueve particiones de prueba, todas terminando el 31 de diciembre de 2025 (fecha ancla:
+                1 de enero de 2026). Esta página reproduce las cifras publicadas tal cual; no entrena ni modifica nada.
             </p>
-            <div class="forecast-grid">
-                <div class="forecast-item">
-                    <div class="forecast-model">Naive en primer lugar o empatado</div>
-                    <div class="forecast-value">{{ pub.summary.naive_rank1 }} / {{ pub.summary.n_elements }}</div>
-                </div>
-                <div class="forecast-item">
-                    <div class="forecast-model">Mejor que Naive con significancia</div>
-                    <div class="forecast-value">{{ pub.summary.better_than_naive|length }} / {{ pub.summary.n_elements * 6 }}
-                        <span style="font-size:0.72rem; font-weight:400; display:block; color:var(--text-muted);">
-                        {% for b in pub.summary.better_than_naive %}{{ b.modelo }} en {{ b.elemento }} (p = {{ '%.3f'|format(b.p) }}){% endfor %}</span>
-                    </div>
-                </div>
-                {% for name, k in worse %}
-                <div class="forecast-item">
-                    <div class="forecast-model">{{ name }} peor que Naive</div>
-                    <div class="forecast-value">{{ k }} / 54</div>
-                </div>
-                {% endfor %}
+        </div>
+        <div class="bt-stats">
+            <div class="bt-stat">
+                <span class="bt-stat-label">Periodo cubierto</span>
+                <span class="bt-stat-value">{{ span.inicio }} → {{ span.fin }}</span>
+                <span class="bt-stat-note">Cierre diario USD/MXN (Yahoo Finance, USDMXN=X); la historia más larga abarca 10 años</span>
             </div>
-            <p style="font-size:0.84rem; color:var(--text-secondary); line-height:1.7; margin-top:14px;">
-                Cada elemento puede <strong>re-ejecutarse ahora</strong> con la serie congelada (reproduce el Apéndice C) o con datos
-                descargados en vivo de Yahoo Finance; la plataforma muestra lado a lado el valor publicado y el reproducido y permite
-                abrir la gráfica, los residuales y el reporte PDF de la corrida. Las corridas de 5 y 10 años tardan entre 1 y 3 minutos.
-            </p>
-        </div>
-    </div>
-
-    <div class="card-unam">
-        <div class="card-header-unam">
-            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path fill-rule="evenodd" d="M5 4a3 3 0 00-3 3v6a3 3 0 003 3h10a3 3 0 003-3V7a3 3 0 00-3-3H5zm-1 9v-1h5v2H5a1 1 0 01-1-1zm7 1h4a1 1 0 001-1v-1h-5v2zm0-4h5V8h-5v2zM9 8H4v2h5V8z" clip-rule="evenodd"/>
-            </svg>
-            <h2>Matriz de experimentos — mejor modelo entre los seis propuestos (MAE) y referencia Naive</h2>
-        </div>
-        <div class="card-body-unam">
-            <div class="table-responsive">
-            <table style="border-collapse:collapse; width:100%; font-size:0.78rem;">
-                <thead>
-                    <tr style="background:linear-gradient(90deg,#003087,#005EB8); color:#fff;">
-                        <th style="padding:8px 10px; text-align:left;">Historia</th>
-                        {% for T, pct in pub.tests.items() %}
-                        <th style="padding:8px; text-align:center; border-left:1px solid rgba(255,255,255,0.25);">{{ T }}<br><span style="font-weight:400;">{{ pct }} %</span></th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                {% for row in matrix %}
-                    <tr style="border-bottom:1px solid #D6DCE8;">
-                        <td style="padding:8px 10px; font-weight:700; white-space:nowrap;">{{ row.P }} · {{ row.label }}</td>
-                        {% for c in row.cells %}
-                        <td style="padding:6px; text-align:center; vertical-align:top; border-left:1px solid #D6DCE8;
-                                   {% if c.significant %}background:rgba(26,115,64,0.14);{% elif c.naive_best %}background:rgba(0,48,135,0.05);{% endif %}">
-                            <a href="#{{ c.anchor }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">{{ c.winners|join(' / ') }}</a><br>
-                            <span style="font-variant-numeric:tabular-nums;">{{ '%.4f'|format(c.mae) if c.mae is not none else '—' }}</span><br>
-                            <span style="color:var(--text-muted); font-size:0.7rem;">Naive {{ '%.4f'|format(c.naive_mae) }}</span>
-                        </td>
-                        {% endfor %}
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
+            <div class="bt-stat">
+                <span class="bt-stat-label">Experimentos</span>
+                <span class="bt-stat-value">{{ summary.n_elements }}</span>
+                <span class="bt-stat-note">6 longitudes de historia × 9 particiones de prueba</span>
             </div>
-            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:10px; line-height:1.6;">
-                Cada celda muestra el modelo con Rank 1 entre los seis propuestos (criterio del Capítulo 4) y su MAE, y debajo el MAE del
-                modelo ingenuo. Fondo verde: algún modelo supera a Naive con significancia (DM, p &lt; 0.05). Fondo azul tenue: Naive en
-                primer lugar o empatado en el ranking con los 7 modelos. Haz clic en un modelo para ver la tabla completa del elemento.
-            </p>
+            <div class="bt-stat">
+                <span class="bt-stat-label">Modelos comparados</span>
+                <span class="bt-stat-value">6 + 1</span>
+                <span class="bt-stat-note">SARIMA, Holt-Winters, Regresión Lineal, Random Forest, RNN y LSTM, más la referencia ingenua (Naive)</span>
+            </div>
+            <div class="bt-stat">
+                <span class="bt-stat-label">Naive en primer lugar</span>
+                <span class="bt-stat-value">{{ summary.naive_first }} de {{ summary.n_elements }}</span>
+                <span class="bt-stat-note">Solo o empatado, en el ranking con los siete modelos</span>
+            </div>
         </div>
-    </div>
+    </section>
 
-    {% for row in matrix %}
-    <div class="card-unam" id="{{ row.P }}">
-        <div class="card-header-unam">
-            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-4a1 1 0 011-1h2a1 1 0 011 1v13a1 1 0 01-1 1h-2a1 1 0 01-1-1V3z"/>
-            </svg>
-            <h2>Horizonte de {{ row.label }} ({{ row.P }})</h2>
-        </div>
-        <div class="card-body-unam">
-        {% for c in row.cells %}{% set e = pub.elements[c.el] %}
-            <div id="{{ c.anchor }}" style="margin-bottom:26px; padding-top:4px;">
-                <p class="section-label">
-                    Elemento {{ c.el }} — {{ e.periodo }}, {{ e.test_pct }} % de prueba · n = {{ e.n }} (entrenamiento {{ e.n_train }}, prueba {{ e.n_test }})
-                    · {{ e.fecha_inicio }} → {{ e.fecha_fin }} · auto_arima {{ e.sarima_order }}
+    <!-- ============================ Cómo leer ============================ -->
+    <section class="bt-card">
+        <h3>Cómo está organizado el banco</h3>
+        <div class="bt-two">
+            <div>
+                <p>
+                    Cada experimento se identifica con una clave <strong>P,T</strong>. <strong>P</strong> dice cuánta historia
+                    se usó (de 3 meses a 10 años hacia atrás desde el 1 de enero de 2026) y <strong>T</strong> qué fracción
+                    final de esa historia se apartó para medir el error. Los modelos se estiman solo con la parte de
+                    entrenamiento y después predicen, día por día, cada valor del tramo de prueba.
                 </p>
-                <div class="table-responsive">
-                <table style="border-collapse:collapse; width:100%; font-size:0.8rem;">
-                    <thead>
-                        <tr style="background:#003087; color:#fff; font-size:0.7rem; letter-spacing:0.06em; text-transform:uppercase;">
-                            <th style="padding:6px 8px; text-align:left;">Modelo</th><th style="padding:6px 8px;">MAE</th><th style="padding:6px 8px;">RMSE</th>
-                            <th style="padding:6px 8px;">MAPE</th><th style="padding:6px 8px;">R²</th><th style="padding:6px 8px;">Rank (6)</th>
-                            <th style="padding:6px 8px;">Rank (7)</th><th style="padding:6px 8px;">DM</th><th style="padding:6px 8px;">p-valor</th><th style="padding:6px 8px;">Veredicto</th>
+                <table class="bt-mini">
+                    <thead><tr><th>Clave</th><th>Historia</th><th>Desde</th><th>Hasta</th><th style="text-align:right;">Días hábiles</th></tr></thead>
+                    <tbody>
+                    {% for p in periods %}
+                        <tr><td class="bt-key">{{ p.P }}</td><td>{{ p.label }}</td><td>{{ p.fecha_inicio }}</td><td>{{ p.fecha_fin }}</td><td class="bt-num">{{ p.n }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                <table class="bt-mini">
+                    <thead><tr><th>Clave</th>{% for t in tests %}<th style="text-align:center;">{{ t.T }}</th>{% endfor %}</tr></thead>
+                    <tbody><tr><td class="bt-key">Prueba</td>{% for t in tests %}<td style="text-align:center;">{{ t.pct }} %</td>{% endfor %}</tr></tbody>
+                </table>
+            </div>
+            <div>
+                <dl class="bt-defs">
+                    <dt>MAE, RMSE y MAPE</dt>
+                    <dd>Errores medios de predicción en pesos (MAE y RMSE) y en porcentaje (MAPE). Menor es mejor; el MAE es la métrica principal de lectura.</dd>
+                    <dt>R²</dt>
+                    <dd>Fracción de la variación de la serie que el modelo reproduce. Cuando un modelo sigue de cerca el nivel del día anterior, el R² es alto para casi cualquiera; por eso se lee junto con el MAE y no por separado.</dd>
+                    <dt>Rank</dt>
+                    <dd>Posición promedio en las cuatro métricas. "Rank 6" se calcula entre los seis modelos propuestos (criterio del Capítulo 4); el número de la primera columna incluye además a Naive.</dd>
+                    <dt>Naive (modelo ingenuo)</dt>
+                    <dd>Pronostica para mañana el valor de hoy. Es la vara de medir: un modelo solo aporta si le gana de forma consistente.</dd>
+                    <dt>Prueba DM y veredicto</dt>
+                    <dd>La prueba de Diebold-Mariano decide si la diferencia de error frente a Naive es estadísticamente significativa (p &lt; 0.05): <em>mejor</em>, <em>sin diferencia</em> o <em>peor</em>.</dd>
+                </dl>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================ Mapa ============================ -->
+    <section class="bt-card">
+        <h3>Mapa de resultados</h3>
+        <p class="bt-help">
+            Una celda por experimento. Arriba, el mejor de los seis modelos propuestos en ese experimento; abajo, cuánto
+            menor (−) o mayor (+) fue su error que el del modelo ingenuo. El color resume la comparación con Naive.
+            Pasa el cursor para ver los valores y haz clic para abrir el detalle.
+        </p>
+        <div class="bt-legend">
+            <span><i class="bt-swatch bt-sig"></i> ★ supera a Naive con significancia estadística</span>
+            <span><i class="bt-swatch bt-better"></i> ▲ menor error que Naive, sin significancia</span>
+            <span><i class="bt-swatch bt-equal"></i> = mismo error que Naive</span>
+            <span><i class="bt-swatch bt-worse"></i> ▼ mayor error que Naive</span>
+        </div>
+        <div class="bt-scroll">
+        <table class="bt-heat">
+            <thead>
+                <tr>
+                    <th class="bt-corner">Historia ↓ &nbsp;·&nbsp; Prueba →</th>
+                    {% for t in tests %}<th>{{ t.T }}<small>{{ t.pct }} %</small></th>{% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in heat %}
+                <tr>
+                    <th class="bt-rowhead">{{ row.P }}<small>{{ row.label }}</small></th>
+                    {% for c in row.cells %}
+                    <td class="bt-cell bt-{{ c.cls }}" title="{{ c.title }}">
+                        <a href="#{{ c.anchor }}" data-p="{{ row.P }}">
+                            <span class="bt-cell-model">{{ c.winners|join(' / ') }}</span>
+                            <span class="bt-cell-rel">{% if c.cls == 'sig' %}★{% elif c.cls == 'better' %}▲{% elif c.cls == 'equal' %}={% elif c.cls == 'worse' %}▼{% endif %}
+                                {% if c.rel is not none %}{% if c.cls == 'equal' %}Naive{% else %}{{ '%+.1f'|format(c.rel) }} %{% endif %}{% else %}—{% endif %}</span>
+                        </a>
+                    </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        <p class="bt-foot">
+            Lectura rápida: la única celda con estrella es P1,T9 (Holt-Winters, p = 0.026). En el resto, el mejor modelo
+            propuesto empata con el paseo aleatorio (SARIMA converge a él cuando auto_arima elige el orden (0,1,0)) o la
+            diferencia no alcanza significancia estadística.
+        </p>
+    </section>
+
+    <!-- ============================ Resúmenes ============================ -->
+    <section class="bt-card">
+        <h3>Dos resúmenes por modelo</h3>
+        <div class="bt-two">
+            <div>
+                <h4>Primeros lugares por historia</h4>
+                <p class="bt-help">
+                    Cuántas de las nueve particiones de cada historia ganó cada modelo (ranking entre los seis propuestos,
+                    como en las tablas de conteo del Capítulo 4). Los empates cuentan para ambos modelos.
+                </p>
+                <table class="bt-mini bt-counts">
+                    <thead><tr><th>Modelo</th>{% for r in rank1 %}<th title="{{ r.label }}">{{ r.P }}</th>{% endfor %}<th>Total</th></tr></thead>
+                    <tbody>
+                    {% for m in models6 %}
+                        <tr><td>{{ m }}</td>{% for r in rank1 %}<td class="bt-num{% if r.counts[m] == 0 %} bt-zero{% endif %}">{{ r.counts[m] }}</td>{% endfor %}<td class="bt-num bt-total">{{ rank1_total[m] }}</td></tr>
+                    {% endfor %}
+                        <tr class="bt-naive-row"><td>Naive primero o empatado (con los 7)</td>{% for r in rank1 %}<td class="bt-num">{{ r.naive_first }}</td>{% endfor %}<td class="bt-num bt-total">{{ summary.naive_first }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div>
+                <h4>Veredicto frente al modelo ingenuo</h4>
+                <p class="bt-help">
+                    Resultado de la prueba de Diebold-Mariano en los 54 experimentos: en cuántos fue cada modelo mejor,
+                    igual o peor que Naive con significancia al 5 %.
+                </p>
+                <table class="bt-mini bt-counts">
+                    <thead><tr><th>Modelo</th><th>Mejor</th><th>Sin diferencia</th><th>Peor</th><th>No calculable</th></tr></thead>
+                    <tbody>
+                    {% for m in models6 %}
+                        <tr>
+                            <td>{{ m }}</td>
+                            <td class="bt-num {% if dm_counts[m]['mejor que Naive'] %}bt-good{% else %}bt-zero{% endif %}">{{ dm_counts[m]['mejor que Naive'] }}</td>
+                            <td class="bt-num">{{ dm_counts[m]['sin diferencia'] }}</td>
+                            <td class="bt-num {% if dm_counts[m]['peor que Naive'] %}bt-bad{% else %}bt-zero{% endif %}">{{ dm_counts[m]['peor que Naive'] }}</td>
+                            <td class="bt-num bt-zero">{{ dm_counts[m]['n/a'] }}</td>
                         </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                <p class="bt-foot">"No calculable": las predicciones son idénticas a las de Naive (SARIMA con orden (0,1,0)), por lo que no hay diferencia que probar.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================ Detalle ============================ -->
+    <section class="bt-card" id="detalle">
+        <h3>Detalle por experimento</h3>
+        <p class="bt-help">
+            Elige una historia; se muestran sus nueve experimentos con la tabla completa de métricas, el modelo ganador
+            resaltado y una lectura breve de cada uno. La barra bajo el MAE compara visualmente los errores dentro del experimento.
+        </p>
+        <div class="bt-tabs">
+            {% for p in periods %}<button type="button" class="bt-tab" data-p="{{ p.P }}">{{ p.P }} · {{ p.label }}</button>{% endfor %}
+        </div>
+
+        {% for d in details %}
+        <div class="bt-detail" data-p="{{ d.P }}" hidden>
+            {% for e in d.elements %}
+            <article class="bt-exp" id="{{ e.anchor }}">
+                <header class="bt-exp-head">
+                    <div><span class="bt-exp-key">{{ e.el }}</span><span class="bt-exp-title">{{ d.label }} de historia · {{ e.pct }} % de prueba</span></div>
+                    <div class="bt-exp-meta">{{ e.fecha_inicio }} → {{ e.fecha_fin }} · {{ e.n }} días hábiles · entrenamiento {{ e.n_train }} (hasta {{ e.fecha_test }}) · prueba {{ e.n_test }} · auto_arima {{ e.sarima_order }}</div>
+                </header>
+                <div class="bt-scroll">
+                <table class="bt-res">
+                    <thead>
+                        <tr><th>#</th><th>Modelo</th><th>MAE</th><th>vs Naive</th><th>RMSE</th><th>MAPE %</th><th>R²</th><th>Rank 6</th><th>DM p</th><th>Veredicto</th></tr>
                     </thead>
                     <tbody>
-                    {% for m in e.models %}
-                        <tr style="border-bottom:1px solid #D6DCE8; text-align:center; font-variant-numeric:tabular-nums; {% if m.rank7 == 1 %}font-weight:700; background:rgba(200,168,0,0.10);{% endif %}">
-                            <td style="padding:5px 8px; text-align:left;">{{ m.Modelo }}</td>
-                            <td style="padding:5px 8px;">{{ '%.4f'|format(m.MAE) if m.MAE is not none else '—' }}</td>
-                            <td style="padding:5px 8px;">{{ '%.4f'|format(m.RMSE) if m.RMSE is not none else '—' }}</td>
-                            <td style="padding:5px 8px;">{{ '%.4f'|format(m.MAPE) if m.MAPE is not none else '—' }}</td>
-                            <td style="padding:5px 8px;">{{ '%.4f'|format(m['R^2']) if m['R^2'] is not none else '—' }}</td>
-                            <td style="padding:5px 8px;">{{ m.rank6 if m.rank6 else '—' }}</td>
-                            <td style="padding:5px 8px;">{{ m.rank7 }}</td>
-                            <td style="padding:5px 8px;">{{ '%.3f'|format(m.DM) if m.DM is not none else '—' }}</td>
-                            <td style="padding:5px 8px;">{{ '%.4f'|format(m.p) if m.p is not none else '—' }}</td>
-                            <td style="padding:5px 8px; {% if m.veredicto == 'mejor que Naive' %}color:#1A7340; font-weight:700;{% elif m.veredicto == 'peor que Naive' %}color:#C0392B;{% endif %}">{{ m.veredicto }}</td>
+                    {% for r in e.rows %}
+                        <tr class="{% if r.rank7 == 1 %}bt-top{% endif %}{% if r.is_naive %} bt-ref{% endif %}">
+                            <td class="bt-num">{{ r.rank7 }}</td>
+                            <td><span class="bt-model">{{ r.Modelo }}</span><small class="bt-family">{{ r.family }}</small></td>
+                            <td class="bt-num bt-maecell"><div class="bt-bar" style="width:{{ '%.0f'|format(r.bar) }}%;"></div>{{ '%.4f'|format(r.MAE) if r.MAE is not none else '—' }}</td>
+                            <td class="bt-num">{% if r.is_naive %}referencia{% elif r.rel is not none %}{% if r.rel|abs <= 0.05 %}igual{% else %}{{ '%+.1f'|format(r.rel) }} %{% endif %}{% else %}—{% endif %}</td>
+                            <td class="bt-num">{{ '%.4f'|format(r.RMSE) if r.RMSE is not none else '—' }}</td>
+                            <td class="bt-num">{{ '%.3f'|format(r.MAPE) if r.MAPE is not none else '—' }}</td>
+                            <td class="bt-num">{{ '%.4f'|format(r['R^2']) if r['R^2'] is not none else '—' }}</td>
+                            <td class="bt-num">{{ r.rank6 if r.rank6 else '—' }}</td>
+                            <td class="bt-num">{{ '%.4f'|format(r.p) if r.p is not none else '—' }}</td>
+                            <td><span class="bt-badge bt-badge-{{ r.veredicto|replace(' ', '-')|replace('/', '') }}">{{ r.veredicto }}</span></td>
                         </tr>
                     {% endfor %}
                     </tbody>
                 </table>
                 </div>
-                <form method="POST" action="{{ url_for('banco.banco_run') }}" class="rerun-form d-flex flex-wrap gap-2 align-items-center" style="margin-top:8px;">
-                    <input type="hidden" name="element" value="{{ c.el }}">
-                    <select name="data_source" class="form-select" style="max-width:380px; font-size:0.82rem;">
-                        {% for k, v in data_sources.items() %}<option value="{{ k }}" {% if k == 'tesis' %}selected{% endif %}>{{ v }}</option>{% endfor %}
-                    </select>
-                    <button type="submit" class="btn-unam-gold">Re-ejecutar ahora y comparar</button>
-                    <span class="rerun-wait d-none" style="font-size:0.8rem; color:var(--text-muted);">Entrenando los 7 modelos… (5 y 10 años pueden tardar hasta 3 minutos)</span>
-                </form>
-            </div>
-        {% endfor %}
+                <p class="bt-lectura">{{ e.lectura }}</p>
+            </article>
+            {% endfor %}
         </div>
-    </div>
-    {% endfor %}
+        {% endfor %}
+    </section>
 
+    <p class="bt-source">
+        Fuente: Apéndice C de la tesis. Serie USDMXN=X (cierre diario) de Yahoo Finance descargada el 26/10/2026; RNN y LSTM
+        reportan el promedio de tres semillas. Esta página no ejecuta modelos: para experimentar con otros periodos usa la
+        página de inicio.
+    </p>
+
+</div>
 </main>
 
-<!-- ============================================================
-     PIE DE PÁGINA
-     ============================================================ -->
 <footer class="site-footer">
     <div class="footer-inner">
         <p class="footer-copyright">
@@ -2581,12 +2562,30 @@ $(document).ready(function () {
 </footer>
 
 <script>
-document.querySelectorAll('.rerun-form').forEach(function (f) {
-    f.addEventListener('submit', function () {
-        f.querySelector('button').disabled = true;
-        f.querySelector('.rerun-wait').classList.remove('d-none');
+(function () {
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('.bt-tab'));
+    var panels = Array.prototype.slice.call(document.querySelectorAll('.bt-detail'));
+    function show(p) {
+        tabs.forEach(function (t) { t.classList.toggle('active', t.dataset.p === p); });
+        panels.forEach(function (d) { d.hidden = (d.dataset.p !== p); });
+    }
+    tabs.forEach(function (t) { t.addEventListener('click', function () { show(t.dataset.p); }); });
+    document.querySelectorAll('.bt-heat a').forEach(function (a) {
+        a.addEventListener('click', function () { show(a.dataset.p); });
     });
-});
+    function fromHash() {
+        var k = location.hash.replace('#', '');
+        if (k && /^P\d-T\d$/.test(k)) {
+            show(k.split('-')[0]);
+            var el = document.getElementById(k);
+            if (el) { setTimeout(function () { el.scrollIntoView({ block: 'start' }); }, 0); }
+        } else {
+            show('P1');
+        }
+    }
+    window.addEventListener('hashchange', fromHash);
+    fromHash();
+})();
 </script>
 </body>
 </html>
@@ -3044,9 +3043,9 @@ document.querySelectorAll('.rerun-form').forEach(function (f) {
 
 <!-- Navegación secundaria -->
 <nav class="page-main" style="padding-top:14px; padding-bottom:0; font-size:0.86rem;">
-    <a href="{{ url_for('main.index') }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">Inicio</a>
-    <span style="color:var(--text-muted);">&nbsp;·&nbsp;</span>
-    <a href="{{ url_for('banco.banco') }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">Banco de pruebas de la tesis (54 experimentos)</a>
+    <span style="font-weight:700; color:#0D1B3E; border-bottom:2px solid #C8A800; padding-bottom:2px;">Inicio</span>
+    <span style="color:#9AA3B2; margin:0 8px;">·</span>
+    <a href="{{ url_for('banco.banco') }}" style="font-weight:700; color:var(--unam-blue); text-decoration:none;">Banco de Tesis</a>
 </nav>
 
 <!-- ============================================================
@@ -3221,28 +3220,6 @@ document.querySelectorAll('.rerun-form').forEach(function (f) {
                     </div>
                 </div>
 
-                <!-- Fuente de datos -->
-                <div class="mt-4">
-                    <p class="section-label">Fuente de datos</p>
-                    <div class="d-flex gap-4 flex-wrap">
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="data_source" id="src_yahoo" value="yahoo"
-                                   {% if data_source != 'tesis' %}checked{% endif %}>
-                            <label class="form-check-label" for="src_yahoo">Yahoo Finance (descarga en vivo)</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="data_source" id="src_tesis" value="tesis"
-                                   {% if data_source == 'tesis' %}checked{% endif %}>
-                            <label class="form-check-label" for="src_tesis">Serie congelada de la tesis (USDMXN=X, 02/11/2015 → 31/12/2025)</label>
-                        </div>
-                    </div>
-                    <p style="font-size:0.78rem; color:var(--text-muted); margin-top:6px; line-height:1.6;">
-                        La serie congelada es la que se usó en los 54 experimentos del Capítulo 4 (descargada el 26/10/2026):
-                        garantiza que los resultados sean reproducibles aunque Yahoo revise sus datos. Con ella, el modo
-                        <em>Periodo predefinido</em> cuenta hacia atrás desde el <strong>01/01/2026</strong> (último cierre disponible: 31/12/2025).
-                    </p>
-                </div>
-
                 <!-- Porcentaje de testing -->
                 <div class="mt-4">
                     <label for="test_percent" class="form-label">Porcentaje para pruebas (1 – 80 %)</label>
@@ -3279,8 +3256,7 @@ document.querySelectorAll('.rerun-form').forEach(function (f) {
             <div class="alert-unam">
                 <strong>Última consulta:</strong>
                 Periodo: <strong>{{ display_period }}</strong> &nbsp;|&nbsp;
-                Porcentaje de pruebas: <strong>{{ display_test_percent }}%</strong> &nbsp;|&nbsp;
-                Datos: <strong>{{ data_sources[data_source] }}</strong>
+                Porcentaje de pruebas: <strong>{{ display_test_percent }}%</strong>
             </div>
             {% endif %}
         </div>
@@ -3290,67 +3266,6 @@ document.querySelectorAll('.rerun-form').forEach(function (f) {
     <!-- ============================================================
          TARJETA: Resultados de métricas
          ============================================================ -->
-    {% if banco_compare %}
-    <div class="card-unam">
-        <div class="card-header-unam">
-            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-            </svg>
-            <h2>Reproducción del elemento {{ banco_compare.element }} — publicado vs. reproducido</h2>
-        </div>
-        <div class="card-body-unam">
-            <p style="font-size:0.84rem; color:var(--text-secondary); margin-bottom:12px; line-height:1.6;">
-                Elemento <strong>{{ banco_compare.element }}</strong>: historia de {{ banco_compare.info.periodo }} anclada al
-                {{ banco_compare.anchor }} ({{ banco_compare.info.fecha_inicio }} → {{ banco_compare.info.fecha_fin }}),
-                {{ banco_compare.info.test_pct }} % de prueba (n = {{ banco_compare.info.n }}; entrenamiento {{ banco_compare.info.n_train }},
-                prueba {{ banco_compare.info.n_test }}). Datos usados ahora: <strong>{{ banco_compare.data_source_label }}</strong>.
-                Resultado: <strong>{{ banco_compare.n_match }} de {{ banco_compare.n_total }}</strong> modelos reproducen el valor
-                publicado en el Apéndice C (|ΔMAE| ≤ 0.002). RNN y LSTM se publican como media de 3 semillas; aquí se comparan
-                con la semilla 0 publicada, que es la que usa la plataforma.
-            </p>
-            <div class="table-responsive">
-            <table style="border-collapse:collapse; width:100%; font-size:0.84rem;">
-                <thead>
-                    <tr style="background:linear-gradient(90deg,#003087,#005EB8); color:#fff;">
-                        <th rowspan="2" style="padding:10px 12px; text-align:left;">Modelo</th>
-                        <th colspan="3" style="padding:8px; text-align:center; border-left:1px solid rgba(255,255,255,0.25);">Publicado (Apéndice C)</th>
-                        <th colspan="3" style="padding:8px; text-align:center; border-left:1px solid rgba(255,255,255,0.25);">Reproducido ahora</th>
-                        <th rowspan="2" style="padding:8px; text-align:center; border-left:1px solid rgba(255,255,255,0.25);">Δ MAE</th>
-                        <th rowspan="2" style="padding:8px; text-align:center;">Estado</th>
-                    </tr>
-                    <tr style="background:#003087; color:#fff; font-size:0.72rem; letter-spacing:0.06em; text-transform:uppercase;">
-                        <th style="padding:6px 8px; border-left:1px solid rgba(255,255,255,0.25);">MAE</th><th style="padding:6px 8px;">R²</th><th style="padding:6px 8px;">DM p</th>
-                        <th style="padding:6px 8px; border-left:1px solid rgba(255,255,255,0.25);">MAE</th><th style="padding:6px 8px;">R²</th><th style="padding:6px 8px;">DM p</th>
-                    </tr>
-                </thead>
-                <tbody>
-                {% for r in banco_compare.rows %}
-                    <tr style="border-bottom:1px solid #D6DCE8;">
-                        <td style="padding:8px 12px; font-weight:600;">{{ r.Modelo }}{% if r.pub_seed0 %} <span style="font-weight:400; color:var(--text-muted); font-size:0.72rem;">(semilla 0)</span>{% endif %}</td>
-                        <td style="padding:8px; text-align:center; border-left:1px solid #D6DCE8;">{{ '%.4f'|format(r.ref_mae) if r.ref_mae is not none else '—' }}</td>
-                        <td style="padding:8px; text-align:center;">{{ '%.4f'|format(r.ref_r2) if r.ref_r2 is not none else '—' }}</td>
-                        <td style="padding:8px; text-align:center;">{{ '%.4f'|format(r.pub_p) if r.pub_p is not none else '—' }}</td>
-                        <td style="padding:8px; text-align:center; border-left:1px solid #D6DCE8;">{{ '%.4f'|format(r.rep_mae) if r.rep_mae is not none else '—' }}</td>
-                        <td style="padding:8px; text-align:center;">{{ '%.4f'|format(r.rep_r2) if r.rep_r2 is not none else '—' }}</td>
-                        <td style="padding:8px; text-align:center;">{{ '%.4f'|format(r.rep_p) if r.rep_p is not none else '—' }}</td>
-                        <td style="padding:8px; text-align:center; border-left:1px solid #D6DCE8; font-variant-numeric:tabular-nums;">{{ '%+.4f'|format(r.delta) if r.delta is not none else '—' }}</td>
-                        <td style="padding:8px; text-align:center; font-weight:700; {% if r.status == 'coincide' %}color:#1A7340;{% elif r.status == '≈ coincide' %}color:#9A7F00;{% elif r.status == 'difiere' %}color:#C0392B;{% endif %}">{{ r.status }}</td>
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-            </div>
-            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:10px; line-height:1.6;">
-                Diferencias de milésimas en Random Forest provienen del ruido de punto flotante en los umbrales de los árboles;
-                el p-valor publicado de RNN/LSTM es la mediana de 3 semillas. Con datos en vivo de Yahoo Finance, cualquier
-                diferencia adicional indica una revisión de la serie (compárese la huella SHA-256 en la tarjeta de procedencia).
-            </p>
-            <a href="{{ url_for('banco.banco') }}#{{ banco_compare.info.P }}-{{ banco_compare.info.T }}"
-               style="font-size:0.84rem; font-weight:700; color:var(--unam-blue);">← Volver al banco de pruebas</a>
-        </div>
-    </div>
-    {% endif %}
-
     {% if semaforo %}
     <div class="card-unam">
         <div class="card-header-unam">
@@ -3449,107 +3364,6 @@ document.querySelectorAll('.rerun-form').forEach(function (f) {
             </div>
         </div>
     </div>
-
-    <!-- ============================================================
-         TARJETA: Horizontes de pronóstico
-         ============================================================ -->
-    {% if horizons_rows %}
-    <div class="card-unam">
-        <div class="card-header-unam">
-            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path d="M2 10a8 8 0 1116 0 8 8 0 01-16 0zm9-4a1 1 0 10-2 0v4a1 1 0 00.293.707l2.5 2.5a1 1 0 001.414-1.414L11 9.586V6z"/>
-            </svg>
-            <h2>Horizontes de Pronóstico (h = 1, 5 y 20 días)</h2>
-        </div>
-        <div class="card-body-unam">
-            <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:12px; line-height:1.6;">
-                Mismo protocolo con <strong>origen móvil</strong>: desde cada día del conjunto de prueba, cada modelo pronostica el valor
-                h días adelante usando solo los datos reales hasta ese día (SARIMA y Holt-Winters por sus ecuaciones de estado;
-                Regresión Lineal, Random Forest, RNN y LSTM de forma recursiva, reinyectando sus propias predicciones). Naive a h pasos
-                repite el último valor observado. <strong>DM p</strong>: prueba de Diebold-Mariano frente a Naive al mismo horizonte
-                (corrección HLN con h). Orígenes evaluados:
-                {% for h in horizons %}h = {{ h }}: <strong>{{ horizon_neval[h] }}</strong>{% if not loop.last %} · {% endif %}{% endfor %}.
-            </p>
-            <div class="table-responsive">
-            <table style="border-collapse:collapse; width:100%; font-size:0.84rem;">
-                <thead>
-                    <tr style="background:linear-gradient(90deg,#003087,#005EB8); color:#fff;">
-                        <th rowspan="2" style="padding:10px 12px; text-align:left;">Modelo</th>
-                        {% for h in horizons %}
-                        <th colspan="4" style="padding:8px 12px; text-align:center; border-left:1px solid rgba(255,255,255,0.25);">h = {{ h }} {% if h == 1 %}día{% else %}días{% endif %}</th>
-                        {% endfor %}
-                    </tr>
-                    <tr style="background:#003087; color:#fff; font-size:0.72rem; letter-spacing:0.06em; text-transform:uppercase;">
-                        {% for h in horizons %}
-                        <th style="padding:6px 8px; border-left:1px solid rgba(255,255,255,0.25);">MAE</th>
-                        <th style="padding:6px 8px;">RMSE</th>
-                        <th style="padding:6px 8px;">DM p</th>
-                        <th style="padding:6px 8px;">Veredicto</th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                {% for row in horizons_rows %}
-                    <tr style="border-bottom:1px solid #D6DCE8;">
-                        <td style="padding:8px 12px; font-weight:600;">{{ row.Modelo }}</td>
-                        {% for h in horizons %}{% set c = row.cells[h] %}
-                        <td style="padding:8px; text-align:center; border-left:1px solid #D6DCE8; font-variant-numeric:tabular-nums;">{{ c.MAE }}</td>
-                        <td style="padding:8px; text-align:center; font-variant-numeric:tabular-nums;">{{ c.RMSE }}</td>
-                        <td style="padding:8px; text-align:center; font-variant-numeric:tabular-nums;">{{ c.p }}</td>
-                        <td style="padding:8px; text-align:center; {% if c.Veredicto == 'mejor que Naive' %}color:#1A7340; font-weight:700;{% elif c.Veredicto == 'peor que Naive' %}color:#C0392B;{% else %}color:var(--text-secondary);{% endif %}">{{ c.Veredicto }}</td>
-                        {% endfor %}
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-            </div>
-            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:10px; line-height:1.6;">
-                El ranking de la tabla anterior y el "mejor modelo" se calculan con h = 1 (evaluación principal de la tesis).
-                A horizontes mayores la potencia de la prueba disminuye porque hay menos orígenes y los errores están autocorrelacionados.
-            </p>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- ============================================================
-         TARJETA: Procedencia y reproducibilidad
-         ============================================================ -->
-    {% if provenance %}
-    <div class="card-unam">
-        <div class="card-header-unam">
-            <svg class="card-header-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-            </svg>
-            <h2>Procedencia y Reproducibilidad del Resultado</h2>
-        </div>
-        <div class="card-body-unam">
-            <div class="row" style="font-size:0.84rem;">
-                <div class="col-md-6">
-                    <table style="width:100%; font-size:0.84rem; border-collapse:collapse;">
-                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); white-space:nowrap; vertical-align:top;">Fuente de datos</td><td style="padding:6px 0;">{{ provenance.source_label }}</td></tr>
-                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Descarga</td><td style="padding:6px 0;">{{ provenance.downloaded_at }}{% if provenance.source_note %} <span style="color:var(--text-muted);">— {{ provenance.source_note }}</span>{% endif %}</td></tr>
-                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Serie</td><td style="padding:6px 0;">{{ provenance.ticker }} · {{ provenance.first_date }} → {{ provenance.last_date }} · n = {{ provenance.n }} (entrenamiento {{ provenance.n_train }}, prueba {{ provenance.n_test }})</td></tr>
-                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Huella SHA-256</td><td style="padding:6px 0; word-break:break-all;"><code style="font-size:0.76rem;">{{ provenance.sha256 }}</code></td></tr>
-                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Semilla RNN/LSTM</td><td style="padding:6px 0;">{{ provenance.seed }}</td></tr>
-                        <tr style="border-bottom:1px solid #D6DCE8;"><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Código</td><td style="padding:6px 0;">v{{ provenance.app_version }} · commit <code>{{ provenance.git_commit }}</code>{% if provenance.build_time != 'n/d' %} · build {{ provenance.build_time }}{% endif %}</td></tr>
-                        <tr><td style="padding:6px 10px 6px 0; font-weight:700; color:var(--unam-blue); vertical-align:top;">Generado</td><td style="padding:6px 0;">{{ provenance.generated_at }}</td></tr>
-                    </table>
-                </div>
-                <div class="col-md-6">
-                    <div style="font-size:0.72rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px;">Versiones</div>
-                    <div style="font-family:monospace; font-size:0.78rem; line-height:1.7;">{% for k, v in provenance.versions.items() %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</div>
-                    <details style="margin-top:10px;">
-                        <summary style="font-size:0.75rem; font-weight:700; color:var(--text-muted); cursor:pointer; letter-spacing:0.06em; text-transform:uppercase;">Hiperparámetros fijos de los 7 modelos</summary>
-                        <table style="font-size:0.78rem; margin-top:6px;">
-                            {% for name, desc in provenance.hyperparams %}<tr><td style="font-weight:600; padding:3px 8px 3px 0; vertical-align:top; white-space:nowrap;">{{ name }}</td><td style="padding:3px 0;">{{ desc }}</td></tr>{% endfor %}
-                        </table>
-                    </details>
-                    <p style="font-size:0.78rem; color:var(--text-secondary); margin-top:10px; line-height:1.6;">{{ provenance.protocol }}</p>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
 
     <hr class="unam-divider">
 
@@ -5740,6 +5554,685 @@ CMD ["gunicorn", "-b", "0.0.0.0:8080", "--workers", "1", "--timeout", "300", "ws
 
 ══════════════════════════════════════════════════════════════════════
 
+══ ARCHIVO: LICENSE ══════════════════════════════════════════════════════════
+
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+
+                            Preamble
+
+  The GNU General Public License is a free, copyleft license for
+software and other kinds of works.
+
+  The licenses for most software and other practical works are designed
+to take away your freedom to share and change the works.  By contrast,
+the GNU General Public License is intended to guarantee your freedom to
+share and change all versions of a program--to make sure it remains free
+software for all its users.  We, the Free Software Foundation, use the
+GNU General Public License for most of our software; it applies also to
+any other work released this way by its authors.  You can apply it to
+your programs, too.
+
+  When we speak of free software, we are referring to freedom, not
+price.  Our General Public Licenses are designed to make sure that you
+have the freedom to distribute copies of free software (and charge for
+them if you wish), that you receive source code or can get it if you
+want it, that you can change the software or use pieces of it in new
+free programs, and that you know you can do these things.
+
+  To protect your rights, we need to prevent others from denying you
+these rights or asking you to surrender the rights.  Therefore, you have
+certain responsibilities if you distribute copies of the software, or if
+you modify it: responsibilities to respect the freedom of others.
+
+  For example, if you distribute copies of such a program, whether
+gratis or for a fee, you must pass on to the recipients the same
+freedoms that you received.  You must make sure that they, too, receive
+or can get the source code.  And you must show them these terms so they
+know their rights.
+
+  Developers that use the GNU GPL protect your rights with two steps:
+(1) assert copyright on the software, and (2) offer you this License
+giving you legal permission to copy, distribute and/or modify it.
+
+  For the developers' and authors' protection, the GPL clearly explains
+that there is no warranty for this free software.  For both users' and
+authors' sake, the GPL requires that modified versions be marked as
+changed, so that their problems will not be attributed erroneously to
+authors of previous versions.
+
+  Some devices are designed to deny users access to install or run
+modified versions of the software inside them, although the manufacturer
+can do so.  This is fundamentally incompatible with the aim of
+protecting users' freedom to change the software.  The systematic
+pattern of such abuse occurs in the area of products for individuals to
+use, which is precisely where it is most unacceptable.  Therefore, we
+have designed this version of the GPL to prohibit the practice for those
+products.  If such problems arise substantially in other domains, we
+stand ready to extend this provision to those domains in future versions
+of the GPL, as needed to protect the freedom of users.
+
+  Finally, every program is threatened constantly by software patents.
+States should not allow patents to restrict development and use of
+software on general-purpose computers, but in those that do, we wish to
+avoid the special danger that patents applied to a free program could
+make it effectively proprietary.  To prevent this, the GPL assures that
+patents cannot be used to render the program non-free.
+
+  The precise terms and conditions for copying, distribution and
+modification follow.
+
+                       TERMS AND CONDITIONS
+
+  0. Definitions.
+
+  "This License" refers to version 3 of the GNU General Public License.
+
+  "Copyright" also means copyright-like laws that apply to other kinds of
+works, such as semiconductor masks.
+
+  "The Program" refers to any copyrightable work licensed under this
+License.  Each licensee is addressed as "you".  "Licensees" and
+"recipients" may be individuals or organizations.
+
+  To "modify" a work means to copy from or adapt all or part of the work
+in a fashion requiring copyright permission, other than the making of an
+exact copy.  The resulting work is called a "modified version" of the
+earlier work or a work "based on" the earlier work.
+
+  A "covered work" means either the unmodified Program or a work based
+on the Program.
+
+  To "propagate" a work means to do anything with it that, without
+permission, would make you directly or secondarily liable for
+infringement under applicable copyright law, except executing it on a
+computer or modifying a private copy.  Propagation includes copying,
+distribution (with or without modification), making available to the
+public, and in some countries other activities as well.
+
+  To "convey" a work means any kind of propagation that enables other
+parties to make or receive copies.  Mere interaction with a user through
+a computer network, with no transfer of a copy, is not conveying.
+
+  An interactive user interface displays "Appropriate Legal Notices"
+to the extent that it includes a convenient and prominently visible
+feature that (1) displays an appropriate copyright notice, and (2)
+tells the user that there is no warranty for the work (except to the
+extent that warranties are provided), that licensees may convey the
+work under this License, and how to view a copy of this License.  If
+the interface presents a list of user commands or options, such as a
+menu, a prominent item in the list meets this criterion.
+
+  1. Source Code.
+
+  The "source code" for a work means the preferred form of the work
+for making modifications to it.  "Object code" means any non-source
+form of a work.
+
+  A "Standard Interface" means an interface that either is an official
+standard defined by a recognized standards body, or, in the case of
+interfaces specified for a particular programming language, one that
+is widely used among developers working in that language.
+
+  The "System Libraries" of an executable work include anything, other
+than the work as a whole, that (a) is included in the normal form of
+packaging a Major Component, but which is not part of that Major
+Component, and (b) serves only to enable use of the work with that
+Major Component, or to implement a Standard Interface for which an
+implementation is available to the public in source code form.  A
+"Major Component", in this context, means a major essential component
+(kernel, window system, and so on) of the specific operating system
+(if any) on which the executable work runs, or a compiler used to
+produce the work, or an object code interpreter used to run it.
+
+  The "Corresponding Source" for a work in object code form means all
+the source code needed to generate, install, and (for an executable
+work) run the object code and to modify the work, including scripts to
+control those activities.  However, it does not include the work's
+System Libraries, or general-purpose tools or generally available free
+programs which are used unmodified in performing those activities but
+which are not part of the work.  For example, Corresponding Source
+includes interface definition files associated with source files for
+the work, and the source code for shared libraries and dynamically
+linked subprograms that the work is specifically designed to require,
+such as by intimate data communication or control flow between those
+subprograms and other parts of the work.
+
+  The Corresponding Source need not include anything that users
+can regenerate automatically from other parts of the Corresponding
+Source.
+
+  The Corresponding Source for a work in source code form is that
+same work.
+
+  2. Basic Permissions.
+
+  All rights granted under this License are granted for the term of
+copyright on the Program, and are irrevocable provided the stated
+conditions are met.  This License explicitly affirms your unlimited
+permission to run the unmodified Program.  The output from running a
+covered work is covered by this License only if the output, given its
+content, constitutes a covered work.  This License acknowledges your
+rights of fair use or other equivalent, as provided by copyright law.
+
+  You may make, run and propagate covered works that you do not
+convey, without conditions so long as your license otherwise remains
+in force.  You may convey covered works to others for the sole purpose
+of having them make modifications exclusively for you, or provide you
+with facilities for running those works, provided that you comply with
+the terms of this License in conveying all material for which you do
+not control copyright.  Those thus making or running the covered works
+for you must do so exclusively on your behalf, under your direction
+and control, on terms that prohibit them from making any copies of
+your copyrighted material outside their relationship with you.
+
+  Conveying under any other circumstances is permitted solely under
+the conditions stated below.  Sublicensing is not allowed; section 10
+makes it unnecessary.
+
+  3. Protecting Users' Legal Rights From Anti-Circumvention Law.
+
+  No covered work shall be deemed part of an effective technological
+measure under any applicable law fulfilling obligations under article
+11 of the WIPO copyright treaty adopted on 20 December 1996, or
+similar laws prohibiting or restricting circumvention of such
+measures.
+
+  When you convey a covered work, you waive any legal power to forbid
+circumvention of technological measures to the extent such circumvention
+is effected by exercising rights under this License with respect to
+the covered work, and you disclaim any intention to limit operation or
+modification of the work as a means of enforcing, against the work's
+users, your or third parties' legal rights to forbid circumvention of
+technological measures.
+
+  4. Conveying Verbatim Copies.
+
+  You may convey verbatim copies of the Program's source code as you
+receive it, in any medium, provided that you conspicuously and
+appropriately publish on each copy an appropriate copyright notice;
+keep intact all notices stating that this License and any
+non-permissive terms added in accord with section 7 apply to the code;
+keep intact all notices of the absence of any warranty; and give all
+recipients a copy of this License along with the Program.
+
+  You may charge any price or no price for each copy that you convey,
+and you may offer support or warranty protection for a fee.
+
+  5. Conveying Modified Source Versions.
+
+  You may convey a work based on the Program, or the modifications to
+produce it from the Program, in the form of source code under the
+terms of section 4, provided that you also meet all of these conditions:
+
+    a) The work must carry prominent notices stating that you modified
+    it, and giving a relevant date.
+
+    b) The work must carry prominent notices stating that it is
+    released under this License and any conditions added under section
+    7.  This requirement modifies the requirement in section 4 to
+    "keep intact all notices".
+
+    c) You must license the entire work, as a whole, under this
+    License to anyone who comes into possession of a copy.  This
+    License will therefore apply, along with any applicable section 7
+    additional terms, to the whole of the work, and all its parts,
+    regardless of how they are packaged.  This License gives no
+    permission to license the work in any other way, but it does not
+    invalidate such permission if you have separately received it.
+
+    d) If the work has interactive user interfaces, each must display
+    Appropriate Legal Notices; however, if the Program has interactive
+    interfaces that do not display Appropriate Legal Notices, your
+    work need not make them do so.
+
+  A compilation of a covered work with other separate and independent
+works, which are not by their nature extensions of the covered work,
+and which are not combined with it such as to form a larger program,
+in or on a volume of a storage or distribution medium, is called an
+"aggregate" if the compilation and its resulting copyright are not
+used to limit the access or legal rights of the compilation's users
+beyond what the individual works permit.  Inclusion of a covered work
+in an aggregate does not cause this License to apply to the other
+parts of the aggregate.
+
+  6. Conveying Non-Source Forms.
+
+  You may convey a covered work in object code form under the terms
+of sections 4 and 5, provided that you also convey the
+machine-readable Corresponding Source under the terms of this License,
+in one of these ways:
+
+    a) Convey the object code in, or embodied in, a physical product
+    (including a physical distribution medium), accompanied by the
+    Corresponding Source fixed on a durable physical medium
+    customarily used for software interchange.
+
+    b) Convey the object code in, or embodied in, a physical product
+    (including a physical distribution medium), accompanied by a
+    written offer, valid for at least three years and valid for as
+    long as you offer spare parts or customer support for that product
+    model, to give anyone who possesses the object code either (1) a
+    copy of the Corresponding Source for all the software in the
+    product that is covered by this License, on a durable physical
+    medium customarily used for software interchange, for a price no
+    more than your reasonable cost of physically performing this
+    conveying of source, or (2) access to copy the
+    Corresponding Source from a network server at no charge.
+
+    c) Convey individual copies of the object code with a copy of the
+    written offer to provide the Corresponding Source.  This
+    alternative is allowed only occasionally and noncommercially, and
+    only if you received the object code with such an offer, in accord
+    with subsection 6b.
+
+    d) Convey the object code by offering access from a designated
+    place (gratis or for a charge), and offer equivalent access to the
+    Corresponding Source in the same way through the same place at no
+    further charge.  You need not require recipients to copy the
+    Corresponding Source along with the object code.  If the place to
+    copy the object code is a network server, the Corresponding Source
+    may be on a different server (operated by you or a third party)
+    that supports equivalent copying facilities, provided you maintain
+    clear directions next to the object code saying where to find the
+    Corresponding Source.  Regardless of what server hosts the
+    Corresponding Source, you remain obligated to ensure that it is
+    available for as long as needed to satisfy these requirements.
+
+    e) Convey the object code using peer-to-peer transmission, provided
+    you inform other peers where the object code and Corresponding
+    Source of the work are being offered to the general public at no
+    charge under subsection 6d.
+
+  A separable portion of the object code, whose source code is excluded
+from the Corresponding Source as a System Library, need not be
+included in conveying the object code work.
+
+  A "User Product" is either (1) a "consumer product", which means any
+tangible personal property which is normally used for personal, family,
+or household purposes, or (2) anything designed or sold for incorporation
+into a dwelling.  In determining whether a product is a consumer product,
+doubtful cases shall be resolved in favor of coverage.  For a particular
+product received by a particular user, "normally used" refers to a
+typical or common use of that class of product, regardless of the status
+of the particular user or of the way in which the particular user
+actually uses, or expects or is expected to use, the product.  A product
+is a consumer product regardless of whether the product has substantial
+commercial, industrial or non-consumer uses, unless such uses represent
+the only significant mode of use of the product.
+
+  "Installation Information" for a User Product means any methods,
+procedures, authorization keys, or other information required to install
+and execute modified versions of a covered work in that User Product from
+a modified version of its Corresponding Source.  The information must
+suffice to ensure that the continued functioning of the modified object
+code is in no case prevented or interfered with solely because
+modification has been made.
+
+  If you convey an object code work under this section in, or with, or
+specifically for use in, a User Product, and the conveying occurs as
+part of a transaction in which the right of possession and use of the
+User Product is transferred to the recipient in perpetuity or for a
+fixed term (regardless of how the transaction is characterized), the
+Corresponding Source conveyed under this section must be accompanied
+by the Installation Information.  But this requirement does not apply
+if neither you nor any third party retains the ability to install
+modified object code on the User Product (for example, the work has
+been installed in ROM).
+
+  The requirement to provide Installation Information does not include a
+requirement to continue to provide support service, warranty, or updates
+for a work that has been modified or installed by the recipient, or for
+the User Product in which it has been modified or installed.  Access to a
+network may be denied when the modification itself materially and
+adversely affects the operation of the network or violates the rules and
+protocols for communication across the network.
+
+  Corresponding Source conveyed, and Installation Information provided,
+in accord with this section must be in a format that is publicly
+documented (and with an implementation available to the public in
+source code form), and must require no special password or key for
+unpacking, reading or copying.
+
+  7. Additional Terms.
+
+  "Additional permissions" are terms that supplement the terms of this
+License by making exceptions from one or more of its conditions.
+Additional permissions that are applicable to the entire Program shall
+be treated as though they were included in this License, to the extent
+that they are valid under applicable law.  If additional permissions
+apply only to part of the Program, that part may be used separately
+under those permissions, but the entire Program remains governed by
+this License without regard to the additional permissions.
+
+  When you convey a copy of a covered work, you may at your option
+remove any additional permissions from that copy, or from any part of
+it.  (Additional permissions may be written to require their own
+removal in certain cases when you modify the work.)  You may place
+additional permissions on material, added by you to a covered work,
+for which you have or can give appropriate copyright permission.
+
+  Notwithstanding any other provision of this License, for material you
+add to a covered work, you may (if authorized by the copyright holders of
+that material) supplement the terms of this License with terms:
+
+    a) Disclaiming warranty or limiting liability differently from the
+    terms of sections 15 and 16 of this License; or
+
+    b) Requiring preservation of specified reasonable legal notices or
+    author attributions in that material or in the Appropriate Legal
+    Notices displayed by works containing it; or
+
+    c) Prohibiting misrepresentation of the origin of that material, or
+    requiring that modified versions of such material be marked in
+    reasonable ways as different from the original version; or
+
+    d) Limiting the use for publicity purposes of names of licensors or
+    authors of the material; or
+
+    e) Declining to grant rights under trademark law for use of some
+    trade names, trademarks, or service marks; or
+
+    f) Requiring indemnification of licensors and authors of that
+    material by anyone who conveys the material (or modified versions of
+    it) with contractual assumptions of liability to the recipient, for
+    any liability that these contractual assumptions directly impose on
+    those licensors and authors.
+
+  All other non-permissive additional terms are considered "further
+restrictions" within the meaning of section 10.  If the Program as you
+received it, or any part of it, contains a notice stating that it is
+governed by this License along with a term that is a further
+restriction, you may remove that term.  If a license document contains
+a further restriction but permits relicensing or conveying under this
+License, you may add to a covered work material governed by the terms
+of that license document, provided that the further restriction does
+not survive such relicensing or conveying.
+
+  If you add terms to a covered work in accord with this section, you
+must place, in the relevant source files, a statement of the
+additional terms that apply to those files, or a notice indicating
+where to find the applicable terms.
+
+  Additional terms, permissive or non-permissive, may be stated in the
+form of a separately written license, or stated as exceptions;
+the above requirements apply either way.
+
+  8. Termination.
+
+  You may not propagate or modify a covered work except as expressly
+provided under this License.  Any attempt otherwise to propagate or
+modify it is void, and will automatically terminate your rights under
+this License (including any patent licenses granted under the third
+paragraph of section 11).
+
+  However, if you cease all violation of this License, then your
+license from a particular copyright holder is reinstated (a)
+provisionally, unless and until the copyright holder explicitly and
+finally terminates your license, and (b) permanently, if the copyright
+holder fails to notify you of the violation by some reasonable means
+prior to 60 days after the cessation.
+
+  Moreover, your license from a particular copyright holder is
+reinstated permanently if the copyright holder notifies you of the
+violation by some reasonable means, this is the first time you have
+received notice of violation of this License (for any work) from that
+copyright holder, and you cure the violation prior to 30 days after
+your receipt of the notice.
+
+  Termination of your rights under this section does not terminate the
+licenses of parties who have received copies or rights from you under
+this License.  If your rights have been terminated and not permanently
+reinstated, you do not qualify to receive new licenses for the same
+material under section 10.
+
+  9. Acceptance Not Required for Having Copies.
+
+  You are not required to accept this License in order to receive or
+run a copy of the Program.  Ancillary propagation of a covered work
+occurring solely as a consequence of using peer-to-peer transmission
+to receive a copy likewise does not require acceptance.  However,
+nothing other than this License grants you permission to propagate or
+modify any covered work.  These actions infringe copyright if you do
+not accept this License.  Therefore, by modifying or propagating a
+covered work, you indicate your acceptance of this License to do so.
+
+  10. Automatic Licensing of Downstream Recipients.
+
+  Each time you convey a covered work, the recipient automatically
+receives a license from the original licensors, to run, modify and
+propagate that work, subject to this License.  You are not responsible
+for enforcing compliance by third parties with this License.
+
+  An "entity transaction" is a transaction transferring control of an
+organization, or substantially all assets of one, or subdividing an
+organization, or merging organizations.  If propagation of a covered
+work results from an entity transaction, each party to that
+transaction who receives a copy of the work also receives whatever
+licenses to the work the party's predecessor in interest had or could
+give under the previous paragraph, plus a right to possession of the
+Corresponding Source of the work from the predecessor in interest, if
+the predecessor has it or can get it with reasonable efforts.
+
+  You may not impose any further restrictions on the exercise of the
+rights granted or affirmed under this License.  For example, you may
+not impose a license fee, royalty, or other charge for exercise of
+rights granted under this License, and you may not initiate litigation
+(including a cross-claim or counterclaim in a lawsuit) alleging that
+any patent claim is infringed by making, using, selling, offering for
+sale, or importing the Program or any portion of it.
+
+  11. Patents.
+
+  A "contributor" is a copyright holder who authorizes use under this
+License of the Program or a work on which the Program is based.  The
+work thus licensed is called the contributor's "contributor version".
+
+  A contributor's "essential patent claims" are all patent claims
+owned or controlled by the contributor, whether already acquired or
+hereafter acquired, that would be infringed by some manner, permitted
+by this License, of making, using, or selling its contributor version,
+but do not include claims that would be infringed only as a
+consequence of further modification of the contributor version.  For
+purposes of this definition, "control" includes the right to grant
+patent sublicenses in a manner consistent with the requirements of
+this License.
+
+  Each contributor grants you a non-exclusive, worldwide, royalty-free
+patent license under the contributor's essential patent claims, to
+make, use, sell, offer for sale, import and otherwise run, modify and
+propagate the contents of its contributor version.
+
+  In the following three paragraphs, a "patent license" is any express
+agreement or commitment, however denominated, not to enforce a patent
+(such as an express permission to practice a patent or covenant not to
+sue for patent infringement).  To "grant" such a patent license to a
+party means to make such an agreement or commitment not to enforce a
+patent against the party.
+
+  If you convey a covered work, knowingly relying on a patent license,
+and the Corresponding Source of the work is not available for anyone
+to copy, free of charge and under the terms of this License, through a
+publicly available network server or other readily accessible means,
+then you must either (1) cause the Corresponding Source to be so
+available, or (2) arrange to deprive yourself of the benefit of the
+patent license for this particular work, or (3) arrange, in a manner
+consistent with the requirements of this License, to extend the patent
+license to downstream recipients.  "Knowingly relying" means you have
+actual knowledge that, but for the patent license, your conveying the
+covered work in a country, or your recipient's use of the covered work
+in a country, would infringe one or more identifiable patents in that
+country that you have reason to believe are valid.
+
+  If, pursuant to or in connection with a single transaction or
+arrangement, you convey, or propagate by procuring conveyance of, a
+covered work, and grant a patent license to some of the parties
+receiving the covered work authorizing them to use, propagate, modify
+or convey a specific copy of the covered work, then the patent license
+you grant is automatically extended to all recipients of the covered
+work and works based on it.
+
+  A patent license is "discriminatory" if it does not include within
+the scope of its coverage, prohibits the exercise of, or is
+conditioned on the non-exercise of one or more of the rights that are
+specifically granted under this License.  You may not convey a covered
+work if you are a party to an arrangement with a third party that is
+in the business of distributing software, under which you make payment
+to the third party based on the extent of your activity of conveying
+the work, and under which the third party grants, to any of the
+parties who would receive the covered work from you, a discriminatory
+patent license (a) in connection with copies of the covered work
+conveyed by you (or copies made from those copies), or (b) primarily
+for and in connection with specific products or compilations that
+contain the covered work, unless you entered into that arrangement,
+or that patent license was granted, prior to 28 March 2007.
+
+  Nothing in this License shall be construed as excluding or limiting
+any implied license or other defenses to infringement that may
+otherwise be available to you under applicable patent law.
+
+  12. No Surrender of Others' Freedom.
+
+  If conditions are imposed on you (whether by court order, agreement or
+otherwise) that contradict the conditions of this License, they do not
+excuse you from the conditions of this License.  If you cannot convey a
+covered work so as to satisfy simultaneously your obligations under this
+License and any other pertinent obligations, then as a consequence you may
+not convey it at all.  For example, if you agree to terms that obligate you
+to collect a royalty for further conveying from those to whom you convey
+the Program, the only way you could satisfy both those terms and this
+License would be to refrain entirely from conveying the Program.
+
+  13. Use with the GNU Affero General Public License.
+
+  Notwithstanding any other provision of this License, you have
+permission to link or combine any covered work with a work licensed
+under version 3 of the GNU Affero General Public License into a single
+combined work, and to convey the resulting work.  The terms of this
+License will continue to apply to the part which is the covered work,
+but the special requirements of the GNU Affero General Public License,
+section 13, concerning interaction through a network will apply to the
+combination as such.
+
+  14. Revised Versions of this License.
+
+  The Free Software Foundation may publish revised and/or new versions of
+the GNU General Public License from time to time.  Such new versions will
+be similar in spirit to the present version, but may differ in detail to
+address new problems or concerns.
+
+  Each version is given a distinguishing version number.  If the
+Program specifies that a certain numbered version of the GNU General
+Public License "or any later version" applies to it, you have the
+option of following the terms and conditions either of that numbered
+version or of any later version published by the Free Software
+Foundation.  If the Program does not specify a version number of the
+GNU General Public License, you may choose any version ever published
+by the Free Software Foundation.
+
+  If the Program specifies that a proxy can decide which future
+versions of the GNU General Public License can be used, that proxy's
+public statement of acceptance of a version permanently authorizes you
+to choose that version for the Program.
+
+  Later license versions may give you additional or different
+permissions.  However, no additional obligations are imposed on any
+author or copyright holder as a result of your choosing to follow a
+later version.
+
+  15. Disclaimer of Warranty.
+
+  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
+APPLICABLE LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
+HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY
+OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO,
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM
+IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF
+ALL NECESSARY SERVICING, REPAIR OR CORRECTION.
+
+  16. Limitation of Liability.
+
+  IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING
+WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MODIFIES AND/OR CONVEYS
+THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES, INCLUDING ANY
+GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE
+USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED TO LOSS OF
+DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD
+PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS),
+EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGES.
+
+  17. Interpretation of Sections 15 and 16.
+
+  If the disclaimer of warranty and limitation of liability provided
+above cannot be given local legal effect according to their terms,
+reviewing courts shall apply local law that most closely approximates
+an absolute waiver of all civil liability in connection with the
+Program, unless a warranty or assumption of liability accompanies a
+copy of the Program in return for a fee.
+
+                     END OF TERMS AND CONDITIONS
+
+            How to Apply These Terms to Your New Programs
+
+  If you develop a new program, and you want it to be of the greatest
+possible use to the public, the best way to achieve this is to make it
+free software which everyone can redistribute and change under these terms.
+
+  To do so, attach the following notices to the program.  It is safest
+to attach them to the start of each source file to most effectively
+state the exclusion of warranty; and each file should have at least
+the "copyright" line and a pointer to where the full notice is found.
+
+    <one line to give the program's name and a brief idea of what it does.>
+    Copyright (C) <year>  <name of author>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+Also add information on how to contact you by electronic and paper mail.
+
+  If the program does terminal interaction, make it output a short
+notice like this when it starts in an interactive mode:
+
+    <program>  Copyright (C) <year>  <name of author>
+    This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+    This is free software, and you are welcome to redistribute it
+    under certain conditions; type `show c' for details.
+
+The hypothetical commands `show w' and `show c' should show the appropriate
+parts of the General Public License.  Of course, your program's commands
+might be different; for a GUI interface, you would use an "about box".
+
+  You should also get your employer (if you work as a programmer) or school,
+if any, to sign a "copyright disclaimer" for the program, if necessary.
+For more information on this, and how to apply and follow the GNU GPL, see
+<https://www.gnu.org/licenses/>.
+
+  The GNU General Public License does not permit incorporating your program
+into proprietary programs.  If your program is a subroutine library, you
+may consider it more useful to permit linking proprietary applications with
+the library.  If this is what you want to do, use the GNU Lesser General
+Public License instead of this License.  But first, please read
+<https://www.gnu.org/licenses/why-not-lgpl.html>.
+
+══════════════════════════════════════════════════════════════════════
+
 ══ ARCHIVO: Makefile ═════════════════════════════════════════════════════════
 
 .PHONY: install run docker-build docker-run deploy
@@ -5769,8 +6262,7 @@ deploy:
 		--timeout 300 \
 		--min-instances 0 \
 		--max-instances 3 \
-		--session-affinity \
-		--update-env-vars GIT_COMMIT=$$(git rev-parse --short HEAD),BUILD_TIME=$$(date -u +%Y-%m-%dT%H:%MZ)
+		--session-affinity
 
 ══════════════════════════════════════════════════════════════════════
 
@@ -5815,24 +6307,14 @@ En la versión anterior (v1) SARIMA y Holt-Winters pronosticaban toda la ventana
 de prueba de una vez, lo que los hacía incomparables con el resto; el cambio de
 protocolo y sus efectos están documentados en `benchmark/`.
 
-## Novedades v2.1 — sustento y reproducibilidad
+## Banco de Tesis (`/banco`)
 
-* **Banco de pruebas de la tesis** (`/banco`): matriz P1–P6 × T1–T9 con los 54 resultados
-  publicados (`src/benchmark_data/resultados_tesis.json`, generado con
-  `scripts/build_published.py`) y un botón para re-ejecutar cualquier elemento en vivo y
-  ver *publicado vs. reproducido* lado a lado.
-* **Serie congelada** (`src/data/usdmxn_tesis.csv`): la serie USDMXN=X usada en los
-  experimentos (descargada el 26/10/2026). Seleccionable en el formulario como fuente de
-  datos; garantiza reproducibilidad aunque Yahoo revise sus datos.
-* **Sello de procedencia** en la página, el PDF y el Excel: fuente y fecha de descarga,
-  huella SHA-256 de la serie, versiones de las librerías, semilla, hiperparámetros y
-  commit del código (`src/provenance.py`; el commit llega por la variable `GIT_COMMIT`
-  que fija `make deploy`).
-* **Horizontes h = 1, 5 y 20 días** con el mismo protocolo y origen móvil
-  (`src/models/horizons.py`): SARIMA por su representación de espacio de estados,
-  Holt-Winters por sus ecuaciones de estado, ML/DL de forma recursiva; Diebold-Mariano
-  frente a Naive en cada horizonte. Con h = 1 se reproduce exactamente la evaluación a
-  un paso del Capítulo 4.
+Página de solo lectura con los 54 experimentos publicados en el Capítulo 4 y el
+Apéndice C (mapa de resultados, conteos de primeros lugares, veredicto de
+Diebold-Mariano por modelo y el detalle de cada experimento). Los datos se leen
+de `src/benchmark_data/resultados_tesis.json`, que genera
+`scripts/build_published.py` a partir de `benchmark/`; en esa página no se
+entrena nada.
 
 ## Ejecución local
 
@@ -6301,56 +6783,6 @@ def get_usdmxn(period=None, start_date=None, end_date=None):
 
 ══════════════════════════════════════════════════════════════════════
 
-══ ARCHIVO: src\data\frozen.py ═══════════════════════════════════════════════
-
-"""Serie congelada de la tesis.
-
-``usdmxn_tesis.csv`` es la serie de cierre diario USDMXN=X descargada de Yahoo
-Finance el 26-oct-2026 para el banco de pruebas (``benchmark/usdmxn_cache.csv``).
-Se distribuye con la plataforma para que los 54 experimentos del Capítulo 4 y del
-Apéndice C puedan reproducirse aunque Yahoo revise o deje de servir los datos.
-"""
-
-import os
-from datetime import datetime
-
-import pandas as pd
-
-HERE = os.path.dirname(os.path.abspath(__file__))
-FROZEN_CSV = os.path.join(HERE, "usdmxn_tesis.csv")
-FROZEN_ANCHOR = datetime(2026, 1, 1)        # fecha ancla de los 54 experimentos
-FROZEN_INFO = {
-    "ticker": "USDMXN=X",
-    "descargada": "2026-10-26",
-    "rango": "2015-11-02 → 2025-12-31",
-    "descripcion": ("Serie de cierre diario USDMXN=X descargada de Yahoo Finance el 26-oct-2026 "
-                    "para el banco de pruebas de la tesis (2,648 observaciones)."),
-}
-
-_FROZEN = None
-
-
-def load_frozen():
-    """Carga (una sola vez) la serie congelada completa."""
-    global _FROZEN
-    if _FROZEN is None:
-        df = pd.read_csv(FROZEN_CSV, parse_dates=["Date"])
-        _FROZEN = df[["Date", "Close"]].sort_values("Date").reset_index(drop=True)
-    return _FROZEN.copy()
-
-
-def get_frozen_usdmxn(start_date=None, end_date=None):
-    """Recorte de la serie congelada: ``start_date`` inclusivo y ``end_date``
-    exclusivo, igual que ``yfinance.Ticker.history(start, end)``."""
-    df = load_frozen()
-    if start_date:
-        df = df[df["Date"] >= pd.Timestamp(start_date)]
-    if end_date:
-        df = df[df["Date"] < pd.Timestamp(end_date)]
-    return df.reset_index(drop=True)
-
-══════════════════════════════════════════════════════════════════════
-
 ══ ARCHIVO: src\features\__init__.py ═════════════════════════════════════════
 
 
@@ -6433,10 +6865,8 @@ def compute_risk(ts_full):
 """Modelos de Deep Learning (PyTorch) para la serie USD/MXN.
 
 Idéntico al Apéndice A (RNN/LSTM de 50 unidades, Adam, MSE, 50 épocas, batch
-16, MinMaxScaler ajustado solo en train). Cambios: semilla controlable para que
-las corridas sean reproducibles, predicción en lote y pronósticos a h pasos
-recursivos en el espacio escalado (``src/models/horizons.py``). Devuelven
-``(metrics, predictions, forecast_next, multi)``.
+16, MinMaxScaler ajustado solo en train). Único cambio: semilla controlable
+para que las corridas sean reproducibles y repetibles.
 """
 
 import math
@@ -6444,8 +6874,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 from sklearn.preprocessing import MinMaxScaler
-
-from src.models.horizons import HORIZONS, recursive_multi
 
 torch.set_num_threads(1)
 
@@ -6473,7 +6901,7 @@ def _compute_metrics(predictions, test_data, model_name):
 def _empty_metrics(model_name, n_test, forecast_steps):
     metrics = {"Modelo": model_name, "MAE": float("nan"), "RMSE": float("nan"),
                "MAPE": float("nan"), "R^2": float("nan")}
-    return metrics, np.full(n_test, float("nan")), [None] * forecast_steps, {}
+    return metrics, np.full(n_test, float("nan")), [None] * forecast_steps
 
 
 def prepare_data_dl(series, lag=20):
@@ -6529,16 +6957,14 @@ def _predict_batch(model, windows_np):
         return model(torch.FloatTensor(windows_np)).numpy().ravel()
 
 
-def _predict_and_forecast(model, train_data, test_data, forecast_steps, scaler, lag, horizons=HORIZONS):
-    """Predicción en test (un paso adelante con el valor real), pronósticos a h pasos
-    (recursivos, en el espacio escalado) y pronóstico futuro."""
+def _predict_and_forecast(model, train_data, test_data, forecast_steps, scaler, lag):
+    """Predicción en test (un paso adelante con el valor real) y pronóstico futuro."""
     full = np.concatenate([np.asarray(train_data, dtype=float), np.asarray(test_data, dtype=float)])
     full_s = scaler.transform(full.reshape(-1, 1)).ravel()
     n = len(train_data)
-    multi_s = recursive_multi(lambda W: _predict_batch(model, W.reshape(-1, lag, 1)), full_s, n, lag,
-                              horizons=tuple(sorted(set(horizons) | {1})), newest_first=False)
-    multi = {h: scaler.inverse_transform(np.asarray(p).reshape(-1, 1)).ravel() for h, p in multi_s.items()}
-    predictions = multi[1]
+    windows = np.array([full_s[t - lag:t] for t in range(n, n + len(test_data))]).reshape(-1, lag, 1)
+    preds_s = _predict_batch(model, windows)
+    predictions = scaler.inverse_transform(preds_s.reshape(-1, 1)).ravel()
     history = list(full_s)
     forecast_next = []
     for _ in range(forecast_steps):
@@ -6546,10 +6972,10 @@ def _predict_and_forecast(model, train_data, test_data, forecast_steps, scaler, 
         p_s = float(_predict_batch(model, w)[0])
         forecast_next.append(float(scaler.inverse_transform([[p_s]])[0][0]))
         history.append(p_s)
-    return np.array(predictions), forecast_next, multi
+    return np.array(predictions), forecast_next
 
 
-def _train(net_cls, name, train_data, test_data, forecast_steps, seed, horizons=HORIZONS):
+def _train(net_cls, name, train_data, test_data, forecast_steps, seed):
     lag = _effective_lag(train_data)
     if len(train_data) <= lag or len(test_data) == 0:
         return _empty_metrics(name, len(test_data), forecast_steps)
@@ -6560,17 +6986,16 @@ def _train(net_cls, name, train_data, test_data, forecast_steps, seed, horizons=
     X_train, y_train = prepare_data_dl(train_s, lag=lag)
     model = net_cls()
     _fit(model, X_train, y_train)
-    predictions, forecast_next, multi = _predict_and_forecast(
-        model, train_data, test_data, forecast_steps, scaler, lag, horizons)
-    return _compute_metrics(predictions, test_data, name), predictions, forecast_next, multi
+    predictions, forecast_next = _predict_and_forecast(model, train_data, test_data, forecast_steps, scaler, lag)
+    return _compute_metrics(predictions, test_data, name), predictions, forecast_next
 
 
-def train_rnn(train_data, test_data, forecast_steps=1, seed=0, horizons=HORIZONS):
-    return _train(_RNNNet, "RNN", train_data, test_data, forecast_steps, seed, horizons)
+def train_rnn(train_data, test_data, forecast_steps=1, seed=0):
+    return _train(_RNNNet, "RNN", train_data, test_data, forecast_steps, seed)
 
 
-def train_lstm(train_data, test_data, forecast_steps=1, seed=0, horizons=HORIZONS):
-    return _train(_LSTMNet, "LSTM", train_data, test_data, forecast_steps, seed, horizons)
+def train_lstm(train_data, test_data, forecast_steps=1, seed=0):
+    return _train(_LSTMNet, "LSTM", train_data, test_data, forecast_steps, seed)
 
 ══════════════════════════════════════════════════════════════════════
 
@@ -6615,172 +7040,16 @@ def diebold_mariano(y_true, pred_a, pred_b, h=1, loss="squared"):
 
 ══════════════════════════════════════════════════════════════════════
 
-══ ARCHIVO: src\models\horizons.py ═══════════════════════════════════════════
-
-"""Pronóstico a h pasos adelante con origen móvil sobre el conjunto de prueba.
-
-Para cada origen t del tramo de prueba (t = n_train−1, …, N−1−h) el modelo
-pronostica y_{t+h} usando únicamente los valores reales observados hasta t:
-
-* Naive: ŷ_{t+h} = y_t.
-* SARIMA: ŷ_{t+h} = Z (Tʰ a_{t|t} + Σ_{j<h} Tʲ c) + d, con los estados filtrados
-  a_{t|t} del modelo de espacio de estados (statsmodels) y parámetros fijos.
-* Holt-Winters: ŷ_{t+h} = (ℓ_t + h b_t) · s_{t+h−m k}, k = ⌊(h−1)/m⌋ + 1, con los
-  estados de nivel, tendencia y estacionalidad en t (parámetros fijos).
-* Regresión Lineal, Random Forest, RNN y LSTM: recursivo, alimentando la
-  ventana de rezagos con sus propias predicciones (todas las ventanas de prueba
-  se procesan en lote).
-
-Con h = 1 todas las fórmulas reproducen exactamente la evaluación a un paso.
-"""
-
-import numpy as np
-
-HORIZONS = (1, 5, 20)
-
-
-def targets(test_data, h):
-    """Valores reales y_{t+h} para los orígenes t = n_train−1 … N−1−h (longitud n_test−h+1)."""
-    test_data = np.asarray(test_data, dtype=float)
-    return test_data[h - 1:] if len(test_data) >= h else test_data[:0]
-
-
-def naive_multi(train_data, test_data, horizons=HORIZONS):
-    hist = np.concatenate([np.asarray(train_data, dtype=float), np.asarray(test_data, dtype=float)])
-    n, nt = len(train_data), len(test_data)
-    return {h: hist[n - 1: n - 1 + nt - h + 1] for h in horizons if nt >= h}
-
-
-def _ssm_matrix(obj, base_ndim):
-    """Matriz del sistema como arreglo invariante en el tiempo.
-
-    statsmodels guarda las matrices con ``base_ndim`` dimensiones cuando son
-    constantes y con una dimensión extra (el tiempo, último eje) cuando varían.
-    Devuelve ``None`` si la matriz realmente cambia a lo largo del tiempo.
-    """
-    arr = np.asarray(obj, dtype=float)
-    if arr.ndim == base_ndim:
-        return arr
-    if arr.ndim == base_ndim + 1:
-        first = arr[..., 0]
-        if arr.shape[-1] > 1 and not np.allclose(arr, first[..., None]):
-            return None
-        return first
-    return None
-
-
-def sarima_multi(res_ext, n, nt, horizons=HORIZONS):
-    """Pronósticos a h pasos desde cada origen del tramo de prueba, con los estados
-    filtrados del resultado extendido (``res.append(test, refit=False)``)."""
-    ssm = res_ext.model.ssm
-    T = _ssm_matrix(ssm["transition"], 2)
-    Z = _ssm_matrix(ssm["design"], 2)
-    c = _ssm_matrix(ssm["state_intercept"], 1)
-    d = _ssm_matrix(ssm["obs_intercept"], 1)
-    if T is None or Z is None or c is None or d is None:
-        return _sarima_multi_slow(res_ext, n, nt, horizons)
-    k = T.shape[0]
-    c = np.asarray(c, dtype=float).reshape(k)
-    d = float(np.asarray(d, dtype=float).reshape(-1)[0])
-    fs = np.asarray(res_ext.filter_results.filtered_state, dtype=float)      # (k, N)
-    N = fs.shape[1]
-    out = {}
-    for h in horizons:
-        if nt < h:
-            continue
-        Th = np.linalg.matrix_power(T, h)
-        acc = np.zeros(k)
-        Tj = np.eye(k)
-        for _ in range(h):
-            acc = acc + Tj @ c
-            Tj = Tj @ T
-        pred = (Z @ (Th @ fs + acc[:, None])).reshape(-1) + d          # pred[t] = ŷ_{t+h|t}
-        out[h] = pred[n - 1: N - h]
-    return out
-
-
-def _sarima_multi_slow(res_ext, n, nt, horizons):
-    """Camino lento (matrices variantes en el tiempo): predicción dinámica por origen."""
-    N = n + nt
-    out = {}
-    for h in horizons:
-        if nt < h:
-            continue
-        vals = []
-        for t in range(n - 1, N - h):
-            pm = res_ext.get_prediction(start=t + 1, end=t + h, dynamic=True).predicted_mean
-            vals.append(float(np.asarray(pm)[-1]))
-        out[h] = np.asarray(vals, dtype=float)
-    return out
-
-
-def hw_multi(fixed, seasonal, m, n, nt, horizons=HORIZONS):
-    """Pronósticos a h pasos de Holt-Winters desde los estados (nivel, tendencia, estacionalidad)."""
-    lvl = np.asarray(fixed.level, dtype=float)
-    trd = getattr(fixed, "trend", None)
-    trd = np.asarray(trd if trd is not None else fixed.slope, dtype=float)
-    sea = np.asarray(fixed.season, dtype=float) if seasonal else None
-    N = len(lvl)
-    out = {}
-    for h in horizons:
-        if nt < h:
-            continue
-        ts_ = np.arange(n - 1, N - h)
-        base = lvl[ts_] + h * trd[ts_]
-        if seasonal:
-            k = (h - 1) // m + 1
-            idx = ts_ + h - m * k
-            if idx.min() < 0:
-                continue
-            base = base * sea[idx]
-        out[h] = base
-    return out
-
-
-def recursive_multi(predict_batch, series, n, lag, horizons=HORIZONS, newest_first=False):
-    """Pronóstico recursivo en lote para modelos de ventana de rezagos.
-
-    ``predict_batch(W)`` recibe una matriz (n_orígenes × lag) con las ventanas
-    ordenadas de la observación más antigua a la más reciente (o al revés si
-    ``newest_first``) y devuelve una predicción por fila. Las predicciones se
-    reinyectan en la ventana para los pasos siguientes.
-    """
-    series = np.asarray(series, dtype=float)
-    N = len(series)
-    nt = N - n
-    if nt <= 0 or n < lag:
-        return {}
-    origins = np.arange(n - 1, N - 1)
-    W = np.stack([series[t - lag + 1: t + 1] for t in origins])
-    out = {}
-    h_max = max(horizons)
-    for step in range(1, h_max + 1):
-        p = np.asarray(predict_batch(W[:, ::-1] if newest_first else W), dtype=float).reshape(-1)
-        if step in horizons and nt >= step:
-            out[step] = p[: nt - step + 1]
-        if step == h_max:
-            break
-        W = np.concatenate([W[:, 1:], p[:, None]], axis=1)
-    return out
-
-══════════════════════════════════════════════════════════════════════
-
 ══ ARCHIVO: src\models\ml_models.py ══════════════════════════════════════════
 
-"""Modelos clásicos de Machine Learning para series temporales.
-
-La evaluación a un paso adelante (con los valores reales en la ventana de rezagos)
-es la del Apéndice A original; los pronósticos a h pasos se obtienen de forma
-recursiva (``src/models/horizons.py``). Devuelven ``(metrics, predictions,
-forecast_next, multi)``."""
+"""Modelos clásicos de Machine Learning para series temporales (sin cambios
+respecto al Apéndice A: ya evaluaban a un paso adelante con el valor real)."""
 
 import numpy as np
 import pandas as pd
 import math
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
-
-from src.models.horizons import HORIZONS, recursive_multi
 
 _ML_LAGS = 5
 
@@ -6824,26 +7093,28 @@ def _recursive_predict(model, seed_history, n_steps, lags):
     return preds
 
 
-def _fit_predict(model, name, train_data, test_data, forecast_steps, horizons=HORIZONS):
+def _fit_predict(model, name, train_data, test_data, forecast_steps):
     lags = _effective_lags(train_data)
     X, y = create_supervised_data(train_data, lags=lags)
     model.fit(X, y)
-    full = np.concatenate([np.asarray(train_data, dtype=float), np.asarray(test_data, dtype=float)])
-    # Las columnas del modelo son lag_1 (más reciente) … lag_k: ventanas con la más reciente primero.
-    multi = recursive_multi(model.predict, full, len(train_data), lags,
-                            horizons=tuple(sorted(set(horizons) | {1})), newest_first=True)
-    test_preds = np.asarray(multi[1], dtype=float)      # h = 1: un paso adelante con el valor real
+    history = list(train_data)
+    test_preds = []
+    for actual in test_data:
+        x = np.array([history[-i] for i in range(1, lags + 1)]).reshape(1, -1)
+        test_preds.append(float(model.predict(x)[0]))
+        history.append(actual)
+    test_preds = np.array(test_preds)
     forecast_next = _recursive_predict(model, list(train_data) + list(test_data), forecast_steps, lags)
-    return _compute_metrics(test_preds, test_data, name), test_preds, forecast_next, multi
+    return _compute_metrics(test_preds, test_data, name), test_preds, forecast_next
 
 
-def train_linear_regression(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
-    return _fit_predict(LinearRegression(), "Regresión Lineal", train_data, test_data, forecast_steps, horizons)
+def train_linear_regression(train_data, test_data, forecast_steps=1):
+    return _fit_predict(LinearRegression(), "Regresión Lineal", train_data, test_data, forecast_steps)
 
 
-def train_random_forest(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
+def train_random_forest(train_data, test_data, forecast_steps=1):
     return _fit_predict(RandomForestRegressor(n_estimators=100, random_state=42),
-                        "Random Forest", train_data, test_data, forecast_steps, horizons)
+                        "Random Forest", train_data, test_data, forecast_steps)
 
 ══════════════════════════════════════════════════════════════════════
 
@@ -6852,20 +7123,19 @@ def train_random_forest(train_data, test_data, forecast_steps=1, horizons=HORIZO
 """Pipeline de entrenamiento y evaluación de los 7 modelos de pronóstico.
 
 Protocolo uniforme: todos los modelos se estiman solo con el conjunto de
-entrenamiento y se evalúan sobre el conjunto de prueba con origen móvil, a un
-paso adelante (evaluación principal) y a h = 5 y 20 días (``horizons``). El
-modelo ingenuo (paseo aleatorio) es la referencia contra la que se contrasta
-cada modelo, en cada horizonte, con la prueba de Diebold-Mariano.
+entrenamiento y se evalúan a un paso adelante sobre el conjunto de prueba,
+actualizando su estado con el valor real del día anterior. El modelo ingenuo
+(paseo aleatorio) es la referencia contra la que se contrasta cada modelo con
+la prueba de Diebold-Mariano.
 """
 
 import numpy as np
 import pandas as pd
 
-from src.models.ts_models import train_naive, train_sarima, train_holtwinters, _compute_metrics
+from src.models.ts_models import train_naive, train_sarima, train_holtwinters
 from src.models.ml_models import train_linear_regression, train_random_forest
 from src.models.dl_models import train_rnn, train_lstm
 from src.models.evaluation import diebold_mariano
-from src.models.horizons import HORIZONS, targets
 
 MODELS = [
     ("Naive",            train_naive),
@@ -6878,7 +7148,6 @@ MODELS = [
 ]
 REFERENCE = "Naive"
 DM_ALPHA = 0.05
-DL_MODELS = {"RNN", "LSTM"}
 
 
 def _dm_verdict(stat, p):
@@ -6889,23 +7158,16 @@ def _dm_verdict(stat, p):
     return "sin diferencia"
 
 
-def _nan_row(name, h):
-    return {"Modelo": name, "h": h, "n_eval": 0, "MAE": float("nan"), "RMSE": float("nan"),
-            "MAPE": float("nan"), "R^2": float("nan"), "DM": float("nan"), "DM p-valor": float("nan"),
-            "Veredicto": "n/a"}
-
-
-def train_and_evaluate(df, forecast_steps=1, test_size=5, horizons=HORIZONS, seed=0):
+def train_and_evaluate(df, forecast_steps=1, test_size=5):
     """Entrena los 7 modelos sobre ``df`` y devuelve métricas, pronósticos y series.
 
     Returns
     -------
     tuple
-        ``(metrics_df, forecast_values, train_series, test_series, predictions_dict, horizons_df)``
-        ``metrics_df`` (evaluación a un paso) incluye ``DM``, ``DM p-valor`` y
-        ``Veredicto`` frente al modelo ingenuo; ``horizons_df`` repite las métricas
-        y el contraste para cada horizonte ``h`` (formato largo: una fila por
-        modelo y horizonte, con ``n_eval`` orígenes evaluados).
+        ``(metrics_df, forecast_values, train_series, test_series, predictions_dict)``
+        ``metrics_df`` incluye las columnas ``DM`` (estadístico de Diebold-Mariano
+        frente al modelo ingenuo, negativo = menor error), ``DM p-valor`` y
+        ``Veredicto``.
     """
     ts = df["Close"].values
     if test_size >= len(ts):
@@ -6913,18 +7175,13 @@ def train_and_evaluate(df, forecast_steps=1, test_size=5, horizons=HORIZONS, see
 
     train_data = ts[:-test_size]
     test_data  = ts[-test_size:]
-    horizons = tuple(sorted(set(int(h) for h in horizons) | {1}))
 
-    metrics, preds, fcs, multis = [], {}, {}, {}
+    metrics, preds, fcs = [], {}, {}
     for name, fn in MODELS:
-        kwargs = {"horizons": horizons}
-        if name in DL_MODELS:
-            kwargs["seed"] = seed
-        m, p, fc, multi = fn(train_data, test_data, forecast_steps, **kwargs)
+        m, p, fc = fn(train_data, test_data, forecast_steps)
         metrics.append(m)
         preds[name] = np.asarray(p, dtype=float)
         fcs[name] = fc
-        multis[name] = multi or {}
 
     ref = preds[REFERENCE]
     for m in metrics:
@@ -6939,28 +7196,6 @@ def train_and_evaluate(df, forecast_steps=1, test_size=5, horizons=HORIZONS, see
 
     metrics_df = pd.DataFrame(metrics)
 
-    # Evaluación por horizonte (h = 1 reproduce metrics_df)
-    rows = []
-    for h in horizons:
-        y_h = targets(test_data, h)
-        ref_h = multis[REFERENCE].get(h)
-        for name, _ in MODELS:
-            p_h = multis[name].get(h)
-            if p_h is None or len(y_h) == 0 or len(p_h) != len(y_h) or not np.isfinite(p_h).any():
-                rows.append(_nan_row(name, h))
-                continue
-            mm = _compute_metrics(p_h, y_h, name)
-            if name == REFERENCE or ref_h is None:
-                stat, pv = float("nan"), float("nan")
-            else:
-                stat, pv = diebold_mariano(y_h, p_h, ref_h, h=h)
-            rows.append({"Modelo": name, "h": h, "n_eval": int(len(y_h)),
-                         **{k: mm[k] for k in ("MAE", "RMSE", "MAPE", "R^2")},
-                         "DM": round(stat, 3) if np.isfinite(stat) else float("nan"),
-                         "DM p-valor": round(pv, 4) if np.isfinite(pv) else float("nan"),
-                         "Veredicto": "referencia" if name == REFERENCE else _dm_verdict(stat, pv)})
-    horizons_df = pd.DataFrame(rows)
-
     n_train = len(train_data)
     n_test  = len(test_data)
 
@@ -6974,7 +7209,7 @@ def train_and_evaluate(df, forecast_steps=1, test_size=5, horizons=HORIZONS, see
     test_series  = _to_list([None] * n_train + test_data.tolist())
     predictions_dict = {name: [None] * n_train + _to_list(preds[name].tolist()) for name, _ in MODELS}
 
-    return metrics_df, fcs, train_series, test_series, predictions_dict, horizons_df
+    return metrics_df, fcs, train_series, test_series, predictions_dict
 
 ══════════════════════════════════════════════════════════════════════
 
@@ -7013,18 +7248,12 @@ def add_ranking(metrics_df):
 Protocolo de evaluación (idéntico al de los modelos ML/DL): los parámetros se
 estiman únicamente con el conjunto de entrenamiento y, sobre el conjunto de
 prueba, cada predicción es a un paso adelante actualizando el estado del modelo
-con el valor real observado el día anterior. Además, cada modelo devuelve sus
-pronósticos a h pasos (h = 1, 5, 20) con origen móvil (``src/models/horizons.py``).
-
-Cada función devuelve ``(metrics, predictions, forecast_next, multi)`` donde
-``multi`` es ``{h: predicciones a h pasos}``.
+con el valor real observado el día anterior.
 """
 
 import numpy as np
 import math
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
-
-from src.models.horizons import HORIZONS, naive_multi, sarima_multi, hw_multi
 
 try:
     from pmdarima import auto_arima as _pm_auto_arima
@@ -7065,15 +7294,15 @@ def _empty_metrics(model_name, n_test, forecast_steps):
         "MAPE": float("nan"),
         "R^2": float("nan"),
     }
-    return metrics, np.full(n_test, float("nan")), [None] * forecast_steps, {}
+    return metrics, np.full(n_test, float("nan")), [None] * forecast_steps
 
 
 # ---------------------------------------------------------------------------
 # Modelo ingenuo (referencia): el pronóstico de mañana es el valor de hoy
 # ---------------------------------------------------------------------------
 
-def train_naive(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
-    """Pronóstico ingenuo (paseo aleatorio sin deriva): ŷ_{t+h} = y_t."""
+def train_naive(train_data, test_data, forecast_steps=1):
+    """Pronóstico ingenuo (paseo aleatorio sin deriva), un paso adelante."""
     if len(train_data) < 1 or len(test_data) == 0:
         return _empty_metrics("Naive", len(test_data), forecast_steps)
     history = np.concatenate([np.asarray(train_data, dtype=float), np.asarray(test_data, dtype=float)])
@@ -7081,14 +7310,14 @@ def train_naive(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
     predictions = history[n - 1:n - 1 + len(test_data)]
     forecast_next = [float(history[-1])] * forecast_steps
     metrics = _compute_metrics(predictions, test_data, "Naive")
-    return metrics, np.array(predictions), forecast_next, naive_multi(train_data, test_data, horizons)
+    return metrics, np.array(predictions), forecast_next
 
 
 # ---------------------------------------------------------------------------
 # SARIMA con auto_arima (con fallback a SARIMAX fijo si pmdarima no está)
 # ---------------------------------------------------------------------------
 
-def _sarima_one_step(res, train_data, test_data, forecast_steps, horizons=HORIZONS):
+def _sarima_one_step(res, train_data, test_data, forecast_steps):
     """Predicción a un paso sobre test con parámetros fijos (estimados en train).
 
     ``res.append`` incorpora las observaciones de prueba al filtro de Kalman sin
@@ -7100,11 +7329,10 @@ def _sarima_one_step(res, train_data, test_data, forecast_steps, horizons=HORIZO
     pred = res_ext.get_prediction(start=n, end=n + len(test_data) - 1)
     predictions = np.asarray(pred.predicted_mean, dtype=float)
     forecast_next = np.asarray(res_ext.forecast(steps=forecast_steps), dtype=float).tolist()
-    multi = sarima_multi(res_ext, n, len(test_data), horizons)
-    return predictions, forecast_next, multi
+    return predictions, forecast_next
 
 
-def train_sarima(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
+def train_sarima(train_data, test_data, forecast_steps=1):
     """Entrena SARIMA usando auto_arima (selección automática de órdenes)."""
     if len(train_data) < 5 or len(test_data) == 0:
         return _empty_metrics("SARIMA", len(test_data), forecast_steps)
@@ -7134,9 +7362,9 @@ def train_sarima(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
                 enforce_invertibility=False,
             ).fit(disp=False)
 
-        predictions, forecast_next, multi = _sarima_one_step(res, train_data, test_data, forecast_steps, horizons)
+        predictions, forecast_next = _sarima_one_step(res, train_data, test_data, forecast_steps)
         metrics = _compute_metrics(predictions, test_data, "SARIMA")
-        return metrics, predictions, forecast_next, multi
+        return metrics, predictions, forecast_next
 
     except Exception:
         return _empty_metrics("SARIMA", len(test_data), forecast_steps)
@@ -7146,7 +7374,7 @@ def train_sarima(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
 # Holt-Winters
 # ---------------------------------------------------------------------------
 
-def train_holtwinters(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
+def train_holtwinters(train_data, test_data, forecast_steps=1):
     """Entrena un modelo Holt-Winters y devuelve métricas y pronósticos."""
     if len(train_data) < 4 or len(test_data) == 0:
         return _empty_metrics("Holt-Winters", len(test_data), forecast_steps)
@@ -7176,142 +7404,12 @@ def train_holtwinters(train_data, test_data, forecast_steps=1, horizons=HORIZONS
         )
         predictions = np.asarray(fixed.fittedvalues, dtype=float)[n:]
         forecast_next = np.asarray(fixed.forecast(forecast_steps), dtype=float).tolist()
-        multi = hw_multi(fixed, seasonal, 12, n, len(test_data), horizons)
 
         metrics = _compute_metrics(predictions, test_data, "Holt-Winters")
-        return metrics, predictions, forecast_next, multi
+        return metrics, predictions, forecast_next
 
     except Exception:
         return _empty_metrics("Holt-Winters", len(test_data), forecast_steps)
-
-══════════════════════════════════════════════════════════════════════
-
-══ ARCHIVO: src\provenance.py ════════════════════════════════════════════════
-
-"""Sello de procedencia: qué datos, qué versiones y qué parámetros produjeron cada resultado.
-
-Dos corridas que difieren deben poder explicarse: distinta serie (hash), distinta
-versión de una librería, distinta semilla o distinto commit del código.
-"""
-
-import hashlib
-import os
-import platform
-import subprocess
-from datetime import datetime, timezone
-
-import numpy
-import pandas
-import scipy
-import sklearn
-import statsmodels
-
-from src.version import APP_VERSION
-
-try:
-    import pmdarima
-    _PMDARIMA = pmdarima.__version__
-except ImportError:                                     # pragma: no cover
-    _PMDARIMA = "no disponible"
-try:
-    import torch
-    _TORCH = torch.__version__
-except ImportError:                                     # pragma: no cover
-    _TORCH = "no disponible"
-try:
-    import yfinance
-    _YFINANCE = yfinance.__version__
-except ImportError:                                     # pragma: no cover
-    _YFINANCE = "no disponible"
-
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-HYPERPARAMS = [
-    ("Naive",            "Paseo aleatorio sin deriva; sin parámetros."),
-    ("SARIMA",           "auto_arima (pmdarima): p,q ≤ 3; P,Q ≤ 1; m = 5; criterio AIC; búsqueda stepwise."),
-    ("Holt-Winters",     "Tendencia aditiva; estacionalidad multiplicativa de periodo 12 (si n ≥ 24); parámetros optimizados en entrenamiento."),
-    ("Regresión Lineal", "Mínimos cuadrados con 5 rezagos (mín(5, n/4))."),
-    ("Random Forest",    "100 árboles; 5 rezagos; random_state = 42."),
-    ("RNN",              "50 unidades tanh; ventana 20; Adam; MSE; 50 épocas; lote 16; MinMaxScaler ajustado en entrenamiento."),
-    ("LSTM",             "50 unidades; ventana 20; Adam; MSE; 50 épocas; lote 16; MinMaxScaler ajustado en entrenamiento."),
-]
-
-PROTOCOL = ("Parámetros estimados solo con el conjunto de entrenamiento. Sobre el conjunto de prueba, "
-            "pronóstico con origen móvil a h = 1, 5 y 20 días: cada pronóstico usa únicamente los valores "
-            "reales observados hasta el origen (SARIMA por su representación de espacio de estados, "
-            "Holt-Winters por sus ecuaciones de estado, ML/DL de forma recursiva). Cada modelo se contrasta "
-            "contra el modelo ingenuo con la prueba de Diebold-Mariano (corrección HLN) al 5 %.")
-
-
-def _git_commit():
-    env = os.environ.get("GIT_COMMIT", "").strip()
-    if env:
-        return env
-    try:
-        out = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
-                             capture_output=True, text=True, timeout=3)
-        return out.stdout.strip() or "n/d"
-    except Exception:
-        return "n/d"
-
-
-GIT_COMMIT = _git_commit()
-BUILD_TIME = os.environ.get("BUILD_TIME", "n/d")
-
-VERSIONS = {
-    "Python":       platform.python_version(),
-    "numpy":        numpy.__version__,
-    "pandas":       pandas.__version__,
-    "scipy":        scipy.__version__,
-    "scikit-learn": sklearn.__version__,
-    "statsmodels":  statsmodels.__version__,
-    "pmdarima":     _PMDARIMA,
-    "torch":        _TORCH,
-    "yfinance":     _YFINANCE,
-}
-
-
-def series_hash(df):
-    """SHA-256 de la serie (fecha y cierre a 6 decimales): identifica los datos usados."""
-    lines = "\n".join(f"{d.strftime('%Y-%m-%d')},{float(c):.6f}" for d, c in zip(df["Date"], df["Close"]))
-    return hashlib.sha256(lines.encode("utf-8")).hexdigest()
-
-
-def build_provenance(df, source_meta, test_size, seed=0, horizons=(1, 5, 20)):
-    """Diccionario con todo lo necesario para reproducir (o explicar) un resultado."""
-    n = len(df)
-    sha = series_hash(df)
-    return {
-        "app_version":  APP_VERSION,
-        "git_commit":   GIT_COMMIT,
-        "build_time":   BUILD_TIME,
-        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
-        "source":       source_meta.get("source", "yahoo"),
-        "source_label": source_meta.get("label", ""),
-        "downloaded_at": source_meta.get("downloaded_at", ""),
-        "source_note":  source_meta.get("note", ""),
-        "ticker":       "USDMXN=X",
-        "n":            n,
-        "n_train":      n - test_size,
-        "n_test":       test_size,
-        "first_date":   df["Date"].iloc[0].strftime("%Y-%m-%d") if n else "",
-        "last_date":    df["Date"].iloc[-1].strftime("%Y-%m-%d") if n else "",
-        "sha256":       sha,
-        "sha256_short": sha[:16],
-        "seed":         seed,
-        "horizons":     list(horizons),
-        "versions":     dict(VERSIONS),
-        "hyperparams":  list(HYPERPARAMS),
-        "protocol":     PROTOCOL,
-    }
-
-══════════════════════════════════════════════════════════════════════
-
-══ ARCHIVO: src\version.py ═══════════════════════════════════════════════════
-
-"""Versión de la plataforma (se muestra en el sello de procedencia)."""
-
-APP_VERSION = "2.1.0"
 
 ══════════════════════════════════════════════════════════════════════
 

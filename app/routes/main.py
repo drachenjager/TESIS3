@@ -1,30 +1,20 @@
-"""Rutas principales: dashboard, gráfica, residuales, estacionalidad, forecast vs real.
+"""Rutas principales: dashboard, gráfica, residuales, estacionalidad, forecast vs real."""
 
-``run_experiment`` y ``results_context`` concentran la lógica de una consulta
-(descarga o serie congelada → 7 modelos → caché → tablas) para que la ruta
-principal y el banco de pruebas (``app/routes/banco.py``) compartan el mismo camino.
-"""
-
-from datetime import datetime, timezone
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
-import yfinance as yf
 from dateutil.relativedelta import relativedelta
 from flask import Blueprint, render_template, request
 
 from app import cache
 from src.data.fetch import get_usdmxn
-from src.data.frozen import get_frozen_usdmxn, FROZEN_ANCHOR, FROZEN_INFO
 from src.features.build import compute_risk
-from src.models.horizons import HORIZONS
 from src.models.pipeline import train_and_evaluate
 from src.models.ranking import add_ranking
-from src.provenance import build_provenance
 
 bp = Blueprint("main", __name__)
 
-CACHE_PREFIX = "v3"
 VALID_PERIODS = {"3mo", "6mo", "1y", "2y", "5y", "10y", "1mo", "5d", "ytd", "max"}
 PERIOD_LABELS = {
     "3mo": "3 meses (corto plazo)",
@@ -38,38 +28,6 @@ PERIOD_LABELS = {
     "ytd": "Año en curso (YTD)",
     "max": "Máximo histórico",
 }
-DATA_SOURCES = {
-    "yahoo": "Yahoo Finance (descarga en vivo)",
-    "tesis": f"Serie congelada de la tesis (USDMXN=X, {FROZEN_INFO['rango']})",
-}
-_OFFSETS = {
-    "5d":  relativedelta(days=5),
-    "1mo": relativedelta(months=1),
-    "3mo": relativedelta(months=3),
-    "6mo": relativedelta(months=6),
-    "1y":  relativedelta(years=1),
-    "2y":  relativedelta(years=2),
-    "5y":  relativedelta(years=5),
-    "10y": relativedelta(years=10),
-}
-
-
-def period_bounds(anchor_dt, period):
-    """(inicio, fin) de un periodo contado hacia atrás desde ``anchor_dt`` (fin exclusivo)."""
-    if period == "ytd":
-        start = datetime(anchor_dt.year, 1, 1)
-        if start >= anchor_dt:                      # 1 de enero: usa el año anterior
-            start = datetime(anchor_dt.year - 1, 1, 1)
-    elif period == "max":
-        start = datetime(1993, 1, 1)
-    else:
-        start = anchor_dt - _OFFSETS[period]
-    if start >= anchor_dt:
-        raise ValueError(
-            f"El periodo '{PERIOD_LABELS.get(period, period)}' no genera un rango válido "
-            "desde la fecha de referencia indicada."
-        )
-    return start, anchor_dt
 
 
 def _render_index(**kwargs):
@@ -79,90 +37,144 @@ def _render_index(**kwargs):
         error=None, selected_period="1y", selected_test_percent=20,
         query_mode="period", selected_start_date="", selected_end_date="",
         selected_anchor_date="", selected_anchor_period="1y",
-        semaforo=None, data_source="yahoo", data_sources=DATA_SOURCES,
-        banco_compare=None, horizons_rows=None, horizon_neval=None,
-        horizons=list(HORIZONS), provenance=None,
+        semaforo=None,
     )
     defaults.update(kwargs)
     return render_template("index.html", **defaults)
 
 
 # ---------------------------------------------------------------------------
-# Datos → modelos → caché (compartido con el banco de pruebas)
+# Ruta principal
 # ---------------------------------------------------------------------------
 
-def load_series(data_source, selected_period=None, start_date=None, end_date=None):
-    """Devuelve ``(df, source_meta)``; ``df`` es ``None`` si no hay datos."""
-    if data_source == "tesis":
-        if selected_period:                          # periodo contado desde el cierre de la serie congelada
-            s, e = period_bounds(FROZEN_ANCHOR, selected_period)
-            start_date, end_date = s.strftime("%Y-%m-%d"), e.strftime("%Y-%m-%d")
-        df = get_frozen_usdmxn(start_date, end_date)
-        meta = {"source": "tesis", "label": DATA_SOURCES["tesis"],
-                "downloaded_at": FROZEN_INFO["descargada"], "note": FROZEN_INFO["descripcion"]}
-        return (df if len(df) else None), meta
+@bp.route("/", methods=["GET", "POST"])
+def index():
+    if request.method != "POST":
+        return _render_index()
 
-    df = get_usdmxn(period=selected_period, start_date=start_date, end_date=end_date)
-    meta = {"source": "yahoo", "label": DATA_SOURCES["yahoo"],
-            "downloaded_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
-            "note": f"yfinance {yf.__version__}, ticker USDMXN=X, intervalo diario"}
-    return df, meta
+    query_mode = request.form.get("query_mode", "period")
 
+    try:
+        test_percent = float(request.form.get("test_percent", 20))
+        if not (1 <= test_percent <= 80):
+            raise ValueError()
+    except (ValueError, TypeError):
+        return _render_index(error="El porcentaje de testing debe estar entre 1 y 80."), 400
 
-def run_experiment(cache_key, data_source, selected_period, start_date, end_date, test_percent):
-    """Ejecuta (o recupera de caché) los 7 modelos. Devuelve ``(cached, error)``."""
+    # Estado ancla — solo se usa en modo "anchor"; valores neutros para los otros modos
+    anchor_date_str = ""
+    anchor_period   = "1y"
+
+    if query_mode == "period":
+        selected_period = request.form.get("period_select", "")
+        if selected_period not in VALID_PERIODS:
+            return _render_index(error="Periodo inválido seleccionado."), 400
+        start_date = end_date = None
+
+    elif query_mode == "custom":
+        selected_period = None
+        start_date = request.form.get("start_date", "").strip()
+        end_date   = request.form.get("end_date",   "").strip()
+        try:
+            dt_start = datetime.strptime(start_date, "%Y-%m-%d")
+            dt_end   = datetime.strptime(end_date,   "%Y-%m-%d")
+            if dt_start >= dt_end:
+                raise ValueError("La fecha de inicio debe ser anterior a la fecha fin.")
+            if dt_end > datetime.now():
+                raise ValueError("La fecha fin no puede ser futura.")
+        except (ValueError, TypeError) as exc:
+            return _render_index(
+                error=f"Fechas inválidas: {exc}", query_mode="custom",
+                selected_start_date=start_date, selected_end_date=end_date,
+                selected_test_percent=test_percent,
+            ), 400
+
+    elif query_mode == "anchor":
+        selected_period = None
+        anchor_date_str = request.form.get("anchor_date", "").strip()
+        anchor_period   = request.form.get("anchor_period", "").strip()
+        if anchor_period not in VALID_PERIODS:
+            return _render_index(
+                error="Periodo inválido en modo fecha ancla.", query_mode="anchor",
+                selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
+                selected_test_percent=test_percent,
+            ), 400
+        try:
+            dt_anchor = datetime.strptime(anchor_date_str, "%Y-%m-%d")
+            if dt_anchor > datetime.now():
+                raise ValueError("La fecha de referencia no puede ser futura.")
+            if dt_anchor < datetime(1993, 1, 1):
+                raise ValueError("La fecha de referencia mínima disponible es el 01/01/1993.")
+
+            _OFFSETS = {
+                "5d":  relativedelta(days=5),
+                "1mo": relativedelta(months=1),
+                "3mo": relativedelta(months=3),
+                "6mo": relativedelta(months=6),
+                "1y":  relativedelta(years=1),
+                "2y":  relativedelta(years=2),
+                "5y":  relativedelta(years=5),
+                "10y": relativedelta(years=10),
+            }
+            if anchor_period == "ytd":
+                dt_start = datetime(dt_anchor.year, 1, 1)
+            elif anchor_period == "max":
+                dt_start = datetime(1993, 1, 1)
+            else:
+                dt_start = dt_anchor - _OFFSETS[anchor_period]
+
+            if dt_start >= dt_anchor:
+                raise ValueError(
+                    f"El periodo '{PERIOD_LABELS.get(anchor_period, anchor_period)}' no genera "
+                    "un rango válido desde la fecha de referencia indicada."
+                )
+            start_date = dt_start.strftime("%Y-%m-%d")
+            end_date   = anchor_date_str
+        except (ValueError, TypeError) as exc:
+            return _render_index(
+                error=f"Fecha de referencia inválida: {exc}", query_mode="anchor",
+                selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
+                selected_test_percent=test_percent,
+            ), 400
+
+    else:
+        return _render_index(error="Modo de consulta inválido."), 400
+
+    today = datetime.now().strftime("%Y%m%d")
+    if query_mode == "period":
+        cache_key = f"v2_{today}_period_{selected_period}_{int(test_percent)}"
+    elif query_mode == "custom":
+        cache_key = f"v2_{today}_custom_{start_date}_{end_date}_{int(test_percent)}"
+    else:
+        cache_key = f"v2_{today}_anchor_{anchor_date_str}_{anchor_period}_{int(test_percent)}"
+
     cached = cache.get(cache_key)
-    if cached is not None:
-        return cached, None
+    if cached is None:
+        df = get_usdmxn(period=selected_period, start_date=start_date, end_date=end_date)
+        if df is None or len(df) < 10:
+            return _render_index(
+                error="No se obtuvieron suficientes datos. Prueba con otro periodo o rango de fechas.",
+                query_mode=query_mode, selected_period=selected_period,
+                selected_start_date=start_date or "", selected_end_date=end_date or "",
+                selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
+                selected_test_percent=test_percent,
+            ), 400
 
-    df, meta = load_series(data_source, selected_period, start_date, end_date)
-    if df is None or len(df) < 10:
-        return None, "No se obtuvieron suficientes datos. Prueba con otro periodo o rango de fechas."
+        test_size = max(1, int(len(df) * test_percent / 100))
+        metrics_df, forecast_values, train_series, test_series, predictions_dict = (
+            train_and_evaluate(df, forecast_steps=test_size, test_size=test_size)
+        )
+        dates = df["Date"].dt.strftime("%Y-%m-%d").tolist()
+        semaforo = compute_risk(df["Close"].values)
 
-    test_size = max(1, int(len(df) * test_percent / 100))
-    metrics_df, forecast_values, train_series, test_series, predictions_dict, horizons_df = (
-        train_and_evaluate(df, forecast_steps=test_size, test_size=test_size, horizons=HORIZONS, seed=0)
-    )
-    cached = {
-        "metrics_df": metrics_df, "forecast_values": forecast_values,
-        "train_series": train_series, "test_series": test_series,
-        "predictions_dict": predictions_dict,
-        "dates": df["Date"].dt.strftime("%Y-%m-%d").tolist(),
-        "semaforo": compute_risk(df["Close"].values),
-        "horizons_df": horizons_df,
-        "provenance": build_provenance(df, meta, test_size, seed=0, horizons=HORIZONS),
-        "data_source": data_source, "test_percent": test_percent,
-    }
-    cache.set(cache_key, cached)
-    return cached, None
+        cached = {
+            "metrics_df": metrics_df, "forecast_values": forecast_values,
+            "train_series": train_series, "test_series": test_series,
+            "predictions_dict": predictions_dict, "dates": dates, "semaforo": semaforo,
+        }
+        cache.set(cache_key, cached)
 
-
-def _fmt(v, fmt="{:.4f}"):
-    return fmt.format(v) if v is not None and not pd.isna(v) else "—"
-
-
-def horizons_rows(horizons_df, model_order):
-    """Filas (una por modelo) con las celdas por horizonte, ya formateadas."""
-    rows, neval = [], {}
-    for h in HORIZONS:
-        sub = horizons_df[horizons_df["h"] == h]
-        neval[h] = int(sub["n_eval"].max()) if len(sub) else 0
-    for name in model_order:
-        cells = {}
-        for h in HORIZONS:
-            sub = horizons_df[(horizons_df["h"] == h) & (horizons_df["Modelo"] == name)]
-            if len(sub) == 0 or sub.iloc[0]["n_eval"] == 0:
-                cells[h] = {"MAE": "—", "RMSE": "—", "p": "—", "Veredicto": "sin datos"}
-                continue
-            r = sub.iloc[0]
-            cells[h] = {"MAE": _fmt(r["MAE"]), "RMSE": _fmt(r["RMSE"]),
-                        "p": _fmt(r["DM p-valor"]), "Veredicto": r["Veredicto"]}
-        rows.append({"Modelo": name, "cells": cells})
-    return rows, neval
-
-
-def results_context(cached):
-    """Tablas y objetos listos para la plantilla a partir de una entrada de caché."""
+    # Tabla de métricas con ranking
     metrics_df, best_idx = add_ranking(cached["metrics_df"])
 
     format_dict = {"MAE": "{:.4f}", "RMSE": "{:.4f}", "MAPE": "{:.4f}", "R^2": "{:.4f}",
@@ -204,116 +216,8 @@ def results_context(cached):
             return f"{vals:.2f}" if vals is not None else ""
 
     formatted_forecasts = {m: format_forecast(v) for m, v in cached["forecast_values"].items()}
-    rows, neval = horizons_rows(cached["horizons_df"], metrics_df["Modelo"].tolist())
-
-    return dict(
-        metrics_table=metrics_table, forecast_values=formatted_forecasts,
-        predictions_dict=cached["predictions_dict"], semaforo=cached.get("semaforo"),
-        horizons_rows=rows, horizon_neval=neval, provenance=cached.get("provenance"),
-    )
-
-
-# ---------------------------------------------------------------------------
-# Ruta principal
-# ---------------------------------------------------------------------------
-
-@bp.route("/", methods=["GET", "POST"])
-def index():
-    if request.method != "POST":
-        return _render_index()
-
-    query_mode = request.form.get("query_mode", "period")
-    data_source = request.form.get("data_source", "yahoo")
-    if data_source not in DATA_SOURCES:
-        return _render_index(error="Fuente de datos inválida."), 400
-
-    try:
-        test_percent = float(request.form.get("test_percent", 20))
-        if not (1 <= test_percent <= 80):
-            raise ValueError()
-    except (ValueError, TypeError):
-        return _render_index(error="El porcentaje de testing debe estar entre 1 y 80.",
-                             data_source=data_source), 400
-
-    # Estado ancla — solo se usa en modo "anchor"; valores neutros para los otros modos
-    anchor_date_str = ""
-    anchor_period   = "1y"
-
-    if query_mode == "period":
-        selected_period = request.form.get("period_select", "")
-        if selected_period not in VALID_PERIODS:
-            return _render_index(error="Periodo inválido seleccionado.", data_source=data_source), 400
-        start_date = end_date = None
-
-    elif query_mode == "custom":
-        selected_period = None
-        start_date = request.form.get("start_date", "").strip()
-        end_date   = request.form.get("end_date",   "").strip()
-        try:
-            dt_start = datetime.strptime(start_date, "%Y-%m-%d")
-            dt_end   = datetime.strptime(end_date,   "%Y-%m-%d")
-            if dt_start >= dt_end:
-                raise ValueError("La fecha de inicio debe ser anterior a la fecha fin.")
-            if dt_end > datetime.now():
-                raise ValueError("La fecha fin no puede ser futura.")
-        except (ValueError, TypeError) as exc:
-            return _render_index(
-                error=f"Fechas inválidas: {exc}", query_mode="custom",
-                selected_start_date=start_date, selected_end_date=end_date,
-                selected_test_percent=test_percent, data_source=data_source,
-            ), 400
-
-    elif query_mode == "anchor":
-        selected_period = None
-        anchor_date_str = request.form.get("anchor_date", "").strip()
-        anchor_period   = request.form.get("anchor_period", "").strip()
-        if anchor_period not in VALID_PERIODS:
-            return _render_index(
-                error="Periodo inválido en modo fecha ancla.", query_mode="anchor",
-                selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
-                selected_test_percent=test_percent, data_source=data_source,
-            ), 400
-        try:
-            dt_anchor = datetime.strptime(anchor_date_str, "%Y-%m-%d")
-            if dt_anchor > datetime.now():
-                raise ValueError("La fecha de referencia no puede ser futura.")
-            if dt_anchor < datetime(1993, 1, 1):
-                raise ValueError("La fecha de referencia mínima disponible es el 01/01/1993.")
-            dt_start, _ = period_bounds(dt_anchor, anchor_period)
-            start_date = dt_start.strftime("%Y-%m-%d")
-            end_date   = anchor_date_str
-        except (ValueError, TypeError) as exc:
-            return _render_index(
-                error=f"Fecha de referencia inválida: {exc}", query_mode="anchor",
-                selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
-                selected_test_percent=test_percent, data_source=data_source,
-            ), 400
-
-    else:
-        return _render_index(error="Modo de consulta inválido.", data_source=data_source), 400
-
-    today = datetime.now().strftime("%Y%m%d")
-    if query_mode == "period":
-        cache_key = f"{CACHE_PREFIX}_{today}_{data_source}_period_{selected_period}_{int(test_percent)}"
-    elif query_mode == "custom":
-        cache_key = f"{CACHE_PREFIX}_{today}_{data_source}_custom_{start_date}_{end_date}_{int(test_percent)}"
-    else:
-        cache_key = f"{CACHE_PREFIX}_{today}_{data_source}_anchor_{anchor_date_str}_{anchor_period}_{int(test_percent)}"
-
-    cached, err = run_experiment(cache_key, data_source, selected_period, start_date, end_date, test_percent)
-    if err:
-        return _render_index(
-            error=err, query_mode=query_mode, selected_period=selected_period,
-            selected_start_date=start_date or "", selected_end_date=end_date or "",
-            selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
-            selected_test_percent=test_percent, data_source=data_source,
-        ), 400
-
     if query_mode == "period":
         display_period = PERIOD_LABELS.get(selected_period, selected_period)
-        if data_source == "tesis":
-            s, e = period_bounds(FROZEN_ANCHOR, selected_period)
-            display_period = f"{s:%Y-%m-%d} → {e:%Y-%m-%d}  ({display_period}, contado desde el cierre de la serie de la tesis)"
     elif query_mode == "anchor":
         display_period = (
             f"{start_date} → {end_date}"
@@ -323,12 +227,13 @@ def index():
         display_period = f"{start_date} → {end_date}"
 
     return _render_index(
-        **results_context(cached),
-        display_period=display_period, display_test_percent=test_percent, cache_key=cache_key,
-        query_mode=query_mode, selected_period=selected_period,
-        selected_start_date=start_date or "", selected_end_date=end_date or "",
-        selected_test_percent=test_percent, selected_anchor_date=anchor_date_str,
-        selected_anchor_period=anchor_period, data_source=data_source,
+        metrics_table=metrics_table, forecast_values=formatted_forecasts,
+        predictions_dict=cached["predictions_dict"], display_period=display_period,
+        display_test_percent=test_percent, cache_key=cache_key, query_mode=query_mode,
+        selected_period=selected_period, selected_start_date=start_date or "",
+        selected_end_date=end_date or "", selected_test_percent=test_percent,
+        selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
+        semaforo=cached.get("semaforo"),
     )
 
 

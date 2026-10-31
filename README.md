@@ -37,24 +37,14 @@ En la versión anterior (v1) SARIMA y Holt-Winters pronosticaban toda la ventana
 de prueba de una vez, lo que los hacía incomparables con el resto; el cambio de
 protocolo y sus efectos están documentados en `benchmark/`.
 
-## Novedades v2.1 — sustento y reproducibilidad
+## Banco de Tesis (`/banco`)
 
-* **Banco de pruebas de la tesis** (`/banco`): matriz P1–P6 × T1–T9 con los 54 resultados
-  publicados (`src/benchmark_data/resultados_tesis.json`, generado con
-  `scripts/build_published.py`) y un botón para re-ejecutar cualquier elemento en vivo y
-  ver *publicado vs. reproducido* lado a lado.
-* **Serie congelada** (`src/data/usdmxn_tesis.csv`): la serie USDMXN=X usada en los
-  experimentos (descargada el 26/10/2026). Seleccionable en el formulario como fuente de
-  datos; garantiza reproducibilidad aunque Yahoo revise sus datos.
-* **Sello de procedencia** en la página, el PDF y el Excel: fuente y fecha de descarga,
-  huella SHA-256 de la serie, versiones de las librerías, semilla, hiperparámetros y
-  commit del código (`src/provenance.py`; el commit llega por la variable `GIT_COMMIT`
-  que fija `make deploy`).
-* **Horizontes h = 1, 5 y 20 días** con el mismo protocolo y origen móvil
-  (`src/models/horizons.py`): SARIMA por su representación de espacio de estados,
-  Holt-Winters por sus ecuaciones de estado, ML/DL de forma recursiva; Diebold-Mariano
-  frente a Naive en cada horizonte. Con h = 1 se reproduce exactamente la evaluación a
-  un paso del Capítulo 4.
+Página de solo lectura con los 54 experimentos publicados en el Capítulo 4 y el
+Apéndice C (mapa de resultados, conteos de primeros lugares, veredicto de
+Diebold-Mariano por modelo y el detalle de cada experimento). Los datos se leen
+de `src/benchmark_data/resultados_tesis.json`, que genera
+`scripts/build_published.py` a partir de `benchmark/`; en esa página no se
+entrena nada.
 
 ## Ejecución local
 

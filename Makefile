@@ -25,5 +25,4 @@ deploy:
 		--timeout 300 \
 		--min-instances 0 \
 		--max-instances 3 \
-		--session-affinity \
-		--update-env-vars GIT_COMMIT=$$(git rev-parse --short HEAD),BUILD_TIME=$$(date -u +%Y-%m-%dT%H:%MZ)
+		--session-affinity

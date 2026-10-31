@@ -1,17 +1,11 @@
-"""Modelos clásicos de Machine Learning para series temporales.
-
-La evaluación a un paso adelante (con los valores reales en la ventana de rezagos)
-es la del Apéndice A original; los pronósticos a h pasos se obtienen de forma
-recursiva (``src/models/horizons.py``). Devuelven ``(metrics, predictions,
-forecast_next, multi)``."""
+"""Modelos clásicos de Machine Learning para series temporales (sin cambios
+respecto al Apéndice A: ya evaluaban a un paso adelante con el valor real)."""
 
 import numpy as np
 import pandas as pd
 import math
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
-
-from src.models.horizons import HORIZONS, recursive_multi
 
 _ML_LAGS = 5
 
@@ -55,23 +49,25 @@ def _recursive_predict(model, seed_history, n_steps, lags):
     return preds
 
 
-def _fit_predict(model, name, train_data, test_data, forecast_steps, horizons=HORIZONS):
+def _fit_predict(model, name, train_data, test_data, forecast_steps):
     lags = _effective_lags(train_data)
     X, y = create_supervised_data(train_data, lags=lags)
     model.fit(X, y)
-    full = np.concatenate([np.asarray(train_data, dtype=float), np.asarray(test_data, dtype=float)])
-    # Las columnas del modelo son lag_1 (más reciente) … lag_k: ventanas con la más reciente primero.
-    multi = recursive_multi(model.predict, full, len(train_data), lags,
-                            horizons=tuple(sorted(set(horizons) | {1})), newest_first=True)
-    test_preds = np.asarray(multi[1], dtype=float)      # h = 1: un paso adelante con el valor real
+    history = list(train_data)
+    test_preds = []
+    for actual in test_data:
+        x = np.array([history[-i] for i in range(1, lags + 1)]).reshape(1, -1)
+        test_preds.append(float(model.predict(x)[0]))
+        history.append(actual)
+    test_preds = np.array(test_preds)
     forecast_next = _recursive_predict(model, list(train_data) + list(test_data), forecast_steps, lags)
-    return _compute_metrics(test_preds, test_data, name), test_preds, forecast_next, multi
+    return _compute_metrics(test_preds, test_data, name), test_preds, forecast_next
 
 
-def train_linear_regression(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
-    return _fit_predict(LinearRegression(), "Regresión Lineal", train_data, test_data, forecast_steps, horizons)
+def train_linear_regression(train_data, test_data, forecast_steps=1):
+    return _fit_predict(LinearRegression(), "Regresión Lineal", train_data, test_data, forecast_steps)
 
 
-def train_random_forest(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
+def train_random_forest(train_data, test_data, forecast_steps=1):
     return _fit_predict(RandomForestRegressor(n_estimators=100, random_state=42),
-                        "Random Forest", train_data, test_data, forecast_steps, horizons)
+                        "Random Forest", train_data, test_data, forecast_steps)

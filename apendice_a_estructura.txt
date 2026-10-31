@@ -42,9 +42,7 @@ tesis-forecast/
 │   │   └── resultados_tesis.json
 │   ├── data/
 │   │   ├── __init__.py
-│   │   ├── fetch.py
-│   │   ├── frozen.py
-│   │   └── usdmxn_tesis.csv
+│   │   └── fetch.py
 │   ├── features/
 │   │   ├── __init__.py
 │   │   └── build.py
@@ -52,18 +50,16 @@ tesis-forecast/
 │   │   ├── __init__.py
 │   │   ├── dl_models.py
 │   │   ├── evaluation.py
-│   │   ├── horizons.py
 │   │   ├── ml_models.py
 │   │   ├── pipeline.py
 │   │   ├── ranking.py
 │   │   └── ts_models.py
-│   ├── __init__.py
-│   ├── provenance.py
-│   └── version.py
+│   └── __init__.py
 ├── .dockerignore
 ├── .gcloudignore
 ├── .gitignore
 ├── Dockerfile
+├── LICENSE
 ├── Makefile
 ├── README.md
 ├── requirements.txt

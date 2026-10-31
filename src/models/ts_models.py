@@ -3,18 +3,12 @@
 Protocolo de evaluación (idéntico al de los modelos ML/DL): los parámetros se
 estiman únicamente con el conjunto de entrenamiento y, sobre el conjunto de
 prueba, cada predicción es a un paso adelante actualizando el estado del modelo
-con el valor real observado el día anterior. Además, cada modelo devuelve sus
-pronósticos a h pasos (h = 1, 5, 20) con origen móvil (``src/models/horizons.py``).
-
-Cada función devuelve ``(metrics, predictions, forecast_next, multi)`` donde
-``multi`` es ``{h: predicciones a h pasos}``.
+con el valor real observado el día anterior.
 """
 
 import numpy as np
 import math
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
-
-from src.models.horizons import HORIZONS, naive_multi, sarima_multi, hw_multi
 
 try:
     from pmdarima import auto_arima as _pm_auto_arima
@@ -55,15 +49,15 @@ def _empty_metrics(model_name, n_test, forecast_steps):
         "MAPE": float("nan"),
         "R^2": float("nan"),
     }
-    return metrics, np.full(n_test, float("nan")), [None] * forecast_steps, {}
+    return metrics, np.full(n_test, float("nan")), [None] * forecast_steps
 
 
 # ---------------------------------------------------------------------------
 # Modelo ingenuo (referencia): el pronóstico de mañana es el valor de hoy
 # ---------------------------------------------------------------------------
 
-def train_naive(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
-    """Pronóstico ingenuo (paseo aleatorio sin deriva): ŷ_{t+h} = y_t."""
+def train_naive(train_data, test_data, forecast_steps=1):
+    """Pronóstico ingenuo (paseo aleatorio sin deriva), un paso adelante."""
     if len(train_data) < 1 or len(test_data) == 0:
         return _empty_metrics("Naive", len(test_data), forecast_steps)
     history = np.concatenate([np.asarray(train_data, dtype=float), np.asarray(test_data, dtype=float)])
@@ -71,14 +65,14 @@ def train_naive(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
     predictions = history[n - 1:n - 1 + len(test_data)]
     forecast_next = [float(history[-1])] * forecast_steps
     metrics = _compute_metrics(predictions, test_data, "Naive")
-    return metrics, np.array(predictions), forecast_next, naive_multi(train_data, test_data, horizons)
+    return metrics, np.array(predictions), forecast_next
 
 
 # ---------------------------------------------------------------------------
 # SARIMA con auto_arima (con fallback a SARIMAX fijo si pmdarima no está)
 # ---------------------------------------------------------------------------
 
-def _sarima_one_step(res, train_data, test_data, forecast_steps, horizons=HORIZONS):
+def _sarima_one_step(res, train_data, test_data, forecast_steps):
     """Predicción a un paso sobre test con parámetros fijos (estimados en train).
 
     ``res.append`` incorpora las observaciones de prueba al filtro de Kalman sin
@@ -90,11 +84,10 @@ def _sarima_one_step(res, train_data, test_data, forecast_steps, horizons=HORIZO
     pred = res_ext.get_prediction(start=n, end=n + len(test_data) - 1)
     predictions = np.asarray(pred.predicted_mean, dtype=float)
     forecast_next = np.asarray(res_ext.forecast(steps=forecast_steps), dtype=float).tolist()
-    multi = sarima_multi(res_ext, n, len(test_data), horizons)
-    return predictions, forecast_next, multi
+    return predictions, forecast_next
 
 
-def train_sarima(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
+def train_sarima(train_data, test_data, forecast_steps=1):
     """Entrena SARIMA usando auto_arima (selección automática de órdenes)."""
     if len(train_data) < 5 or len(test_data) == 0:
         return _empty_metrics("SARIMA", len(test_data), forecast_steps)
@@ -124,9 +117,9 @@ def train_sarima(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
                 enforce_invertibility=False,
             ).fit(disp=False)
 
-        predictions, forecast_next, multi = _sarima_one_step(res, train_data, test_data, forecast_steps, horizons)
+        predictions, forecast_next = _sarima_one_step(res, train_data, test_data, forecast_steps)
         metrics = _compute_metrics(predictions, test_data, "SARIMA")
-        return metrics, predictions, forecast_next, multi
+        return metrics, predictions, forecast_next
 
     except Exception:
         return _empty_metrics("SARIMA", len(test_data), forecast_steps)
@@ -136,7 +129,7 @@ def train_sarima(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
 # Holt-Winters
 # ---------------------------------------------------------------------------
 
-def train_holtwinters(train_data, test_data, forecast_steps=1, horizons=HORIZONS):
+def train_holtwinters(train_data, test_data, forecast_steps=1):
     """Entrena un modelo Holt-Winters y devuelve métricas y pronósticos."""
     if len(train_data) < 4 or len(test_data) == 0:
         return _empty_metrics("Holt-Winters", len(test_data), forecast_steps)
@@ -166,10 +159,9 @@ def train_holtwinters(train_data, test_data, forecast_steps=1, horizons=HORIZONS
         )
         predictions = np.asarray(fixed.fittedvalues, dtype=float)[n:]
         forecast_next = np.asarray(fixed.forecast(forecast_steps), dtype=float).tolist()
-        multi = hw_multi(fixed, seasonal, 12, n, len(test_data), horizons)
 
         metrics = _compute_metrics(predictions, test_data, "Holt-Winters")
-        return metrics, predictions, forecast_next, multi
+        return metrics, predictions, forecast_next
 
     except Exception:
         return _empty_metrics("Holt-Winters", len(test_data), forecast_steps)

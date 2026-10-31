@@ -116,7 +116,6 @@ tesis-forecast/
 ├── .gcloudignore
 ├── .gitignore
 ├── Dockerfile
-├── LICENSE
 ├── Makefile
 ├── README.md
 ├── requirements.txt

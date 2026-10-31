@@ -32,6 +32,7 @@ EXCLUDE_DIRS = {
 EXCLUDE_FILES = {
     ".gitkeep", ".DS_Store", "Thumbs.db",
     "apendice_a_codigo.txt", "apendice_a_estructura.txt",
+    "LICENSE",   # texto de la licencia: no es código del proyecto
 }
 EXCLUDE_EXTENSIONS = {
     ".pyc", ".pyo", ".ico", ".png", ".jpg", ".jpeg",

@@ -25,12 +25,68 @@ tesis-forecast/
 │   │   ├── evaluation.py
 │   │   ├── ml_models.py
 │   │   └── ts_models.py
+│   ├── results_b2/
+│   │   ├── P1_T1.json
+│   │   ├── P1_T2.json
+│   │   ├── P1_T3.json
+│   │   ├── P1_T4.json
+│   │   ├── P1_T5.json
+│   │   ├── P1_T6.json
+│   │   ├── P1_T7.json
+│   │   ├── P1_T8.json
+│   │   ├── P1_T9.json
+│   │   ├── P2_T1.json
+│   │   ├── P2_T2.json
+│   │   ├── P2_T3.json
+│   │   ├── P2_T4.json
+│   │   ├── P2_T5.json
+│   │   ├── P2_T6.json
+│   │   ├── P2_T7.json
+│   │   ├── P2_T8.json
+│   │   ├── P2_T9.json
+│   │   ├── P3_T1.json
+│   │   ├── P3_T2.json
+│   │   ├── P3_T3.json
+│   │   ├── P3_T4.json
+│   │   ├── P3_T5.json
+│   │   ├── P3_T6.json
+│   │   ├── P3_T7.json
+│   │   ├── P3_T8.json
+│   │   ├── P3_T9.json
+│   │   ├── P4_T1.json
+│   │   ├── P4_T2.json
+│   │   ├── P4_T3.json
+│   │   ├── P4_T4.json
+│   │   ├── P4_T5.json
+│   │   ├── P4_T6.json
+│   │   ├── P4_T7.json
+│   │   ├── P4_T8.json
+│   │   ├── P4_T9.json
+│   │   ├── P5_T1.json
+│   │   ├── P5_T2.json
+│   │   ├── P5_T3.json
+│   │   ├── P5_T4.json
+│   │   ├── P5_T5.json
+│   │   ├── P5_T6.json
+│   │   ├── P5_T7.json
+│   │   ├── P5_T8.json
+│   │   ├── P5_T9.json
+│   │   ├── P6_T1.json
+│   │   ├── P6_T2.json
+│   │   ├── P6_T3.json
+│   │   ├── P6_T4.json
+│   │   ├── P6_T5.json
+│   │   ├── P6_T6.json
+│   │   ├── P6_T7.json
+│   │   ├── P6_T8.json
+│   │   └── P6_T9.json
 │   ├── aggregate.py
 │   ├── appendix_c.json
 │   ├── data.py
 │   ├── launch.ps1
 │   ├── run_bench.py
 │   ├── run_block2.py
+│   ├── run_nbeats.py
 │   └── usdmxn_cache.csv
 ├── data/
 ├── notebooks/

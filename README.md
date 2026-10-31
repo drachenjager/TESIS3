@@ -16,7 +16,7 @@ Aplicación desplegada: https://tesis-forecast-403096497449.us-central1.run.app/
 | Series de tiempo | Holt-Winters | `statsmodels` (tendencia aditiva, estacionalidad multiplicativa) |
 | Machine Learning | Regresión Lineal | 5 rezagos (`scikit-learn`) |
 | Machine Learning | Random Forest | 5 rezagos, 100 árboles |
-| Deep Learning | RNN | 50 unidades, ventana 20, 50 épocas (PyTorch) |
+| Deep Learning | N-BEATS | genérico: 3 bloques × 4 capas × 64 unidades, ventana 20, 50 épocas (PyTorch) |
 | Deep Learning | LSTM | 50 unidades, ventana 20, 50 épocas (PyTorch) |
 
 ## Protocolo de evaluación (v2)
@@ -93,7 +93,7 @@ python benchmark/aggregate.py         # tablas en benchmark/out/
 ```
 
 Salidas incluidas: `results/*.json` (métricas por experimento, 3 semillas en
-RNN/LSTM), `preds/*.npz` (predicciones), `out/Apendice_C_v2_resultados.xlsx`
+N-BEATS/LSTM), `preds/*.npz` (predicciones), `out/Apendice_C_v2_resultados.xlsx`
 y `out/tablas.md`. `benchmark/models/ts_models.py` conserva además las
 funciones `*_multistep` del protocolo v1 para la comparación "antes vs. después".
 

@@ -22,7 +22,7 @@ OUT = os.path.join(ROOT, "src", "benchmark_data", "resultados_tesis.json")
 PERIODS = {"P1": ("3mo", "3 meses"), "P2": ("6mo", "6 meses"), "P3": ("1y", "1 año"),
            "P4": ("2y", "2 años"), "P5": ("5y", "5 años"), "P6": ("10y", "10 años")}
 TESTS = {f"T{i}": p for i, p in enumerate(range(10, 55, 5), start=1)}
-MODELS = ["Naive", "SARIMA", "Holt-Winters", "Regresión Lineal", "Random Forest", "RNN", "LSTM"]
+MODELS = ["Naive", "SARIMA", "Holt-Winters", "Regresión Lineal", "Random Forest", "N-BEATS", "LSTM"]
 
 
 def _f(v):
@@ -55,7 +55,7 @@ def main():
         e.update({"fecha_inicio": rec["fecha_inicio"], "fecha_test": rec["fecha_test"],
                   "fecha_fin": rec["fecha_fin"], "sarima_order": rec.get("sarima_order", ""),
                   "tiempo_s": rec.get("tiempos", {}).get("total")})
-        for name in ("RNN", "LSTM"):
+        for name in ("N-BEATS", "LSTM"):
             s0 = rec["metrics"].get(name, {}).get("seed0")
             if s0:
                 e["models"][name]["seed0"] = {k: s0[k] for k in ("MAE", "RMSE", "MAPE", "R^2")}
@@ -85,7 +85,7 @@ def main():
     out = {
         "generated": date.today().isoformat(), "anchor": "2026-01-01",
         "protocol": ("Evaluación a un paso adelante con parámetros estimados solo en entrenamiento; Naive como "
-                     "referencia; prueba de Diebold-Mariano (HLN) al 5 %; RNN y LSTM: promedio de 3 semillas (0, 1, 2)."),
+                     "referencia; prueba de Diebold-Mariano (HLN) al 5 %; N-BEATS y LSTM: promedio de 3 semillas (0, 1, 2)."),
         "periods": {P: {"key": k, "label": l} for P, (k, l) in PERIODS.items()},
         "tests": TESTS, "models": MODELS,
         "summary": {"n_elements": len(elements), "naive_rank1": n_naive_best,

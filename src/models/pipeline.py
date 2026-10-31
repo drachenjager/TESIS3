@@ -13,7 +13,7 @@ import pandas as pd
 
 from src.models.ts_models import train_naive, train_sarima, train_holtwinters
 from src.models.ml_models import train_linear_regression, train_random_forest
-from src.models.dl_models import train_rnn, train_lstm
+from src.models.dl_models import train_nbeats, train_lstm
 from src.models.evaluation import diebold_mariano, holm_adjust, pesaran_timmermann, stationarity_tests
 
 MODELS = [
@@ -22,7 +22,7 @@ MODELS = [
     ("Holt-Winters",     train_holtwinters),
     ("Regresión Lineal", train_linear_regression),
     ("Random Forest",    train_random_forest),
-    ("RNN",              train_rnn),
+    ("N-BEATS",          train_nbeats),
     ("LSTM",             train_lstm),
 ]
 REFERENCE = "Naive"

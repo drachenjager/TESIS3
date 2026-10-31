@@ -1,0 +1,131 @@
+{
+ "P": "P6",
+ "T": "T4",
+ "n": 2604,
+ "n_train": 1953,
+ "n_test": 651,
+ "models": {
+  "Naive": {
+   "MAE": 0.0965,
+   "DM": null,
+   "p": null,
+   "p_holm": null,
+   "veredicto": "referencia",
+   "sigma_train": 0.16816335641693475,
+   "coverage": 0.9692780337941628,
+   "lb_p": 0.022253724030549347,
+   "lb_lags": 10,
+   "dir_hit": null,
+   "dir_n": 0,
+   "pt": null,
+   "pt_p": null
+  },
+  "SARIMA": {
+   "MAE": 0.0965,
+   "DM": null,
+   "p": null,
+   "p_holm": null,
+   "veredicto": "n/a",
+   "sigma_train": 0.16813433931976426,
+   "coverage": 0.9692780337941628,
+   "lb_p": 0.022253724030549347,
+   "lb_lags": 10,
+   "dir_hit": null,
+   "dir_n": 0,
+   "pt": null,
+   "pt_p": null
+  },
+  "Holt-Winters": {
+   "MAE": 0.0964,
+   "DM": -1.019,
+   "p": 0.3088,
+   "p_holm": 0.6176,
+   "veredicto": "sin diferencia",
+   "sigma_train": 0.16750970546741994,
+   "coverage": 0.9662058371735791,
+   "lb_p": 0.03351755506301131,
+   "lb_lags": 10,
+   "dir_hit": 0.5161290322580645,
+   "dir_n": 651,
+   "pt": 1.1719676917770874,
+   "pt_p": 0.12060501384361333
+  },
+  "Regresión Lineal": {
+   "MAE": 0.098,
+   "DM": 0.741,
+   "p": 0.4589,
+   "p_holm": 0.6176,
+   "veredicto": "sin diferencia",
+   "sigma_train": 0.1677337291622107,
+   "coverage": 0.9708141321044547,
+   "lb_p": 0.006603600639509754,
+   "lb_lags": 10,
+   "dir_hit": 0.46697388632872505,
+   "dir_n": 651,
+   "pt": -0.7577594045587158,
+   "pt_p": 0.7757024854903136
+  },
+  "Random Forest": {
+   "MAE": 0.1497,
+   "DM": 8.146,
+   "p": 0.0,
+   "p_holm": 0.0,
+   "veredicto": "peor que Naive",
+   "sigma_train": 0.06902608798572489,
+   "coverage": 0.6129032258064516,
+   "lb_p": 1.445696886195365e-180,
+   "lb_lags": 10,
+   "dir_hit": 0.49923195084485406,
+   "dir_n": 651,
+   "pt": 0.3655154771064063,
+   "pt_p": 0.3573633279019396
+  },
+  "N-BEATS": {
+   "MAE": 0.1549,
+   "DM": 9.003,
+   "p": 0.0,
+   "p_holm": 0.0,
+   "veredicto": "peor que Naive",
+   "sigma_train": 0.16487482215577764,
+   "coverage": 0.8755760368663594,
+   "lb_p": 4.909107064143071e-276,
+   "lb_lags": 10,
+   "dir_hit": 0.4685099846390169,
+   "dir_n": 651,
+   "pt": -1.1201560236267325,
+   "pt_p": 0.8686763598737084
+  },
+  "LSTM": {
+   "MAE": 0.0978,
+   "DM": 2.182,
+   "p": 0.0294,
+   "p_holm": 0.0883,
+   "veredicto": "peor que Naive",
+   "sigma_train": 0.16755729341904793,
+   "coverage": 0.967741935483871,
+   "lb_p": 0.032232103472231426,
+   "lb_lags": 10,
+   "dir_hit": 0.5253456221198156,
+   "dir_n": 651,
+   "pt": 0.2637523142927804,
+   "pt_p": 0.39598539069154615
+  }
+ },
+ "stationarity": {
+  "nivel": {
+   "n": 2604,
+   "adf_stat": -3.049145072209113,
+   "adf_p": 0.030552835603387733,
+   "kpss_stat": 0.7918230856827378,
+   "kpss_p": 0.01
+  },
+  "diferencia": {
+   "n": 2603,
+   "adf_stat": -50.44116481672249,
+   "adf_p": 0.0,
+   "kpss_stat": 0.07438167934641661,
+   "kpss_p": 0.1
+  }
+ },
+ "seconds": 57.7
+}

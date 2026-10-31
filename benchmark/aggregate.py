@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from models.evaluation import diebold_mariano
 
-MODELS = ["SARIMA", "Holt-Winters", "Regresión Lineal", "Random Forest", "RNN", "LSTM"]
+MODELS = ["SARIMA", "Holt-Winters", "Regresión Lineal", "Random Forest", "N-BEATS", "LSTM"]
 ALL = ["Naive"] + MODELS
 PER = {"P1": "3 meses", "P2": "6 meses", "P3": "1 año", "P4": "2 años", "P5": "5 años", "P6": "10 años"}
 TEST = {f"T{i}": p for i, p in enumerate(range(10, 55, 5), start=1)}
@@ -28,7 +28,7 @@ appc = json.load(open(os.path.join(HERE, "appendix_c.json"), encoding="utf-8")) 
 
 def metrics_of(r, model):
     m = r["metrics"][model]
-    if model in ("RNN", "LSTM"):
+    if model in ("N-BEATS", "LSTM"):
         df = pd.DataFrame([m[f"seed{s}"] for s in SEEDS])
         return {k: float(df[k].mean()) for k in METS}, {k: float(df[k].std(ddof=0)) for k in METS}
     return {k: float(m[k]) for k in METS}, None
@@ -44,7 +44,7 @@ def thesis_rank(mets):
 
 def dm_vs_naive(key, model):
     y = preds[key]["y_test"]; nv = preds[key]["Naive"]
-    if model in ("RNN", "LSTM"):
+    if model in ("N-BEATS", "LSTM"):
         res = [diebold_mariano(y, preds[key][f"{model}_seed{s}"], nv) for s in SEEDS]
         stats_ = [s for s, p in res if np.isfinite(s)]; ps = [p for s, p in res if np.isfinite(p)]
         return (float(np.mean(stats_)) if stats_ else np.nan, float(np.median(ps)) if ps else np.nan)
@@ -79,7 +79,7 @@ for key in keys:
             dm_rows.append({"Elemento": el, "Modelo": m, "DM": dm_s, "p": dm_p, "Veredicto": verdict})
     order_rows.append({"Elemento": el, "n_train": r["n_train"], "Orden auto_arima": r.get("sarima_order", "?"),
                        "t SARIMA (s)": r["tiempos"].get("SARIMA"), "t DL (s)": r["tiempos"].get("DL")})
-    for m in ("RNN", "LSTM"):
+    for m in ("N-BEATS", "LSTM"):
         dl_rows.append({"Elemento": el, "Modelo": m, "MAE media": round(mets[m]["MAE"], 4), "MAE desv.": round(stds[m]["MAE"], 4),
                         "R² media": round(mets[m]["R^2"], 4), "R² desv.": round(stds[m]["R^2"], 4),
                         **{f"MAE s{s}": r["metrics"][m][f"seed{s}"]["MAE"] for s in SEEDS}})
@@ -170,7 +170,7 @@ lines.append("## Diebold-Mariano vs. Naive por elemento\n" + dmv.to_markdown())
 od = pd.DataFrame(order_rows)["Orden auto_arima"].value_counts()
 lines.append("## Órdenes elegidos por auto_arima (54 experimentos)\n" + od.to_markdown())
 dls = pd.DataFrame(dl_rows)
-lines.append("## Variabilidad entre semillas (RNN/LSTM): desviación estándar del MAE\n" +
+lines.append("## Variabilidad entre semillas (N-BEATS/LSTM): desviación estándar del MAE\n" +
              md(dls.groupby("Modelo")[["MAE desv.", "R² desv."]].agg(["mean", "max"]), 4))
 open(os.path.join(OUT, "tablas.md"), "w", encoding="utf-8").write("\n\n".join(lines))
 print("listo:", len(lines), "tablas")

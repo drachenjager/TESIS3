@@ -30,12 +30,68 @@ tesis-forecast/
 │   │   ├── evaluation.py
 │   │   ├── ml_models.py
 │   │   └── ts_models.py
+│   ├── results_b2/
+│   │   ├── P1_T1.json
+│   │   ├── P1_T2.json
+│   │   ├── P1_T3.json
+│   │   ├── P1_T4.json
+│   │   ├── P1_T5.json
+│   │   ├── P1_T6.json
+│   │   ├── P1_T7.json
+│   │   ├── P1_T8.json
+│   │   ├── P1_T9.json
+│   │   ├── P2_T1.json
+│   │   ├── P2_T2.json
+│   │   ├── P2_T3.json
+│   │   ├── P2_T4.json
+│   │   ├── P2_T5.json
+│   │   ├── P2_T6.json
+│   │   ├── P2_T7.json
+│   │   ├── P2_T8.json
+│   │   ├── P2_T9.json
+│   │   ├── P3_T1.json
+│   │   ├── P3_T2.json
+│   │   ├── P3_T3.json
+│   │   ├── P3_T4.json
+│   │   ├── P3_T5.json
+│   │   ├── P3_T6.json
+│   │   ├── P3_T7.json
+│   │   ├── P3_T8.json
+│   │   ├── P3_T9.json
+│   │   ├── P4_T1.json
+│   │   ├── P4_T2.json
+│   │   ├── P4_T3.json
+│   │   ├── P4_T4.json
+│   │   ├── P4_T5.json
+│   │   ├── P4_T6.json
+│   │   ├── P4_T7.json
+│   │   ├── P4_T8.json
+│   │   ├── P4_T9.json
+│   │   ├── P5_T1.json
+│   │   ├── P5_T2.json
+│   │   ├── P5_T3.json
+│   │   ├── P5_T4.json
+│   │   ├── P5_T5.json
+│   │   ├── P5_T6.json
+│   │   ├── P5_T7.json
+│   │   ├── P5_T8.json
+│   │   ├── P5_T9.json
+│   │   ├── P6_T1.json
+│   │   ├── P6_T2.json
+│   │   ├── P6_T3.json
+│   │   ├── P6_T4.json
+│   │   ├── P6_T5.json
+│   │   ├── P6_T6.json
+│   │   ├── P6_T7.json
+│   │   ├── P6_T8.json
+│   │   └── P6_T9.json
 │   ├── aggregate.py
 │   ├── appendix_c.json
 │   ├── data.py
 │   ├── launch.ps1
 │   ├── run_bench.py
 │   ├── run_block2.py
+│   ├── run_nbeats.py
 │   └── usdmxn_cache.csv
 ├── data/
 ├── notebooks/
@@ -205,12 +261,12 @@ _PUB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path
 _PUB = None
 _CTX = None
 
-MODELS6 = ["SARIMA", "Holt-Winters", "Regresión Lineal", "Random Forest", "RNN", "LSTM"]
+MODELS6 = ["SARIMA", "Holt-Winters", "Regresión Lineal", "Random Forest", "N-BEATS", "LSTM"]
 ABBR = {"Naive": "Naive", "SARIMA": "SARIMA", "Holt-Winters": "H-W", "Regresión Lineal": "Reg. Lin.",
-        "Random Forest": "R. Forest", "RNN": "RNN", "LSTM": "LSTM"}
+        "Random Forest": "R. Forest", "N-BEATS": "N-BEATS", "LSTM": "LSTM"}
 FAMILY = {"Naive": "Referencia", "SARIMA": "Series de tiempo", "Holt-Winters": "Series de tiempo",
           "Regresión Lineal": "Machine Learning", "Random Forest": "Machine Learning",
-          "RNN": "Deep Learning", "LSTM": "Deep Learning"}
+          "N-BEATS": "Deep Learning", "LSTM": "Deep Learning"}
 EQUAL_TOL = 0.05        # % de diferencia de MAE frente a Naive por debajo del cual se considera "igual"
 
 
@@ -2445,7 +2501,7 @@ $(document).ready(function () {
             <div class="bt-stat">
                 <span class="bt-stat-label">Modelos comparados</span>
                 <span class="bt-stat-value">6 + 1</span>
-                <span class="bt-stat-note">SARIMA, Holt-Winters, Regresión Lineal, Random Forest, RNN y LSTM, más la referencia ingenua (Naive)</span>
+                <span class="bt-stat-note">SARIMA, Holt-Winters, Regresión Lineal, Random Forest, N-BEATS y LSTM, más la referencia ingenua (Naive)</span>
             </div>
             <div class="bt-stat">
                 <span class="bt-stat-label">Naive en primer lugar</span>
@@ -2642,7 +2698,7 @@ $(document).ready(function () {
     </section>
 
     <p class="bt-source">
-        Fuente: Apéndice C de la tesis. Serie USDMXN=X (cierre diario) de Yahoo Finance descargada el 26/10/2026; RNN y LSTM
+        Fuente: Apéndice C de la tesis. Serie USDMXN=X (cierre diario) de Yahoo Finance descargada el 26/10/2026; N-BEATS y LSTM
         reportan el promedio de tres semillas. Esta página no ejecuta modelos: para experimentar con otros periodos usa la
         página de inicio.
     </p>
@@ -4943,7 +4999,7 @@ import numpy as np
 import pandas as pd
 from models.evaluation import diebold_mariano
 
-MODELS = ["SARIMA", "Holt-Winters", "Regresión Lineal", "Random Forest", "RNN", "LSTM"]
+MODELS = ["SARIMA", "Holt-Winters", "Regresión Lineal", "Random Forest", "N-BEATS", "LSTM"]
 ALL = ["Naive"] + MODELS
 PER = {"P1": "3 meses", "P2": "6 meses", "P3": "1 año", "P4": "2 años", "P5": "5 años", "P6": "10 años"}
 TEST = {f"T{i}": p for i, p in enumerate(range(10, 55, 5), start=1)}
@@ -4963,7 +5019,7 @@ appc = json.load(open(os.path.join(HERE, "appendix_c.json"), encoding="utf-8")) 
 
 def metrics_of(r, model):
     m = r["metrics"][model]
-    if model in ("RNN", "LSTM"):
+    if model in ("N-BEATS", "LSTM"):
         df = pd.DataFrame([m[f"seed{s}"] for s in SEEDS])
         return {k: float(df[k].mean()) for k in METS}, {k: float(df[k].std(ddof=0)) for k in METS}
     return {k: float(m[k]) for k in METS}, None
@@ -4979,7 +5035,7 @@ def thesis_rank(mets):
 
 def dm_vs_naive(key, model):
     y = preds[key]["y_test"]; nv = preds[key]["Naive"]
-    if model in ("RNN", "LSTM"):
+    if model in ("N-BEATS", "LSTM"):
         res = [diebold_mariano(y, preds[key][f"{model}_seed{s}"], nv) for s in SEEDS]
         stats_ = [s for s, p in res if np.isfinite(s)]; ps = [p for s, p in res if np.isfinite(p)]
         return (float(np.mean(stats_)) if stats_ else np.nan, float(np.median(ps)) if ps else np.nan)
@@ -5014,7 +5070,7 @@ for key in keys:
             dm_rows.append({"Elemento": el, "Modelo": m, "DM": dm_s, "p": dm_p, "Veredicto": verdict})
     order_rows.append({"Elemento": el, "n_train": r["n_train"], "Orden auto_arima": r.get("sarima_order", "?"),
                        "t SARIMA (s)": r["tiempos"].get("SARIMA"), "t DL (s)": r["tiempos"].get("DL")})
-    for m in ("RNN", "LSTM"):
+    for m in ("N-BEATS", "LSTM"):
         dl_rows.append({"Elemento": el, "Modelo": m, "MAE media": round(mets[m]["MAE"], 4), "MAE desv.": round(stds[m]["MAE"], 4),
                         "R² media": round(mets[m]["R^2"], 4), "R² desv.": round(stds[m]["R^2"], 4),
                         **{f"MAE s{s}": r["metrics"][m][f"seed{s}"]["MAE"] for s in SEEDS}})
@@ -5105,7 +5161,7 @@ lines.append("## Diebold-Mariano vs. Naive por elemento\n" + dmv.to_markdown())
 od = pd.DataFrame(order_rows)["Orden auto_arima"].value_counts()
 lines.append("## Órdenes elegidos por auto_arima (54 experimentos)\n" + od.to_markdown())
 dls = pd.DataFrame(dl_rows)
-lines.append("## Variabilidad entre semillas (RNN/LSTM): desviación estándar del MAE\n" +
+lines.append("## Variabilidad entre semillas (N-BEATS/LSTM): desviación estándar del MAE\n" +
              md(dls.groupby("Modelo")[["MAE desv.", "R² desv."]].agg(["mean", "max"]), 4))
 open(os.path.join(OUT, "tablas.md"), "w", encoding="utf-8").write("\n\n".join(lines))
 print("listo:", len(lines), "tablas")
@@ -5794,6 +5850,64 @@ for P in PERIODS:
         hw = rec["models"]["Holt-Winters"]
         print(f"{P},{T}: {rec['seconds']}s | HW MAE {hw['MAE']} p {hw['p']} holm {hw['p_holm']} cov {hw['coverage']} "
               f"dir {hw['dir_hit']} lb {hw['lb_p']}", flush=True)
+print("terminado", flush=True)
+
+══════════════════════════════════════════════════════════════════════
+
+══ ARCHIVO: benchmark\run_nbeats.py ══════════════════════════════════════════
+
+"""Agrega N-BEATS (3 semillas) a los 54 experimentos del banco, con las mismas particiones y la
+implementación de la plataforma (src/models/dl_models.py). Conserva los resultados anteriores
+(incluida la RNN simple, que N-BEATS sustituye) en results/{P}_{T}.json y preds/{P}_{T}.npz.
+
+Uso: python benchmark/run_nbeats.py [P1 P2 ...]
+"""
+import json
+import os
+import sys
+import time
+import warnings
+
+warnings.filterwarnings("ignore")
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+sys.path.insert(0, ROOT)
+sys.path.insert(0, HERE)
+import numpy as np
+import torch
+
+torch.set_num_threads(1)
+import data                                      # noqa: E402  (benchmark/data.py)
+from src.models.dl_models import train_nbeats    # noqa: E402
+
+SEEDS = [0, 1, 2]
+RES = os.path.join(HERE, "results"); PRD = os.path.join(HERE, "preds")
+PERIODS = sys.argv[1:] or ["P1", "P2", "P3", "P4", "P5", "P6"]
+
+for P in PERIODS:
+    series, dates = data.series_for(P)
+    for T in [f"T{i}" for i in range(1, 10)]:
+        fj = os.path.join(RES, f"{P}_{T}.json"); fn = os.path.join(PRD, f"{P}_{T}.npz")
+        rec = json.load(open(fj, encoding="utf-8"))
+        if "N-BEATS" in rec["metrics"] and len(rec["metrics"]["N-BEATS"]) == len(SEEDS):
+            print(f"{P},{T}: N-BEATS ya calculado", flush=True)
+            continue
+        tr, te = data.split(series, T)
+        assert len(tr) == rec["n_train"] and len(te) == rec["n_test"]
+        preds = dict(np.load(fn))
+        t0 = time.time()
+        rec["metrics"]["N-BEATS"] = {}
+        for sd in SEEDS:
+            m, p, _ = train_nbeats(tr, te, 1, seed=sd)
+            m.pop("sigma_train", None)
+            rec["metrics"]["N-BEATS"][f"seed{sd}"] = m
+            preds[f"N-BEATS_seed{sd}"] = np.asarray(p, dtype=float)
+        rec.setdefault("tiempos", {})["N-BEATS"] = round(time.time() - t0, 1)
+        np.savez(fn, **preds)
+        json.dump(rec, open(fj, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        maes = [rec["metrics"]["N-BEATS"][f"seed{s}"]["MAE"] for s in SEEDS]
+        print(f"{P},{T}: N-BEATS MAE {maes} | Naive {rec['metrics']['Naive']['MAE']} | LSTM s0 "
+              f"{rec['metrics']['LSTM']['seed0']['MAE']} | {rec['tiempos']['N-BEATS']}s", flush=True)
 print("terminado", flush=True)
 
 ══════════════════════════════════════════════════════════════════════
@@ -6557,7 +6671,7 @@ Aplicación desplegada: https://tesis-forecast-403096497449.us-central1.run.app/
 | Series de tiempo | Holt-Winters | `statsmodels` (tendencia aditiva, estacionalidad multiplicativa) |
 | Machine Learning | Regresión Lineal | 5 rezagos (`scikit-learn`) |
 | Machine Learning | Random Forest | 5 rezagos, 100 árboles |
-| Deep Learning | RNN | 50 unidades, ventana 20, 50 épocas (PyTorch) |
+| Deep Learning | N-BEATS | genérico: 3 bloques × 4 capas × 64 unidades, ventana 20, 50 épocas (PyTorch) |
 | Deep Learning | LSTM | 50 unidades, ventana 20, 50 épocas (PyTorch) |
 
 ## Protocolo de evaluación (v2)
@@ -6634,7 +6748,7 @@ python benchmark/aggregate.py         # tablas en benchmark/out/
 ```
 
 Salidas incluidas: `results/*.json` (métricas por experimento, 3 semillas en
-RNN/LSTM), `preds/*.npz` (predicciones), `out/Apendice_C_v2_resultados.xlsx`
+N-BEATS/LSTM), `preds/*.npz` (predicciones), `out/Apendice_C_v2_resultados.xlsx`
 y `out/tablas.md`. `benchmark/models/ts_models.py` conserva además las
 funciones `*_multistep` del protocolo v1 para la comparación "antes vs. después".
 
@@ -6700,7 +6814,7 @@ OUT = os.path.join(ROOT, "src", "benchmark_data", "resultados_tesis.json")
 PERIODS = {"P1": ("3mo", "3 meses"), "P2": ("6mo", "6 meses"), "P3": ("1y", "1 año"),
            "P4": ("2y", "2 años"), "P5": ("5y", "5 años"), "P6": ("10y", "10 años")}
 TESTS = {f"T{i}": p for i, p in enumerate(range(10, 55, 5), start=1)}
-MODELS = ["Naive", "SARIMA", "Holt-Winters", "Regresión Lineal", "Random Forest", "RNN", "LSTM"]
+MODELS = ["Naive", "SARIMA", "Holt-Winters", "Regresión Lineal", "Random Forest", "N-BEATS", "LSTM"]
 
 
 def _f(v):
@@ -6733,7 +6847,7 @@ def main():
         e.update({"fecha_inicio": rec["fecha_inicio"], "fecha_test": rec["fecha_test"],
                   "fecha_fin": rec["fecha_fin"], "sarima_order": rec.get("sarima_order", ""),
                   "tiempo_s": rec.get("tiempos", {}).get("total")})
-        for name in ("RNN", "LSTM"):
+        for name in ("N-BEATS", "LSTM"):
             s0 = rec["metrics"].get(name, {}).get("seed0")
             if s0:
                 e["models"][name]["seed0"] = {k: s0[k] for k in ("MAE", "RMSE", "MAPE", "R^2")}
@@ -6763,7 +6877,7 @@ def main():
     out = {
         "generated": date.today().isoformat(), "anchor": "2026-01-01",
         "protocol": ("Evaluación a un paso adelante con parámetros estimados solo en entrenamiento; Naive como "
-                     "referencia; prueba de Diebold-Mariano (HLN) al 5 %; RNN y LSTM: promedio de 3 semillas (0, 1, 2)."),
+                     "referencia; prueba de Diebold-Mariano (HLN) al 5 %; N-BEATS y LSTM: promedio de 3 semillas (0, 1, 2)."),
         "periods": {P: {"key": k, "label": l} for P, (k, l) in PERIODS.items()},
         "tests": TESTS, "models": MODELS,
         "summary": {"n_elements": len(elements), "naive_rank1": n_naive_best,
@@ -7168,9 +7282,18 @@ def compute_risk(ts_full):
 
 """Modelos de Deep Learning (PyTorch) para la serie USD/MXN.
 
-Idéntico al Apéndice A (RNN/LSTM de 50 unidades, Adam, MSE, 50 épocas, batch
-16, MinMaxScaler ajustado solo en train). Único cambio: semilla controlable
-para que las corridas sean reproducibles y repetibles.
+Dos arquitecturas con el mismo protocolo de entrenamiento (ventana de 20
+rezagos, Adam, MSE, 50 épocas, lote 16, MinMaxScaler ajustado solo en
+entrenamiento, semilla controlable):
+
+* ``LSTM``: red recurrente con compuertas de 50 unidades (Hochreiter y
+  Schmidhuber, 1997), idéntica a la del Apéndice A original.
+* ``N-BEATS``: Neural Basis Expansion Analysis for Time Series (Oreshkin et al.,
+  2020) en su versión genérica: bloques totalmente conectados que producen un
+  *backcast* (reconstrucción de la ventana) y un *forecast*; cada bloque modela
+  el residuo que deja el anterior y los pronósticos se suman. Sustituye a la RNN
+  simple de la versión anterior, arquitectura que la literatura reciente
+  considera superada por las redes con compuertas (Joseph y Tackes, 2024).
 """
 
 import math
@@ -7182,6 +7305,9 @@ from sklearn.preprocessing import MinMaxScaler
 torch.set_num_threads(1)
 
 _DL_LAG = 20
+_NBEATS_BLOCKS = 3        # bloques residuales
+_NBEATS_LAYERS = 4        # capas totalmente conectadas por bloque
+_NBEATS_HIDDEN = 64       # unidades por capa
 
 
 def _effective_lag(train_data):
@@ -7216,26 +7342,49 @@ def prepare_data_dl(series, lag=20):
     return np.array(X).reshape(-1, lag, 1), np.array(y)
 
 
-class _RNNNet(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.rnn = nn.RNN(input_size=1, hidden_size=50, batch_first=True, nonlinearity="tanh")
-        self.fc = nn.Linear(50, 1)
-
-    def forward(self, x):
-        out, _ = self.rnn(x)
-        return self.fc(out[:, -1, :])
-
-
 class _LSTMNet(nn.Module):
-    def __init__(self):
+    def __init__(self, lag=None):
         super().__init__()
         self.lstm = nn.LSTM(input_size=1, hidden_size=50, batch_first=True)
         self.fc = nn.Linear(50, 1)
 
-    def forward(self, x):
+    def forward(self, x):                      # x: (lote, ventana, 1)
         out, _ = self.lstm(x)
         return self.fc(out[:, -1, :])
+
+
+class _NBEATSBlock(nn.Module):
+    """Bloque genérico de N-BEATS: pila de capas FC + proyecciones lineales de backcast y forecast."""
+
+    def __init__(self, lag, hidden=_NBEATS_HIDDEN, n_layers=_NBEATS_LAYERS):
+        super().__init__()
+        layers = [nn.Linear(lag, hidden), nn.ReLU()]
+        for _ in range(n_layers - 1):
+            layers += [nn.Linear(hidden, hidden), nn.ReLU()]
+        self.fc = nn.Sequential(*layers)
+        self.backcast = nn.Linear(hidden, lag)
+        self.forecast = nn.Linear(hidden, 1)
+
+    def forward(self, x):                      # x: (lote, ventana)
+        h = self.fc(x)
+        return self.backcast(h), self.forecast(h)
+
+
+class _NBEATSNet(nn.Module):
+    """N-BEATS genérico con descomposición residual doble (Oreshkin et al., 2020)."""
+
+    def __init__(self, lag, n_blocks=_NBEATS_BLOCKS):
+        super().__init__()
+        self.blocks = nn.ModuleList([_NBEATSBlock(lag) for _ in range(n_blocks)])
+
+    def forward(self, x):                      # x: (lote, ventana, 1)
+        residual = x.squeeze(-1)
+        forecast = torch.zeros(x.shape[0], 1)
+        for block in self.blocks:
+            backcast, fc = block(residual)
+            residual = residual - backcast     # cada bloque modela lo que dejó el anterior
+            forecast = forecast + fc
+        return forecast
 
 
 def _fit(model, X_train, y_train, epochs=50, batch_size=16):
@@ -7288,7 +7437,7 @@ def _train(net_cls, name, train_data, test_data, forecast_steps, seed):
     scaler = MinMaxScaler(feature_range=(0, 1))
     train_s = scaler.fit_transform(np.asarray(train_data, dtype=float).reshape(-1, 1)).flatten()
     X_train, y_train = prepare_data_dl(train_s, lag=lag)
-    model = net_cls()
+    model = net_cls(lag)
     _fit(model, X_train, y_train)
     predictions, forecast_next = _predict_and_forecast(model, train_data, test_data, forecast_steps, scaler, lag)
     metrics = _compute_metrics(predictions, test_data, name)
@@ -7299,8 +7448,8 @@ def _train(net_cls, name, train_data, test_data, forecast_steps, seed):
     return metrics, predictions, forecast_next
 
 
-def train_rnn(train_data, test_data, forecast_steps=1, seed=0):
-    return _train(_RNNNet, "RNN", train_data, test_data, forecast_steps, seed)
+def train_nbeats(train_data, test_data, forecast_steps=1, seed=0):
+    return _train(_NBEATSNet, "N-BEATS", train_data, test_data, forecast_steps, seed)
 
 
 def train_lstm(train_data, test_data, forecast_steps=1, seed=0):
@@ -7578,7 +7727,7 @@ import pandas as pd
 
 from src.models.ts_models import train_naive, train_sarima, train_holtwinters
 from src.models.ml_models import train_linear_regression, train_random_forest
-from src.models.dl_models import train_rnn, train_lstm
+from src.models.dl_models import train_nbeats, train_lstm
 from src.models.evaluation import diebold_mariano, holm_adjust, pesaran_timmermann, stationarity_tests
 
 MODELS = [
@@ -7587,7 +7736,7 @@ MODELS = [
     ("Holt-Winters",     train_holtwinters),
     ("Regresión Lineal", train_linear_regression),
     ("Random Forest",    train_random_forest),
-    ("RNN",              train_rnn),
+    ("N-BEATS",          train_nbeats),
     ("LSTM",             train_lstm),
 ]
 REFERENCE = "Naive"

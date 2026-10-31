@@ -16,12 +16,12 @@ _PUB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path
 _PUB = None
 _CTX = None
 
-MODELS6 = ["SARIMA", "Holt-Winters", "Regresión Lineal", "Random Forest", "RNN", "LSTM"]
+MODELS6 = ["SARIMA", "Holt-Winters", "Regresión Lineal", "Random Forest", "N-BEATS", "LSTM"]
 ABBR = {"Naive": "Naive", "SARIMA": "SARIMA", "Holt-Winters": "H-W", "Regresión Lineal": "Reg. Lin.",
-        "Random Forest": "R. Forest", "RNN": "RNN", "LSTM": "LSTM"}
+        "Random Forest": "R. Forest", "N-BEATS": "N-BEATS", "LSTM": "LSTM"}
 FAMILY = {"Naive": "Referencia", "SARIMA": "Series de tiempo", "Holt-Winters": "Series de tiempo",
           "Regresión Lineal": "Machine Learning", "Random Forest": "Machine Learning",
-          "RNN": "Deep Learning", "LSTM": "Deep Learning"}
+          "N-BEATS": "Deep Learning", "LSTM": "Deep Learning"}
 EQUAL_TOL = 0.05        # % de diferencia de MAE frente a Naive por debajo del cual se considera "igual"
 
 

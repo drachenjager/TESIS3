@@ -1,7 +1,7 @@
 {
- "generated": "2026-10-30",
+ "generated": "2026-10-31",
  "anchor": "2026-01-01",
- "protocol": "Evaluación a un paso adelante con parámetros estimados solo en entrenamiento; Naive como referencia; prueba de Diebold-Mariano (HLN) al 5 %; RNN y LSTM: promedio de 3 semillas (0, 1, 2).",
+ "protocol": "Evaluación a un paso adelante con parámetros estimados solo en entrenamiento; Naive como referencia; prueba de Diebold-Mariano (HLN) al 5 %; N-BEATS y LSTM: promedio de 3 semillas (0, 1, 2).",
  "periods": {
   "P1": {
    "key": "3mo",
@@ -45,7 +45,7 @@
   "Holt-Winters",
   "Regresión Lineal",
   "Random Forest",
-  "RNN",
+  "N-BEATS",
   "LSTM"
  ],
  "summary": {
@@ -68,7 +68,7 @@
    "Holt-Winters": 14,
    "Regresión Lineal": 17,
    "Random Forest": 52,
-   "RNN": 45,
+   "N-BEATS": 46,
    "LSTM": 51
   }
  },
@@ -154,21 +154,21 @@
      "p_holm_bank": 1.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0517,
-     "RMSE": 0.0635,
-     "MAPE": 0.288,
-     "R^2": -3.0026,
+     "Modelo": "N-BEATS",
+     "MAE": 0.0508,
+     "RMSE": 0.0606,
+     "MAPE": 0.2834,
+     "R^2": -2.5048,
      "rank6": 4,
      "rank7": 5,
-     "DM": 0.703,
-     "p": 0.6565,
+     "DM": 0.685,
+     "p": 0.4518,
      "veredicto": "sin diferencia",
      "seed0": {
-      "MAE": 0.0668,
-      "RMSE": 0.0836,
-      "MAPE": 0.3721,
-      "R^2": -5.6071
+      "MAE": 0.0566,
+      "RMSE": 0.0656,
+      "MAPE": 0.316,
+      "R^2": -3.0738
      },
      "p_holm": 1.0,
      "p_holm_bank": 1.0
@@ -281,23 +281,23 @@
      "p_holm_bank": 1.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0666,
-     "RMSE": 0.0764,
-     "MAPE": 0.3703,
-     "R^2": -2.6428,
-     "rank6": 5,
-     "rank7": 6,
-     "DM": 1.839,
-     "p": 0.0752,
+     "Modelo": "N-BEATS",
+     "MAE": 0.0388,
+     "RMSE": 0.0451,
+     "MAPE": 0.216,
+     "R^2": -0.2086,
+     "rank6": 4,
+     "rank7": 4,
+     "DM": 0.025,
+     "p": 0.7296,
      "veredicto": "sin diferencia",
      "seed0": {
-      "MAE": 0.0843,
-      "RMSE": 0.0967,
-      "MAPE": 0.4687,
-      "R^2": -4.5268
+      "MAE": 0.0394,
+      "RMSE": 0.0449,
+      "MAPE": 0.2192,
+      "R^2": -0.1905
      },
-     "p_holm": 0.3008,
+     "p_holm": 1.0,
      "p_holm_bank": 1.0
     },
     {
@@ -318,7 +318,7 @@
       "R^2": -19.4377
      },
      "p_holm": 0.002,
-     "p_holm_bank": 0.068
+     "p_holm_bank": 0.06
     }
    ],
    "fecha_inicio": "2025-10-01",
@@ -404,28 +404,28 @@
      "DM": 5.073,
      "p": 0.0004,
      "veredicto": "peor que Naive",
-     "p_holm": 0.0016,
-     "p_holm_bank": 0.068
+     "p_holm": 0.0012,
+     "p_holm_bank": 0.06
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1117,
-     "RMSE": 0.123,
-     "MAPE": 0.6222,
-     "R^2": -9.7052,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1116,
+     "RMSE": 0.1179,
+     "MAPE": 0.6215,
+     "R^2": -9.0676,
      "rank6": 4,
      "rank7": 5,
-     "DM": 3.817,
-     "p": 0.0037,
+     "DM": 4.733,
+     "p": 0.0003,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.1118,
-      "RMSE": 0.1243,
-      "MAPE": 0.6224,
-      "R^2": -9.9117
+      "MAE": 0.084,
+      "RMSE": 0.0935,
+      "MAPE": 0.468,
+      "R^2": -5.1704
      },
-     "p_holm": 0.0111,
-     "p_holm_bank": 0.5476
+     "p_holm": 0.0012,
+     "p_holm_bank": 0.0471
     },
     {
      "Modelo": "LSTM",
@@ -490,7 +490,7 @@
      "p": 0.0043,
      "veredicto": "peor que Naive",
      "p_holm": 0.0086,
-     "p_holm_bank": 0.6192
+     "p_holm_bank": 0.5719
     },
     {
      "Modelo": "Holt-Winters",
@@ -518,7 +518,7 @@
      "p": 0.0025,
      "veredicto": "peor que Naive",
      "p_holm": 0.0075,
-     "p_holm_bank": 0.385
+     "p_holm_bank": 0.3475
     },
     {
      "Modelo": "Random Forest",
@@ -526,8 +526,8 @@
      "RMSE": 0.2159,
      "MAPE": 1.1094,
      "R^2": -3.8734,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 5.723,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -535,24 +535,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1595,
-     "RMSE": 0.1716,
-     "MAPE": 0.8868,
-     "R^2": -2.1194,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 5.2,
-     "p": 0.0001,
+     "Modelo": "N-BEATS",
+     "MAE": 0.2133,
+     "RMSE": 0.2268,
+     "MAPE": 1.1861,
+     "R^2": -4.3952,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 6.438,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.188,
-      "RMSE": 0.1991,
-      "MAPE": 1.045,
-      "R^2": -3.1453
+      "MAE": 0.1996,
+      "RMSE": 0.2111,
+      "MAPE": 1.1099,
+      "R^2": -3.6591
      },
-     "p_holm": 0.0004,
-     "p_holm_bank": 0.0187
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -617,7 +617,7 @@
      "p": 0.0001,
      "veredicto": "peor que Naive",
      "p_holm": 0.0002,
-     "p_holm_bank": 0.0187
+     "p_holm_bank": 0.0169
     },
     {
      "Modelo": "Holt-Winters",
@@ -662,21 +662,21 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.179,
-     "RMSE": 0.1922,
-     "MAPE": 0.9938,
-     "R^2": -1.6403,
+     "Modelo": "N-BEATS",
+     "MAE": 0.2242,
+     "RMSE": 0.2432,
+     "MAPE": 1.2459,
+     "R^2": -3.2392,
      "rank6": 4,
      "rank7": 5,
-     "DM": 5.967,
+     "DM": 6.441,
      "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.1908,
-      "RMSE": 0.2047,
-      "MAPE": 1.0598,
-      "R^2": -1.9891
+      "MAE": 0.2325,
+      "RMSE": 0.2521,
+      "MAPE": 1.2918,
+      "R^2": -3.532
      },
      "p_holm": 0.0,
      "p_holm_bank": 0.0
@@ -789,21 +789,21 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1892,
-     "RMSE": 0.2084,
-     "MAPE": 1.0501,
-     "R^2": -1.2945,
+     "Modelo": "N-BEATS",
+     "MAE": 0.2297,
+     "RMSE": 0.2554,
+     "MAPE": 1.2752,
+     "R^2": -2.4437,
      "rank6": 4,
      "rank7": 5,
-     "DM": 5.942,
+     "DM": 6.002,
      "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.1993,
-      "RMSE": 0.2199,
-      "MAPE": 1.1058,
-      "R^2": -1.5506
+      "MAE": 0.2246,
+      "RMSE": 0.252,
+      "MAPE": 1.2472,
+      "R^2": -2.3479
      },
      "p_holm": 0.0,
      "p_holm_bank": 0.0
@@ -907,8 +907,8 @@
      "RMSE": 0.3039,
      "MAPE": 1.4782,
      "R^2": -2.7696,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 5.702,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -916,21 +916,21 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.2514,
-     "RMSE": 0.2773,
-     "MAPE": 1.3936,
-     "R^2": -2.162,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 6.057,
+     "Modelo": "N-BEATS",
+     "MAE": 0.3002,
+     "RMSE": 0.332,
+     "MAPE": 1.6642,
+     "R^2": -3.502,
+     "rank6": 6,
+     "rank7": 7,
+     "DM": 6.205,
      "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.218,
-      "RMSE": 0.2441,
-      "MAPE": 1.2085,
-      "R^2": -1.4323
+      "MAE": 0.3138,
+      "RMSE": 0.3461,
+      "MAPE": 1.7395,
+      "R^2": -3.8873
      },
      "p_holm": 0.0,
      "p_holm_bank": 0.0
@@ -941,8 +941,8 @@
      "RMSE": 0.2967,
      "MAPE": 1.4884,
      "R^2": -2.593,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 6.336,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -998,7 +998,7 @@
      "p": 0.0001,
      "veredicto": "peor que Naive",
      "p_holm": 0.0002,
-     "p_holm_bank": 0.0187
+     "p_holm_bank": 0.0169
     },
     {
      "Modelo": "Holt-Winters",
@@ -1034,8 +1034,8 @@
      "RMSE": 0.287,
      "MAPE": 1.3409,
      "R^2": -1.5177,
-     "rank6": 6,
-     "rank7": 7,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 5.299,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -1043,21 +1043,21 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1888,
-     "RMSE": 0.2164,
-     "MAPE": 1.0461,
-     "R^2": -0.4358,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 5.345,
+     "Modelo": "N-BEATS",
+     "MAE": 0.266,
+     "RMSE": 0.3107,
+     "MAPE": 1.4742,
+     "R^2": -1.9525,
+     "rank6": 6,
+     "rank7": 7,
+     "DM": 5.592,
      "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.1734,
-      "RMSE": 0.1986,
-      "MAPE": 0.9604,
-      "R^2": -0.2056
+      "MAE": 0.2572,
+      "RMSE": 0.2991,
+      "MAPE": 1.4253,
+      "R^2": -1.7335
      },
      "p_holm": 0.0,
      "p_holm_bank": 0.0
@@ -1068,8 +1068,8 @@
      "RMSE": 0.274,
      "MAPE": 1.3269,
      "R^2": -1.2971,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 5.773,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -1125,7 +1125,7 @@
      "p": 0.0003,
      "veredicto": "peor que Naive",
      "p_holm": 0.0006,
-     "p_holm_bank": 0.0528
+     "p_holm_bank": 0.0471
     },
     {
      "Modelo": "Holt-Winters",
@@ -1170,21 +1170,21 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.2141,
-     "RMSE": 0.2526,
-     "MAPE": 1.1851,
-     "R^2": -0.923,
+     "Modelo": "N-BEATS",
+     "MAE": 0.2207,
+     "RMSE": 0.2679,
+     "MAPE": 1.2228,
+     "R^2": -1.1721,
      "rank6": 4,
      "rank7": 5,
-     "DM": 5.322,
+     "DM": 5.16,
      "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.1992,
-      "RMSE": 0.2318,
-      "MAPE": 1.1025,
-      "R^2": -0.6119
+      "MAE": 0.1937,
+      "RMSE": 0.2334,
+      "MAPE": 1.0728,
+      "R^2": -0.6338
      },
      "p_holm": 0.0,
      "p_holm_bank": 0.0
@@ -1297,24 +1297,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0752,
-     "RMSE": 0.0907,
-     "MAPE": 0.4184,
-     "R^2": -4.3016,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1889,
+     "RMSE": 0.1921,
+     "MAPE": 1.0516,
+     "R^2": -22.0865,
      "rank6": 4,
      "rank7": 5,
-     "DM": 2.638,
-     "p": 0.0096,
+     "DM": 7.903,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0829,
-      "RMSE": 0.0997,
-      "MAPE": 0.4614,
-      "R^2": -5.2108
+      "MAE": 0.1879,
+      "RMSE": 0.1915,
+      "MAPE": 1.0459,
+      "R^2": -21.9282
      },
-     "p_holm": 0.0288,
-     "p_holm_bank": 1.0
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -1424,24 +1424,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0777,
-     "RMSE": 0.0906,
-     "MAPE": 0.4311,
-     "R^2": 0.4135,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 3.157,
-     "p": 0.0036,
+     "Modelo": "N-BEATS",
+     "MAE": 0.3092,
+     "RMSE": 0.3311,
+     "MAPE": 1.7173,
+     "R^2": -6.9013,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 7.122,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0823,
-      "RMSE": 0.0946,
-      "MAPE": 0.4564,
-      "R^2": 0.3621
+      "MAE": 0.3126,
+      "RMSE": 0.3398,
+      "MAPE": 1.7366,
+      "R^2": -7.2327
      },
-     "p_holm": 0.0108,
-     "p_holm_bank": 0.5364
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -1449,8 +1449,8 @@
      "RMSE": 0.2179,
      "MAPE": 1.1445,
      "R^2": -2.3939,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 7.011,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -1533,8 +1533,8 @@
      "DM": 3.512,
      "p": 0.0017,
      "veredicto": "peor que Naive",
-     "p_holm": 0.0051,
-     "p_holm_bank": 0.2703
+     "p_holm": 0.0034,
+     "p_holm_bank": 0.2414
     },
     {
      "Modelo": "Random Forest",
@@ -1542,8 +1542,8 @@
      "RMSE": 0.3003,
      "MAPE": 1.4336,
      "R^2": -2.1179,
-     "rank6": 6,
-     "rank7": 7,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 5.569,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -1551,24 +1551,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0744,
-     "RMSE": 0.0862,
-     "MAPE": 0.4109,
-     "R^2": 0.7326,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 3.051,
-     "p": 0.0028,
+     "Modelo": "N-BEATS",
+     "MAE": 0.2709,
+     "RMSE": 0.3187,
+     "MAPE": 1.5031,
+     "R^2": -2.5549,
+     "rank6": 6,
+     "rank7": 7,
+     "DM": 5.54,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0779,
-      "RMSE": 0.0905,
-      "MAPE": 0.4306,
-      "R^2": 0.7165
+      "MAE": 0.2896,
+      "RMSE": 0.344,
+      "MAPE": 1.6069,
+      "R^2": -3.0931
      },
-     "p_holm": 0.0056,
-     "p_holm_bank": 0.4256
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -1576,8 +1576,8 @@
      "RMSE": 0.1933,
      "MAPE": 0.9615,
      "R^2": -0.2944,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 5.73,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -1660,7 +1660,7 @@
      "DM": 2.811,
      "p": 0.0085,
      "veredicto": "peor que Naive",
-     "p_holm": 0.0183,
+     "p_holm": 0.017,
      "p_holm_bank": 1.0
     },
     {
@@ -1669,8 +1669,8 @@
      "RMSE": 0.272,
      "MAPE": 1.2262,
      "R^2": -1.2184,
-     "rank6": 6,
-     "rank7": 7,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 5.002,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -1678,24 +1678,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0722,
-     "RMSE": 0.0849,
-     "MAPE": 0.3977,
-     "R^2": 0.7824,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 2.768,
-     "p": 0.0061,
+     "Modelo": "N-BEATS",
+     "MAE": 0.2449,
+     "RMSE": 0.3016,
+     "MAPE": 1.3573,
+     "R^2": -1.7473,
+     "rank6": 6,
+     "rank7": 7,
+     "DM": 5.082,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0802,
-      "RMSE": 0.0929,
-      "MAPE": 0.4422,
-      "R^2": 0.7413
+      "MAE": 0.264,
+      "RMSE": 0.3275,
+      "MAPE": 1.463,
+      "R^2": -2.2167
      },
-     "p_holm": 0.0183,
-     "p_holm_bank": 0.8479
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -1703,8 +1703,8 @@
      "RMSE": 0.1876,
      "MAPE": 0.8926,
      "R^2": -0.0584,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 5.071,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -1787,8 +1787,8 @@
      "DM": 3.027,
      "p": 0.0044,
      "veredicto": "peor que Naive",
-     "p_holm": 0.0123,
-     "p_holm_bank": 0.6248
+     "p_holm": 0.0088,
+     "p_holm_bank": 0.5808
     },
     {
      "Modelo": "Random Forest",
@@ -1796,8 +1796,8 @@
      "RMSE": 0.2566,
      "MAPE": 1.1173,
      "R^2": -0.7307,
-     "rank6": 6,
-     "rank7": 7,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 4.811,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -1805,24 +1805,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.072,
-     "RMSE": 0.0848,
-     "MAPE": 0.3958,
-     "R^2": 0.8108,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 3.034,
-     "p": 0.0041,
+     "Modelo": "N-BEATS",
+     "MAE": 0.2039,
+     "RMSE": 0.2612,
+     "MAPE": 1.1286,
+     "R^2": -0.7942,
+     "rank6": 6,
+     "rank7": 7,
+     "DM": 4.743,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0745,
-      "RMSE": 0.0872,
-      "MAPE": 0.4098,
-      "R^2": 0.8001
+      "MAE": 0.2004,
+      "RMSE": 0.2623,
+      "MAPE": 1.1098,
+      "R^2": -0.8088
      },
-     "p_holm": 0.0123,
-     "p_holm_bank": 0.5986
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -1830,8 +1830,8 @@
      "RMSE": 0.1827,
      "MAPE": 0.8759,
      "R^2": 0.1222,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 5.458,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -1900,8 +1900,8 @@
      "DM": 3.414,
      "p": 0.0014,
      "veredicto": "peor que Naive",
-     "p_holm": 0.0042,
-     "p_holm_bank": 0.224
+     "p_holm": 0.0028,
+     "p_holm_bank": 0.2002
     },
     {
      "Modelo": "Regresión Lineal",
@@ -1923,8 +1923,8 @@
      "RMSE": 0.2492,
      "MAPE": 1.066,
      "R^2": -0.3906,
-     "rank6": 6,
-     "rank7": 7,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 4.727,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -1932,24 +1932,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0752,
-     "RMSE": 0.088,
-     "MAPE": 0.4127,
-     "R^2": 0.8264,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 3.031,
-     "p": 0.0043,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1888,
+     "RMSE": 0.2538,
+     "MAPE": 1.044,
+     "R^2": -0.4519,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 4.509,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0745,
-      "RMSE": 0.0875,
-      "MAPE": 0.4084,
-      "R^2": 0.8288
+      "MAE": 0.1738,
+      "RMSE": 0.2299,
+      "MAPE": 0.9604,
+      "R^2": -0.1835
      },
-     "p_holm": 0.0086,
-     "p_holm_bank": 0.6192
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -1957,8 +1957,8 @@
      "RMSE": 0.1704,
      "MAPE": 0.793,
      "R^2": 0.3487,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 5.175,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -2027,8 +2027,8 @@
      "DM": 3.321,
      "p": 0.0017,
      "veredicto": "peor que Naive",
-     "p_holm": 0.0051,
-     "p_holm_bank": 0.2703
+     "p_holm": 0.0034,
+     "p_holm_bank": 0.2414
     },
     {
      "Modelo": "Regresión Lineal",
@@ -2050,8 +2050,8 @@
      "RMSE": 0.2348,
      "MAPE": 0.9575,
      "R^2": -0.3345,
-     "rank6": 6,
-     "rank7": 7,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 4.607,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -2059,24 +2059,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0709,
-     "RMSE": 0.084,
-     "MAPE": 0.3883,
-     "R^2": 0.8283,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 3.008,
-     "p": 0.0021,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1692,
+     "RMSE": 0.2352,
+     "MAPE": 0.9348,
+     "R^2": -0.3398,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 4.46,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0769,
-      "RMSE": 0.091,
-      "MAPE": 0.4216,
-      "R^2": 0.7997
+      "MAE": 0.1712,
+      "RMSE": 0.2368,
+      "MAPE": 0.9457,
+      "R^2": -0.3573
      },
-     "p_holm": 0.0051,
-     "p_holm_bank": 0.3255
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -2084,8 +2084,8 @@
      "RMSE": 0.1639,
      "MAPE": 0.7317,
      "R^2": 0.3483,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 5.063,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -2149,13 +2149,13 @@
      "RMSE": 0.0815,
      "MAPE": 0.3575,
      "R^2": 0.8353,
-     "rank6": 4,
-     "rank7": 5,
+     "rank6": 3,
+     "rank7": 4,
      "DM": 3.862,
      "p": 0.0003,
      "veredicto": "peor que Naive",
-     "p_holm": 0.0009,
-     "p_holm_bank": 0.0528
+     "p_holm": 0.0006,
+     "p_holm_bank": 0.0471
     },
     {
      "Modelo": "Regresión Lineal",
@@ -2186,24 +2186,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0652,
-     "RMSE": 0.0805,
-     "MAPE": 0.3559,
-     "R^2": 0.8391,
-     "rank6": 3,
-     "rank7": 4,
-     "DM": 2.684,
-     "p": 0.0078,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1469,
+     "RMSE": 0.2041,
+     "MAPE": 0.8102,
+     "R^2": -0.0342,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 4.397,
+     "p": 0.0001,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0681,
-      "RMSE": 0.0839,
-      "MAPE": 0.3718,
-      "R^2": 0.8253
+      "MAE": 0.1441,
+      "RMSE": 0.2023,
+      "MAPE": 0.795,
+      "R^2": -0.0159
      },
-     "p_holm": 0.0156,
-     "p_holm_bank": 1.0
+     "p_holm": 0.0003,
+     "p_holm_bank": 0.0169
     },
     {
      "Modelo": "LSTM",
@@ -2211,8 +2211,8 @@
      "RMSE": 0.148,
      "MAPE": 0.6468,
      "R^2": 0.4555,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 4.823,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -2281,8 +2281,8 @@
      "DM": 4.318,
      "p": 0.0001,
      "veredicto": "peor que Naive",
-     "p_holm": 0.0003,
-     "p_holm_bank": 0.0187
+     "p_holm": 0.0002,
+     "p_holm_bank": 0.0169
     },
     {
      "Modelo": "Regresión Lineal",
@@ -2296,7 +2296,7 @@
      "p": 0.0026,
      "veredicto": "peor que Naive",
      "p_holm": 0.0026,
-     "p_holm_bank": 0.3978
+     "p_holm_bank": 0.3588
     },
     {
      "Modelo": "Random Forest",
@@ -2304,8 +2304,8 @@
      "RMSE": 0.2074,
      "MAPE": 0.811,
      "R^2": -0.1723,
-     "rank6": 6,
-     "rank7": 7,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 4.464,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -2313,24 +2313,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0741,
-     "RMSE": 0.089,
-     "MAPE": 0.4049,
-     "R^2": 0.784,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 3.659,
-     "p": 0.0004,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1483,
+     "RMSE": 0.2046,
+     "MAPE": 0.8177,
+     "R^2": -0.1413,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 4.518,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0717,
-      "RMSE": 0.0885,
-      "MAPE": 0.3909,
-      "R^2": 0.7864
+      "MAE": 0.1512,
+      "RMSE": 0.2035,
+      "MAPE": 0.8333,
+      "R^2": -0.1285
      },
-     "p_holm": 0.0008,
-     "p_holm_bank": 0.068
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -2338,8 +2338,8 @@
      "RMSE": 0.1817,
      "MAPE": 0.7934,
      "R^2": 0.0965,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 5.374,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -2440,24 +2440,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0751,
-     "RMSE": 0.0875,
-     "MAPE": 0.4147,
-     "R^2": 0.6797,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 3.256,
-     "p": 0.0103,
+     "Modelo": "N-BEATS",
+     "MAE": 0.2328,
+     "RMSE": 0.2665,
+     "MAPE": 1.2913,
+     "R^2": -1.9159,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 5.601,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0642,
-      "RMSE": 0.0761,
-      "MAPE": 0.3547,
-      "R^2": 0.7635
+      "MAE": 0.2557,
+      "RMSE": 0.2889,
+      "MAPE": 1.4179,
+      "R^2": -2.405
      },
-     "p_holm": 0.0412,
-     "p_holm_bank": 1.0
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -2465,8 +2465,8 @@
      "RMSE": 0.1742,
      "MAPE": 0.8891,
      "R^2": -0.2415,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 5.885,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -2567,24 +2567,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.068,
-     "RMSE": 0.0815,
-     "MAPE": 0.3731,
-     "R^2": 0.8115,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 2.945,
-     "p": 0.0046,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1784,
+     "RMSE": 0.2097,
+     "MAPE": 0.9861,
+     "R^2": -0.2689,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 5.419,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0684,
-      "RMSE": 0.0825,
-      "MAPE": 0.3755,
-      "R^2": 0.8072
+      "MAE": 0.1855,
+      "RMSE": 0.2193,
+      "MAPE": 1.0253,
+      "R^2": -0.3636
      },
-     "p_holm": 0.0184,
-     "p_holm_bank": 0.6486
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -2592,8 +2592,8 @@
      "RMSE": 0.165,
      "MAPE": 0.8126,
      "R^2": 0.2148,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 5.732,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -2657,12 +2657,12 @@
      "RMSE": 0.0756,
      "MAPE": 0.3406,
      "R^2": 0.8637,
-     "rank6": 4,
-     "rank7": 5,
+     "rank6": 3,
+     "rank7": 4,
      "DM": 2.518,
      "p": 0.015,
      "veredicto": "peor que Naive",
-     "p_holm": 0.06,
+     "p_holm": 0.045,
      "p_holm_bank": 1.0
     },
     {
@@ -2694,24 +2694,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0588,
-     "RMSE": 0.075,
-     "MAPE": 0.3209,
-     "R^2": 0.8656,
-     "rank6": 3,
-     "rank7": 4,
-     "DM": 2.164,
-     "p": 0.0341,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1505,
+     "RMSE": 0.2001,
+     "MAPE": 0.8311,
+     "R^2": 0.0438,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 4.607,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0628,
-      "RMSE": 0.0799,
-      "MAPE": 0.3425,
-      "R^2": 0.848
+      "MAE": 0.158,
+      "RMSE": 0.2121,
+      "MAPE": 0.8725,
+      "R^2": -0.0719
      },
-     "p_holm": 0.1023,
-     "p_holm_bank": 1.0
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -2719,8 +2719,8 @@
      "RMSE": 0.1491,
      "MAPE": 0.6896,
      "R^2": 0.4696,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 5.355,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -2789,7 +2789,7 @@
      "DM": 2.694,
      "p": 0.009,
      "veredicto": "peor que Naive",
-     "p_holm": 0.036,
+     "p_holm": 0.027,
      "p_holm_bank": 1.0
     },
     {
@@ -2821,24 +2821,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0608,
-     "RMSE": 0.0764,
-     "MAPE": 0.3317,
-     "R^2": 0.8433,
-     "rank6": 3,
-     "rank7": 4,
-     "DM": 2.46,
-     "p": 0.0182,
+     "Modelo": "N-BEATS",
+     "MAE": 0.095,
+     "RMSE": 0.1239,
+     "MAPE": 0.5224,
+     "R^2": 0.5843,
+     "rank6": 4,
+     "rank7": 5,
+     "DM": 4.268,
+     "p": 0.0001,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0583,
-      "RMSE": 0.0731,
-      "MAPE": 0.318,
-      "R^2": 0.8568
+      "MAE": 0.093,
+      "RMSE": 0.1208,
+      "MAPE": 0.5106,
+      "R^2": 0.6087
      },
-     "p_holm": 0.0546,
-     "p_holm_bank": 1.0
+     "p_holm": 0.0004,
+     "p_holm_bank": 0.0169
     },
     {
      "Modelo": "LSTM",
@@ -2916,8 +2916,8 @@
      "DM": 2.958,
      "p": 0.0041,
      "veredicto": "peor que Naive",
-     "p_holm": 0.0164,
-     "p_holm_bank": 0.5986
+     "p_holm": 0.0123,
+     "p_holm_bank": 0.5494
     },
     {
      "Modelo": "Regresión Lineal",
@@ -2939,8 +2939,8 @@
      "RMSE": 0.4409,
      "MAPE": 2.2007,
      "R^2": -5.0538,
-     "rank6": 6,
-     "rank7": 7,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 9.238,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -2948,24 +2948,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0656,
-     "RMSE": 0.0804,
-     "MAPE": 0.3582,
-     "R^2": 0.7959,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 3.022,
-     "p": 0.0155,
+     "Modelo": "N-BEATS",
+     "MAE": 0.4404,
+     "RMSE": 0.4861,
+     "MAPE": 2.4154,
+     "R^2": -6.4066,
+     "rank6": 6,
+     "rank7": 7,
+     "DM": 8.653,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0775,
-      "RMSE": 0.0932,
-      "MAPE": 0.4236,
-      "R^2": 0.7292
+      "MAE": 0.4241,
+      "RMSE": 0.4636,
+      "MAPE": 2.3254,
+      "R^2": -5.6945
      },
-     "p_holm": 0.0465,
-     "p_holm_bank": 1.0
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -2973,8 +2973,8 @@
      "RMSE": 0.1674,
      "MAPE": 0.7572,
      "R^2": 0.1214,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 6.24,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -3044,7 +3044,7 @@
      "p": 0.0018,
      "veredicto": "peor que Naive",
      "p_holm": 0.0054,
-     "p_holm_bank": 0.2826
+     "p_holm_bank": 0.252
     },
     {
      "Modelo": "Regresión Lineal",
@@ -3066,8 +3066,8 @@
      "RMSE": 0.4123,
      "MAPE": 1.9461,
      "R^2": -3.0852,
-     "rank6": 6,
-     "rank7": 7,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 8.681,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -3075,24 +3075,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.063,
-     "RMSE": 0.0785,
-     "MAPE": 0.3427,
-     "R^2": 0.8513,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 3.378,
-     "p": 0.0011,
+     "Modelo": "N-BEATS",
+     "MAE": 0.4023,
+     "RMSE": 0.467,
+     "MAPE": 2.2051,
+     "R^2": -4.2428,
+     "rank6": 6,
+     "rank7": 7,
+     "DM": 8.358,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0629,
-      "RMSE": 0.079,
-      "MAPE": 0.3415,
-      "R^2": 0.8499
+      "MAE": 0.4089,
+      "RMSE": 0.4689,
+      "MAPE": 2.2408,
+      "R^2": -4.2847
      },
-     "p_holm": 0.0044,
-     "p_holm_bank": 0.1793
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -3100,8 +3100,8 @@
      "RMSE": 0.1708,
      "MAPE": 0.7647,
      "R^2": 0.295,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 6.8,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -3165,13 +3165,13 @@
      "RMSE": 0.0805,
      "MAPE": 0.3476,
      "R^2": 0.8686,
-     "rank6": 4,
-     "rank7": 5,
+     "rank6": 3,
+     "rank7": 4,
      "DM": 3.553,
      "p": 0.0006,
      "veredicto": "peor que Naive",
-     "p_holm": 0.0024,
-     "p_holm_bank": 0.1002
+     "p_holm": 0.0018,
+     "p_holm_bank": 0.0882
     },
     {
      "Modelo": "Regresión Lineal",
@@ -3193,8 +3193,8 @@
      "RMSE": 0.353,
      "MAPE": 1.5631,
      "R^2": -1.5293,
-     "rank6": 6,
-     "rank7": 7,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 7.618,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -3202,24 +3202,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0599,
-     "RMSE": 0.0758,
-     "MAPE": 0.3253,
-     "R^2": 0.8833,
-     "rank6": 3,
-     "rank7": 4,
-     "DM": 2.87,
-     "p": 0.0046,
+     "Modelo": "N-BEATS",
+     "MAE": 0.3434,
+     "RMSE": 0.4212,
+     "MAPE": 1.8814,
+     "R^2": -2.66,
+     "rank6": 6,
+     "rank7": 7,
+     "DM": 7.722,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0599,
-      "RMSE": 0.0759,
-      "MAPE": 0.3255,
-      "R^2": 0.883
+      "MAE": 0.2808,
+      "RMSE": 0.3494,
+      "MAPE": 1.539,
+      "R^2": -1.4784
      },
-     "p_holm": 0.0138,
-     "p_holm_bank": 0.6486
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -3227,8 +3227,8 @@
      "RMSE": 0.1614,
      "MAPE": 0.71,
      "R^2": 0.4683,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 6.453,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -3329,24 +3329,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.075,
-     "RMSE": 0.0936,
-     "MAPE": 0.4067,
-     "R^2": 0.8384,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 4.435,
-     "p": 0.0001,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1793,
+     "RMSE": 0.2309,
+     "MAPE": 0.9801,
+     "R^2": 0.0171,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 6.203,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0694,
-      "RMSE": 0.0882,
-      "MAPE": 0.3761,
-      "R^2": 0.8573
+      "MAE": 0.1941,
+      "RMSE": 0.2482,
+      "MAPE": 1.0616,
+      "R^2": -0.1294
      },
-     "p_holm": 0.0003,
-     "p_holm_bank": 0.0187
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -3354,8 +3354,8 @@
      "RMSE": 0.145,
      "MAPE": 0.6428,
      "R^2": 0.6048,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 6.312,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -3419,8 +3419,8 @@
      "RMSE": 0.0934,
      "MAPE": 0.3996,
      "R^2": 0.8403,
-     "rank6": 4,
-     "rank7": 5,
+     "rank6": 3,
+     "rank7": 4,
      "DM": 5.026,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -3456,24 +3456,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0677,
-     "RMSE": 0.0861,
-     "MAPE": 0.3663,
-     "R^2": 0.864,
-     "rank6": 3,
-     "rank7": 4,
-     "DM": 4.105,
-     "p": 0.0001,
+     "Modelo": "N-BEATS",
+     "MAE": 0.2312,
+     "RMSE": 0.2934,
+     "MAPE": 1.2646,
+     "R^2": -0.5918,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 7.41,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0703,
-      "RMSE": 0.0886,
-      "MAPE": 0.3807,
-      "R^2": 0.8561
+      "MAE": 0.197,
+      "RMSE": 0.2549,
+      "MAPE": 1.0779,
+      "R^2": -0.1903
      },
-     "p_holm": 0.0003,
-     "p_holm_bank": 0.0187
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -3481,8 +3481,8 @@
      "RMSE": 0.1987,
      "MAPE": 0.9066,
      "R^2": 0.2386,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 7.998,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -3565,7 +3565,7 @@
      "DM": 1.256,
      "p": 0.2149,
      "veredicto": "sin diferencia",
-     "p_holm": 0.4298,
+     "p_holm": 0.4386,
      "p_holm_bank": 1.0
     },
     {
@@ -3574,33 +3574,33 @@
      "RMSE": 0.0824,
      "MAPE": 0.3616,
      "R^2": 0.8381,
-     "rank6": 4,
-     "rank7": 5,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 2.447,
      "p": 0.0179,
      "veredicto": "peor que Naive",
-     "p_holm": 0.0537,
+     "p_holm": 0.0716,
      "p_holm_bank": 1.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0746,
-     "RMSE": 0.0908,
-     "MAPE": 0.4082,
-     "R^2": 0.8001,
-     "rank6": 5,
-     "rank7": 6,
-     "DM": 3.314,
-     "p": 0.0029,
-     "veredicto": "peor que Naive",
+     "Modelo": "N-BEATS",
+     "MAE": 0.061,
+     "RMSE": 0.0766,
+     "MAPE": 0.3333,
+     "R^2": 0.8562,
+     "rank6": 4,
+     "rank7": 5,
+     "DM": 2.121,
+     "p": 0.1462,
+     "veredicto": "sin diferencia",
      "seed0": {
-      "MAE": 0.0906,
-      "RMSE": 0.1074,
-      "MAPE": 0.4962,
-      "R^2": 0.7248
+      "MAE": 0.053,
+      "RMSE": 0.0662,
+      "MAPE": 0.2894,
+      "R^2": 0.8957
      },
-     "p_holm": 0.0145,
-     "p_holm_bank": 0.4379
+     "p_holm": 0.4386,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -3619,8 +3619,8 @@
       "MAPE": 0.5501,
       "R^2": 0.6718
      },
-     "p_holm": 0.0152,
-     "p_holm_bank": 0.5586
+     "p_holm": 0.019,
+     "p_holm_bank": 0.513
     }
    ],
    "fecha_inicio": "2024-01-01",
@@ -3710,24 +3710,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0688,
-     "RMSE": 0.0827,
-     "MAPE": 0.3759,
-     "R^2": 0.7832,
+     "Modelo": "N-BEATS",
+     "MAE": 0.0713,
+     "RMSE": 0.0855,
+     "MAPE": 0.3896,
+     "R^2": 0.7642,
      "rank6": 4,
      "rank7": 5,
-     "DM": 3.273,
-     "p": 0.0007,
+     "DM": 3.524,
+     "p": 0.0033,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0799,
-      "RMSE": 0.0961,
-      "MAPE": 0.4367,
-      "R^2": 0.7122
+      "MAE": 0.0927,
+      "RMSE": 0.1073,
+      "MAPE": 0.5067,
+      "R^2": 0.6412
      },
-     "p_holm": 0.0021,
-     "p_holm_bank": 0.1155
+     "p_holm": 0.0099,
+     "p_holm_bank": 0.4488
     },
     {
      "Modelo": "LSTM",
@@ -3747,7 +3747,7 @@
       "R^2": 0.6302
      },
      "p_holm": 0.0004,
-     "p_holm_bank": 0.0187
+     "p_holm_bank": 0.0169
     }
    ],
    "fecha_inicio": "2024-01-01",
@@ -3833,28 +3833,28 @@
      "DM": 4.066,
      "p": 0.0001,
      "veredicto": "peor que Naive",
-     "p_holm": 0.0003,
-     "p_holm_bank": 0.0187
+     "p_holm": 0.0004,
+     "p_holm_bank": 0.0169
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0734,
-     "RMSE": 0.0902,
-     "MAPE": 0.3988,
-     "R^2": 0.8344,
+     "Modelo": "N-BEATS",
+     "MAE": 0.074,
+     "RMSE": 0.089,
+     "MAPE": 0.402,
+     "R^2": 0.8298,
      "rank6": 5,
      "rank7": 6,
-     "DM": 4.577,
-     "p": 0.0,
+     "DM": 3.889,
+     "p": 0.0004,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0701,
-      "RMSE": 0.0886,
-      "MAPE": 0.3799,
-      "R^2": 0.8405
+      "MAE": 0.0681,
+      "RMSE": 0.0818,
+      "MAPE": 0.3701,
+      "R^2": 0.8641
      },
-     "p_holm": 0.0,
-     "p_holm_bank": 0.0
+     "p_holm": 0.0012,
+     "p_holm_bank": 0.06
     },
     {
      "Modelo": "LSTM",
@@ -3964,24 +3964,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0773,
-     "RMSE": 0.0946,
-     "MAPE": 0.4188,
-     "R^2": 0.834,
+     "Modelo": "N-BEATS",
+     "MAE": 0.0624,
+     "RMSE": 0.0837,
+     "MAPE": 0.3374,
+     "R^2": 0.8719,
      "rank6": 4,
      "rank7": 5,
-     "DM": 4.982,
-     "p": 0.0,
+     "DM": 3.408,
+     "p": 0.001,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0724,
-      "RMSE": 0.0901,
-      "MAPE": 0.3923,
-      "R^2": 0.8519
+      "MAE": 0.0572,
+      "RMSE": 0.0764,
+      "MAPE": 0.3091,
+      "R^2": 0.8937
      },
-     "p_holm": 0.0,
-     "p_holm_bank": 0.0
+     "p_holm": 0.003,
+     "p_holm_bank": 0.146
     },
     {
      "Modelo": "LSTM",
@@ -4091,21 +4091,21 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0952,
-     "RMSE": 0.1128,
-     "MAPE": 0.513,
-     "R^2": 0.8696,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1477,
+     "RMSE": 0.1654,
+     "MAPE": 0.7941,
+     "R^2": 0.64,
      "rank6": 6,
      "rank7": 7,
-     "DM": 6.874,
+     "DM": 9.559,
      "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0722,
-      "RMSE": 0.0905,
-      "MAPE": 0.3882,
-      "R^2": 0.9178
+      "MAE": 0.0639,
+      "RMSE": 0.082,
+      "MAPE": 0.3435,
+      "R^2": 0.9324
      },
      "p_holm": 0.0,
      "p_holm_bank": 0.0
@@ -4209,8 +4209,8 @@
      "RMSE": 0.128,
      "MAPE": 0.5315,
      "R^2": 0.9162,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 6.381,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -4218,24 +4218,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0745,
-     "RMSE": 0.093,
-     "MAPE": 0.3981,
-     "R^2": 0.9552,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 3.995,
-     "p": 0.002,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1576,
+     "RMSE": 0.1765,
+     "MAPE": 0.8406,
+     "R^2": 0.8149,
+     "rank6": 6,
+     "rank7": 7,
+     "DM": 12.301,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0688,
-      "RMSE": 0.0874,
-      "MAPE": 0.3671,
-      "R^2": 0.9609
+      "MAE": 0.2607,
+      "RMSE": 0.2753,
+      "MAPE": 1.392,
+      "R^2": 0.612
      },
-     "p_holm": 0.006,
-     "p_holm_bank": 0.312
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -4243,8 +4243,8 @@
      "RMSE": 0.1436,
      "MAPE": 0.6292,
      "R^2": 0.8898,
-     "rank6": 6,
-     "rank7": 7,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 6.937,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -4336,8 +4336,8 @@
      "RMSE": 0.1474,
      "MAPE": 0.6007,
      "R^2": 0.9501,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 4.369,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -4345,24 +4345,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1002,
-     "RMSE": 0.1306,
-     "MAPE": 0.5244,
-     "R^2": 0.9603,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 2.584,
-     "p": 0.0173,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1221,
+     "RMSE": 0.1518,
+     "MAPE": 0.64,
+     "R^2": 0.9434,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 4.042,
+     "p": 0.0046,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0997,
-      "RMSE": 0.1301,
-      "MAPE": 0.5219,
-      "R^2": 0.9611
+      "MAE": 0.0841,
+      "RMSE": 0.1138,
+      "MAPE": 0.4392,
+      "R^2": 0.9703
      },
-     "p_holm": 0.0692,
-     "p_holm_bank": 1.0
+     "p_holm": 0.0184,
+     "p_holm_bank": 0.6026
     },
     {
      "Modelo": "LSTM",
@@ -4440,7 +4440,7 @@
      "DM": 2.642,
      "p": 0.0088,
      "veredicto": "peor que Naive",
-     "p_holm": 0.0264,
+     "p_holm": 0.0352,
      "p_holm_bank": 1.0
     },
     {
@@ -4463,8 +4463,8 @@
      "RMSE": 0.1474,
      "MAPE": 0.6018,
      "R^2": 0.9653,
-     "rank6": 4,
-     "rank7": 5,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 4.415,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -4472,24 +4472,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1194,
-     "RMSE": 0.1484,
-     "MAPE": 0.6211,
-     "R^2": 0.9647,
-     "rank6": 5,
-     "rank7": 6,
-     "DM": 4.63,
-     "p": 0.0,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1105,
+     "RMSE": 0.136,
+     "MAPE": 0.5759,
+     "R^2": 0.9699,
+     "rank6": 4,
+     "rank7": 5,
+     "DM": 3.421,
+     "p": 0.009,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.133,
-      "RMSE": 0.1631,
-      "MAPE": 0.6922,
-      "R^2": 0.9576
+      "MAE": 0.1387,
+      "RMSE": 0.1626,
+      "MAPE": 0.7264,
+      "R^2": 0.9578
      },
-     "p_holm": 0.0,
-     "p_holm_bank": 0.0
+     "p_holm": 0.0352,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -4567,8 +4567,8 @@
      "DM": 3.004,
      "p": 0.0029,
      "veredicto": "peor que Naive",
-     "p_holm": 0.0145,
-     "p_holm_bank": 0.4379
+     "p_holm": 0.0116,
+     "p_holm_bank": 0.3973
     },
     {
      "Modelo": "Regresión Lineal",
@@ -4590,33 +4590,33 @@
      "RMSE": 0.1583,
      "MAPE": 0.6005,
      "R^2": 0.9676,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 2.221,
      "p": 0.0272,
      "veredicto": "peor que Naive",
-     "p_holm": 0.1088,
+     "p_holm": 0.0816,
      "p_holm_bank": 1.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1105,
-     "RMSE": 0.1462,
-     "MAPE": 0.5673,
-     "R^2": 0.9723,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 1.746,
-     "p": 0.1153,
-     "veredicto": "sin diferencia",
+     "Modelo": "N-BEATS",
+     "MAE": 0.1351,
+     "RMSE": 0.1644,
+     "MAPE": 0.6996,
+     "R^2": 0.965,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 3.562,
+     "p": 0.0002,
+     "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.1212,
-      "RMSE": 0.155,
-      "MAPE": 0.6239,
-      "R^2": 0.9689
+      "MAE": 0.1414,
+      "RMSE": 0.1699,
+      "MAPE": 0.7337,
+      "R^2": 0.9627
      },
-     "p_holm": 0.3459,
-     "p_holm_bank": 1.0
+     "p_holm": 0.0012,
+     "p_holm_bank": 0.032
     },
     {
      "Modelo": "LSTM",
@@ -4624,8 +4624,8 @@
      "RMSE": 0.1681,
      "MAPE": 0.6802,
      "R^2": 0.9634,
-     "rank6": 6,
-     "rank7": 7,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 3.155,
      "p": 0.0003,
      "veredicto": "peor que Naive",
@@ -4635,8 +4635,8 @@
       "MAPE": 0.5807,
       "R^2": 0.9687
      },
-     "p_holm": 0.0018,
-     "p_holm_bank": 0.0528
+     "p_holm": 0.0015,
+     "p_holm_bank": 0.0471
     }
    ],
    "fecha_inicio": "2024-01-01",
@@ -4694,7 +4694,7 @@
      "DM": 1.746,
      "p": 0.0832,
      "veredicto": "sin diferencia",
-     "p_holm": 0.2496,
+     "p_holm": 0.262,
      "p_holm_bank": 1.0
     },
     {
@@ -4726,24 +4726,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0857,
-     "RMSE": 0.1008,
-     "MAPE": 0.4644,
-     "R^2": 0.8104,
-     "rank6": 5,
-     "rank7": 6,
-     "DM": 6.533,
-     "p": 0.0,
-     "veredicto": "peor que Naive",
+     "Modelo": "N-BEATS",
+     "MAE": 0.0603,
+     "RMSE": 0.0757,
+     "MAPE": 0.3259,
+     "R^2": 0.8953,
+     "rank6": 4,
+     "rank7": 5,
+     "DM": 2.665,
+     "p": 0.0655,
+     "veredicto": "sin diferencia",
      "seed0": {
-      "MAE": 0.1035,
-      "RMSE": 0.1178,
-      "MAPE": 0.561,
-      "R^2": 0.7476
+      "MAE": 0.0549,
+      "RMSE": 0.0721,
+      "MAPE": 0.2964,
+      "R^2": 0.9054
      },
-     "p_holm": 0.0,
-     "p_holm_bank": 0.0
+     "p_holm": 0.262,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -4751,8 +4751,8 @@
      "RMSE": 0.0789,
      "MAPE": 0.3447,
      "R^2": 0.8844,
-     "rank6": 4,
-     "rank7": 5,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 2.89,
      "p": 0.0335,
      "veredicto": "peor que Naive",
@@ -4762,7 +4762,7 @@
       "MAPE": 0.2962,
       "R^2": 0.9128
      },
-     "p_holm": 0.134,
+     "p_holm": 0.1675,
      "p_holm_bank": 1.0
     }
    ],
@@ -4853,23 +4853,23 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0726,
-     "RMSE": 0.1062,
-     "MAPE": 0.3803,
-     "R^2": 0.9693,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": -0.039,
-     "p": 0.1232,
+     "Modelo": "N-BEATS",
+     "MAE": 0.0763,
+     "RMSE": 0.1082,
+     "MAPE": 0.3991,
+     "R^2": 0.9682,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 0.289,
+     "p": 0.4051,
      "veredicto": "sin diferencia",
      "seed0": {
-      "MAE": 0.0684,
-      "RMSE": 0.102,
-      "MAPE": 0.3578,
-      "R^2": 0.9717
+      "MAE": 0.0706,
+      "RMSE": 0.103,
+      "MAPE": 0.3698,
+      "R^2": 0.9712
      },
-     "p_holm": 0.4928,
+     "p_holm": 1.0,
      "p_holm_bank": 1.0
     },
     {
@@ -4878,8 +4878,8 @@
      "RMSE": 0.1079,
      "MAPE": 0.3933,
      "R^2": 0.9683,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 0.099,
      "p": 0.3927,
      "veredicto": "sin diferencia",
@@ -4948,7 +4948,7 @@
      "DM": -0.749,
      "p": 0.4545,
      "veredicto": "sin diferencia",
-     "p_holm": 1.0,
+     "p_holm": 0.909,
      "p_holm_bank": 1.0
     },
     {
@@ -4962,7 +4962,7 @@
      "DM": 0.011,
      "p": 0.9911,
      "veredicto": "sin diferencia",
-     "p_holm": 1.0,
+     "p_holm": 0.9911,
      "p_holm_bank": 1.0
     },
     {
@@ -4980,23 +4980,23 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0946,
-     "RMSE": 0.1346,
-     "MAPE": 0.484,
-     "R^2": 0.9765,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1088,
+     "RMSE": 0.1454,
+     "MAPE": 0.5584,
+     "R^2": 0.9724,
      "rank6": 4,
      "rank7": 5,
-     "DM": 1.171,
-     "p": 0.4709,
-     "veredicto": "sin diferencia",
+     "DM": 2.953,
+     "p": 0.0091,
+     "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0846,
-      "RMSE": 0.1266,
-      "MAPE": 0.431,
-      "R^2": 0.9793
+      "MAE": 0.1349,
+      "RMSE": 0.1672,
+      "MAPE": 0.6971,
+      "R^2": 0.9639
      },
-     "p_holm": 1.0,
+     "p_holm": 0.0273,
      "p_holm_bank": 1.0
     },
     {
@@ -5107,21 +5107,21 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.0904,
-     "RMSE": 0.1315,
-     "MAPE": 0.4581,
+     "Modelo": "N-BEATS",
+     "MAE": 0.0941,
+     "RMSE": 0.1314,
+     "MAPE": 0.4783,
      "R^2": 0.977,
      "rank6": 4,
      "rank7": 5,
-     "DM": 0.591,
-     "p": 0.3234,
+     "DM": 0.664,
+     "p": 0.6365,
      "veredicto": "sin diferencia",
      "seed0": {
-      "MAE": 0.0923,
-      "RMSE": 0.1342,
-      "MAPE": 0.4671,
-      "R^2": 0.9761
+      "MAE": 0.0902,
+      "RMSE": 0.1312,
+      "MAPE": 0.4568,
+      "R^2": 0.9771
      },
      "p_holm": 1.0,
      "p_holm_bank": 1.0
@@ -5225,8 +5225,8 @@
      "RMSE": 0.1615,
      "MAPE": 0.6008,
      "R^2": 0.9649,
-     "rank6": 6,
-     "rank7": 7,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 4.822,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -5234,21 +5234,21 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1024,
-     "RMSE": 0.1454,
-     "MAPE": 0.5247,
-     "R^2": 0.9716,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 0.718,
-     "p": 0.5349,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1261,
+     "RMSE": 0.1704,
+     "MAPE": 0.6457,
+     "R^2": 0.9595,
+     "rank6": 6,
+     "rank7": 7,
+     "DM": 3.373,
+     "p": 0.3817,
      "veredicto": "sin diferencia",
      "seed0": {
-      "MAE": 0.1058,
-      "RMSE": 0.1465,
-      "MAPE": 0.5433,
-      "R^2": 0.9712
+      "MAE": 0.1015,
+      "RMSE": 0.1467,
+      "MAPE": 0.5191,
+      "R^2": 0.9711
      },
      "p_holm": 1.0,
      "p_holm_bank": 1.0
@@ -5259,8 +5259,8 @@
      "RMSE": 0.1602,
      "MAPE": 0.5823,
      "R^2": 0.9655,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 2.576,
      "p": 0.0079,
      "veredicto": "peor que Naive",
@@ -5352,8 +5352,8 @@
      "RMSE": 0.166,
      "MAPE": 0.6356,
      "R^2": 0.978,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 5.206,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -5361,24 +5361,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.108,
-     "RMSE": 0.1542,
-     "MAPE": 0.5643,
-     "R^2": 0.981,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 1.849,
-     "p": 0.0993,
-     "veredicto": "sin diferencia",
+     "Modelo": "N-BEATS",
+     "MAE": 0.1213,
+     "RMSE": 0.1774,
+     "MAPE": 0.6361,
+     "R^2": 0.9748,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 3.568,
+     "p": 0.0001,
+     "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.1151,
-      "RMSE": 0.1601,
-      "MAPE": 0.6019,
+      "MAE": 0.1078,
+      "RMSE": 0.1598,
+      "MAPE": 0.5637,
       "R^2": 0.9796
      },
-     "p_holm": 0.2979,
-     "p_holm_bank": 1.0
+     "p_holm": 0.0004,
+     "p_holm_bank": 0.0169
     },
     {
      "Modelo": "LSTM",
@@ -5386,8 +5386,8 @@
      "RMSE": 0.1757,
      "MAPE": 0.6498,
      "R^2": 0.9753,
-     "rank6": 6,
-     "rank7": 7,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 3.709,
      "p": 0.0003,
      "veredicto": "peor que Naive",
@@ -5397,8 +5397,8 @@
       "MAPE": 0.6061,
       "R^2": 0.9788
      },
-     "p_holm": 0.0012,
-     "p_holm_bank": 0.0528
+     "p_holm": 0.0009,
+     "p_holm_bank": 0.0471
     }
    ],
    "fecha_inicio": "2021-01-01",
@@ -5479,8 +5479,8 @@
      "RMSE": 0.1749,
      "MAPE": 0.6773,
      "R^2": 0.9802,
-     "rank6": 6,
-     "rank7": 7,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 6.226,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -5488,24 +5488,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.102,
-     "RMSE": 0.1457,
-     "MAPE": 0.5385,
-     "R^2": 0.9863,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 1.581,
-     "p": 0.1793,
-     "veredicto": "sin diferencia",
+     "Modelo": "N-BEATS",
+     "MAE": 0.1343,
+     "RMSE": 0.1832,
+     "MAPE": 0.7131,
+     "R^2": 0.9776,
+     "rank6": 6,
+     "rank7": 7,
+     "DM": 5.242,
+     "p": 0.0,
+     "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.1008,
-      "RMSE": 0.1457,
-      "MAPE": 0.5316,
-      "R^2": 0.9863
+      "MAE": 0.1054,
+      "RMSE": 0.1515,
+      "MAPE": 0.5597,
+      "R^2": 0.9851
      },
-     "p_holm": 0.5379,
-     "p_holm_bank": 1.0
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -5513,8 +5513,8 @@
      "RMSE": 0.1701,
      "MAPE": 0.6259,
      "R^2": 0.9812,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 4.165,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -5606,8 +5606,8 @@
      "RMSE": 0.1751,
      "MAPE": 0.6898,
      "R^2": 0.98,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 6.849,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -5615,24 +5615,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1159,
-     "RMSE": 0.1574,
-     "MAPE": 0.6195,
-     "R^2": 0.9838,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 4.34,
-     "p": 0.0003,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1292,
+     "RMSE": 0.1842,
+     "MAPE": 0.6974,
+     "R^2": 0.9778,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 5.394,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.1042,
-      "RMSE": 0.1487,
-      "MAPE": 0.5548,
-      "R^2": 0.9856
+      "MAE": 0.1223,
+      "RMSE": 0.1687,
+      "MAPE": 0.6609,
+      "R^2": 0.9814
      },
-     "p_holm": 0.0009,
-     "p_holm_bank": 0.0528
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -5742,24 +5742,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1057,
-     "RMSE": 0.1487,
-     "MAPE": 0.5693,
-     "R^2": 0.9862,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 3.097,
-     "p": 0.0067,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1425,
+     "RMSE": 0.2086,
+     "MAPE": 0.7772,
+     "R^2": 0.9728,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 6.384,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.1082,
-      "RMSE": 0.1548,
-      "MAPE": 0.5825,
-      "R^2": 0.985
+      "MAE": 0.1342,
+      "RMSE": 0.1927,
+      "MAPE": 0.7308,
+      "R^2": 0.9768
      },
-     "p_holm": 0.0201,
-     "p_holm_bank": 0.9246
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -5767,8 +5767,8 @@
      "RMSE": 0.1819,
      "MAPE": 0.711,
      "R^2": 0.9793,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 6.17,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -5837,7 +5837,7 @@
      "DM": -0.817,
      "p": 0.4149,
      "veredicto": "sin diferencia",
-     "p_holm": 0.4149,
+     "p_holm": 0.8298,
      "p_holm_bank": 1.0
     },
     {
@@ -5851,7 +5851,7 @@
      "DM": 1.546,
      "p": 0.1233,
      "veredicto": "sin diferencia",
-     "p_holm": 0.2466,
+     "p_holm": 0.3699,
      "p_holm_bank": 1.0
     },
     {
@@ -5860,32 +5860,32 @@
      "RMSE": 0.1467,
      "MAPE": 0.5195,
      "R^2": 0.9722,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 6,
+     "rank7": 7,
      "DM": 3.304,
      "p": 0.0011,
      "veredicto": "peor que Naive",
      "p_holm": 0.0044,
-     "p_holm_bank": 0.1793
+     "p_holm_bank": 0.1584
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1079,
-     "RMSE": 0.1498,
-     "MAPE": 0.5531,
-     "R^2": 0.9705,
-     "rank6": 6,
-     "rank7": 7,
-     "DM": 3.656,
-     "p": 0.0091,
-     "veredicto": "peor que Naive",
+     "Modelo": "N-BEATS",
+     "MAE": 0.0984,
+     "RMSE": 0.1367,
+     "MAPE": 0.5052,
+     "R^2": 0.9757,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 1.951,
+     "p": 0.5645,
+     "veredicto": "sin diferencia",
      "seed0": {
-      "MAE": 0.0913,
-      "RMSE": 0.1335,
-      "MAPE": 0.4669,
-      "R^2": 0.977
+      "MAE": 0.0882,
+      "RMSE": 0.1291,
+      "MAPE": 0.4498,
+      "R^2": 0.9785
      },
-     "p_holm": 0.0273,
+     "p_holm": 0.8298,
      "p_holm_bank": 1.0
     },
     {
@@ -5906,7 +5906,7 @@
       "R^2": 0.9735
      },
      "p_holm": 0.0015,
-     "p_holm_bank": 0.0528
+     "p_holm_bank": 0.0471
     }
    ],
    "fecha_inicio": "2016-01-01",
@@ -5987,33 +5987,33 @@
      "RMSE": 0.1585,
      "MAPE": 0.579,
      "R^2": 0.9662,
-     "rank6": 6,
-     "rank7": 7,
+     "rank6": 5,
+     "rank7": 6,
      "DM": 3.871,
      "p": 0.0001,
      "veredicto": "peor que Naive",
-     "p_holm": 0.0004,
-     "p_holm_bank": 0.0187
+     "p_holm": 0.0005,
+     "p_holm_bank": 0.0169
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1121,
-     "RMSE": 0.1533,
-     "MAPE": 0.5762,
-     "R^2": 0.9684,
-     "rank6": 5,
-     "rank7": 6,
-     "DM": 3.457,
-     "p": 0.0,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1154,
+     "RMSE": 0.159,
+     "MAPE": 0.5918,
+     "R^2": 0.9659,
+     "rank6": 6,
+     "rank7": 7,
+     "DM": 3.949,
+     "p": 0.0003,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.1159,
-      "RMSE": 0.1558,
-      "MAPE": 0.5969,
-      "R^2": 0.9674
+      "MAE": 0.1221,
+      "RMSE": 0.1674,
+      "MAPE": 0.6251,
+      "R^2": 0.9623
      },
-     "p_holm": 0.0,
-     "p_holm_bank": 0.0
+     "p_holm": 0.0012,
+     "p_holm_bank": 0.0471
     },
     {
      "Modelo": "LSTM",
@@ -6123,24 +6123,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1065,
-     "RMSE": 0.1494,
-     "MAPE": 0.5628,
-     "R^2": 0.9855,
+     "Modelo": "N-BEATS",
+     "MAE": 0.118,
+     "RMSE": 0.1604,
+     "MAPE": 0.6328,
+     "R^2": 0.9832,
      "rank6": 5,
      "rank7": 6,
-     "DM": 3.55,
-     "p": 0.0006,
+     "DM": 4.686,
+     "p": 0.0002,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.1077,
-      "RMSE": 0.151,
-      "MAPE": 0.5696,
-      "R^2": 0.9852
+      "MAE": 0.1085,
+      "RMSE": 0.1505,
+      "MAPE": 0.5786,
+      "R^2": 0.9853
      },
-     "p_holm": 0.003,
-     "p_holm_bank": 0.1002
+     "p_holm": 0.001,
+     "p_holm_bank": 0.032
     },
     {
      "Modelo": "LSTM",
@@ -6250,24 +6250,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1042,
-     "RMSE": 0.1444,
-     "MAPE": 0.5605,
-     "R^2": 0.987,
+     "Modelo": "N-BEATS",
+     "MAE": 0.138,
+     "RMSE": 0.1828,
+     "MAPE": 0.7637,
+     "R^2": 0.979,
      "rank6": 5,
      "rank7": 6,
-     "DM": 3.91,
-     "p": 0.0002,
+     "DM": 7.921,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.1021,
-      "RMSE": 0.1422,
-      "MAPE": 0.5484,
-      "R^2": 0.9874
+      "MAE": 0.1549,
+      "RMSE": 0.2062,
+      "MAPE": 0.8648,
+      "R^2": 0.9735
      },
-     "p_holm": 0.0008,
-     "p_holm_bank": 0.0356
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -6377,21 +6377,21 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1217,
-     "RMSE": 0.1597,
-     "MAPE": 0.6578,
-     "R^2": 0.9818,
+     "Modelo": "N-BEATS",
+     "MAE": 0.205,
+     "RMSE": 0.2837,
+     "MAPE": 1.153,
+     "R^2": 0.9383,
      "rank6": 5,
      "rank7": 6,
-     "DM": 8.311,
+     "DM": 11.452,
      "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.1081,
-      "RMSE": 0.1515,
-      "MAPE": 0.5822,
-      "R^2": 0.9837
+      "MAE": 0.1538,
+      "RMSE": 0.2135,
+      "MAPE": 0.8602,
+      "R^2": 0.9676
      },
      "p_holm": 0.0,
      "p_holm_bank": 0.0
@@ -6414,7 +6414,7 @@
       "R^2": 0.9863
      },
      "p_holm": 0.003,
-     "p_holm_bank": 0.164
+     "p_holm_bank": 0.146
     }
    ],
    "fecha_inicio": "2016-01-01",
@@ -6504,21 +6504,21 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1104,
-     "RMSE": 0.15,
-     "MAPE": 0.5876,
-     "R^2": 0.9851,
+     "Modelo": "N-BEATS",
+     "MAE": 0.2111,
+     "RMSE": 0.2839,
+     "MAPE": 1.1795,
+     "R^2": 0.9455,
      "rank6": 5,
      "rank7": 6,
-     "DM": 6.331,
+     "DM": 13.627,
      "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.1089,
-      "RMSE": 0.1479,
-      "MAPE": 0.5816,
-      "R^2": 0.9856
+      "MAE": 0.242,
+      "RMSE": 0.2997,
+      "MAPE": 1.347,
+      "R^2": 0.941
      },
      "p_holm": 0.0,
      "p_holm_bank": 0.0
@@ -6541,7 +6541,7 @@
       "R^2": 0.9873
      },
      "p_holm": 0.0008,
-     "p_holm_bank": 0.0356
+     "p_holm_bank": 0.032
     }
    ],
    "fecha_inicio": "2016-01-01",
@@ -6631,21 +6631,21 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1126,
-     "RMSE": 0.1472,
-     "MAPE": 0.5978,
-     "R^2": 0.9867,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1841,
+     "RMSE": 0.2658,
+     "MAPE": 1.0231,
+     "R^2": 0.9541,
      "rank6": 5,
      "rank7": 6,
-     "DM": 7.095,
+     "DM": 11.858,
      "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.1299,
-      "RMSE": 0.1623,
-      "MAPE": 0.6884,
-      "R^2": 0.9839
+      "MAE": 0.1891,
+      "RMSE": 0.2599,
+      "MAPE": 1.0516,
+      "R^2": 0.9588
      },
      "p_holm": 0.0,
      "p_holm_bank": 0.0
@@ -6758,24 +6758,24 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1033,
-     "RMSE": 0.1399,
-     "MAPE": 0.5405,
-     "R^2": 0.9885,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 5.013,
-     "p": 0.0012,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1906,
+     "RMSE": 0.2719,
+     "MAPE": 1.0517,
+     "R^2": 0.9555,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 13.339,
+     "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.0949,
-      "RMSE": 0.1335,
-      "MAPE": 0.4962,
-      "R^2": 0.9896
+      "MAE": 0.2169,
+      "RMSE": 0.281,
+      "MAPE": 1.1942,
+      "R^2": 0.954
      },
-     "p_holm": 0.0036,
-     "p_holm_bank": 0.1932
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -6783,8 +6783,8 @@
      "RMSE": 0.1495,
      "MAPE": 0.5873,
      "R^2": 0.9869,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 7.678,
      "p": 0.0,
      "veredicto": "peor que Naive",
@@ -6885,21 +6885,21 @@
      "p_holm_bank": 0.0
     },
     {
-     "Modelo": "RNN",
-     "MAE": 0.1086,
-     "RMSE": 0.147,
-     "MAPE": 0.5658,
-     "R^2": 0.9871,
-     "rank6": 4,
-     "rank7": 5,
-     "DM": 7.546,
+     "Modelo": "N-BEATS",
+     "MAE": 0.1682,
+     "RMSE": 0.2342,
+     "MAPE": 0.9054,
+     "R^2": 0.9661,
+     "rank6": 5,
+     "rank7": 6,
+     "DM": 13.557,
      "p": 0.0,
      "veredicto": "peor que Naive",
      "seed0": {
-      "MAE": 0.1133,
-      "RMSE": 0.1525,
-      "MAPE": 0.5955,
-      "R^2": 0.9861
+      "MAE": 0.138,
+      "RMSE": 0.1904,
+      "MAPE": 0.7445,
+      "R^2": 0.9784
      },
      "p_holm": 0.0,
      "p_holm_bank": 0.0
@@ -6910,8 +6910,8 @@
      "RMSE": 0.152,
      "MAPE": 0.5922,
      "R^2": 0.9862,
-     "rank6": 5,
-     "rank7": 6,
+     "rank6": 4,
+     "rank7": 5,
      "DM": 8.484,
      "p": 0.0,
      "veredicto": "peor que Naive",

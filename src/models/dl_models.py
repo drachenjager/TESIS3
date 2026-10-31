@@ -1,8 +1,17 @@
 """Modelos de Deep Learning (PyTorch) para la serie USD/MXN.
 
-Idéntico al Apéndice A (RNN/LSTM de 50 unidades, Adam, MSE, 50 épocas, batch
-16, MinMaxScaler ajustado solo en train). Único cambio: semilla controlable
-para que las corridas sean reproducibles y repetibles.
+Dos arquitecturas con el mismo protocolo de entrenamiento (ventana de 20
+rezagos, Adam, MSE, 50 épocas, lote 16, MinMaxScaler ajustado solo en
+entrenamiento, semilla controlable):
+
+* ``LSTM``: red recurrente con compuertas de 50 unidades (Hochreiter y
+  Schmidhuber, 1997), idéntica a la del Apéndice A original.
+* ``N-BEATS``: Neural Basis Expansion Analysis for Time Series (Oreshkin et al.,
+  2020) en su versión genérica: bloques totalmente conectados que producen un
+  *backcast* (reconstrucción de la ventana) y un *forecast*; cada bloque modela
+  el residuo que deja el anterior y los pronósticos se suman. Sustituye a la RNN
+  simple de la versión anterior, arquitectura que la literatura reciente
+  considera superada por las redes con compuertas (Joseph y Tackes, 2024).
 """
 
 import math
@@ -14,6 +23,9 @@ from sklearn.preprocessing import MinMaxScaler
 torch.set_num_threads(1)
 
 _DL_LAG = 20
+_NBEATS_BLOCKS = 3        # bloques residuales
+_NBEATS_LAYERS = 4        # capas totalmente conectadas por bloque
+_NBEATS_HIDDEN = 64       # unidades por capa
 
 
 def _effective_lag(train_data):
@@ -48,26 +60,49 @@ def prepare_data_dl(series, lag=20):
     return np.array(X).reshape(-1, lag, 1), np.array(y)
 
 
-class _RNNNet(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.rnn = nn.RNN(input_size=1, hidden_size=50, batch_first=True, nonlinearity="tanh")
-        self.fc = nn.Linear(50, 1)
-
-    def forward(self, x):
-        out, _ = self.rnn(x)
-        return self.fc(out[:, -1, :])
-
-
 class _LSTMNet(nn.Module):
-    def __init__(self):
+    def __init__(self, lag=None):
         super().__init__()
         self.lstm = nn.LSTM(input_size=1, hidden_size=50, batch_first=True)
         self.fc = nn.Linear(50, 1)
 
-    def forward(self, x):
+    def forward(self, x):                      # x: (lote, ventana, 1)
         out, _ = self.lstm(x)
         return self.fc(out[:, -1, :])
+
+
+class _NBEATSBlock(nn.Module):
+    """Bloque genérico de N-BEATS: pila de capas FC + proyecciones lineales de backcast y forecast."""
+
+    def __init__(self, lag, hidden=_NBEATS_HIDDEN, n_layers=_NBEATS_LAYERS):
+        super().__init__()
+        layers = [nn.Linear(lag, hidden), nn.ReLU()]
+        for _ in range(n_layers - 1):
+            layers += [nn.Linear(hidden, hidden), nn.ReLU()]
+        self.fc = nn.Sequential(*layers)
+        self.backcast = nn.Linear(hidden, lag)
+        self.forecast = nn.Linear(hidden, 1)
+
+    def forward(self, x):                      # x: (lote, ventana)
+        h = self.fc(x)
+        return self.backcast(h), self.forecast(h)
+
+
+class _NBEATSNet(nn.Module):
+    """N-BEATS genérico con descomposición residual doble (Oreshkin et al., 2020)."""
+
+    def __init__(self, lag, n_blocks=_NBEATS_BLOCKS):
+        super().__init__()
+        self.blocks = nn.ModuleList([_NBEATSBlock(lag) for _ in range(n_blocks)])
+
+    def forward(self, x):                      # x: (lote, ventana, 1)
+        residual = x.squeeze(-1)
+        forecast = torch.zeros(x.shape[0], 1)
+        for block in self.blocks:
+            backcast, fc = block(residual)
+            residual = residual - backcast     # cada bloque modela lo que dejó el anterior
+            forecast = forecast + fc
+        return forecast
 
 
 def _fit(model, X_train, y_train, epochs=50, batch_size=16):
@@ -120,7 +155,7 @@ def _train(net_cls, name, train_data, test_data, forecast_steps, seed):
     scaler = MinMaxScaler(feature_range=(0, 1))
     train_s = scaler.fit_transform(np.asarray(train_data, dtype=float).reshape(-1, 1)).flatten()
     X_train, y_train = prepare_data_dl(train_s, lag=lag)
-    model = net_cls()
+    model = net_cls(lag)
     _fit(model, X_train, y_train)
     predictions, forecast_next = _predict_and_forecast(model, train_data, test_data, forecast_steps, scaler, lag)
     metrics = _compute_metrics(predictions, test_data, name)
@@ -131,8 +166,8 @@ def _train(net_cls, name, train_data, test_data, forecast_steps, seed):
     return metrics, predictions, forecast_next
 
 
-def train_rnn(train_data, test_data, forecast_steps=1, seed=0):
-    return _train(_RNNNet, "RNN", train_data, test_data, forecast_steps, seed)
+def train_nbeats(train_data, test_data, forecast_steps=1, seed=0):
+    return _train(_NBEATSNet, "N-BEATS", train_data, test_data, forecast_steps, seed)
 
 
 def train_lstm(train_data, test_data, forecast_steps=1, seed=0):

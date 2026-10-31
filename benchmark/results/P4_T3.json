@@ -102,12 +102,36 @@
     "MAPE": 0.3729,
     "R^2": 0.8471
    }
+  },
+  "N-BEATS": {
+   "seed0": {
+    "Modelo": "N-BEATS",
+    "MAE": 0.0681,
+    "RMSE": 0.0818,
+    "MAPE": 0.3701,
+    "R^2": 0.8641
+   },
+   "seed1": {
+    "Modelo": "N-BEATS",
+    "MAE": 0.1008,
+    "RMSE": 0.1178,
+    "MAPE": 0.5467,
+    "R^2": 0.718
+   },
+   "seed2": {
+    "Modelo": "N-BEATS",
+    "MAE": 0.0532,
+    "RMSE": 0.0675,
+    "MAPE": 0.2891,
+    "R^2": 0.9073
+   }
   }
  },
  "tiempos": {
   "SARIMA": 3.4,
   "DL": 32.2,
-  "total": 37.3
+  "total": 37.3,
+  "N-BEATS": 18.7
  },
  "sarima_order": "(0, 1, 0)x(0, 0, 0, 5)"
 }

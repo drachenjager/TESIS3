@@ -193,7 +193,7 @@
             <div class="bt-stat">
                 <span class="bt-stat-label">Naive en primer lugar</span>
                 <span class="bt-stat-value">{{ summary.naive_first }} de {{ summary.n_elements }}</span>
-                <span class="bt-stat-note">Solo o empatado, en el ranking con los siete modelos</span>
+                <span class="bt-stat-note">Solo o empatado, en el ranking con los siete modelos. Victorias significativas frente a Naive: {{ summary.better|length }} de {{ summary.n_tests }} contrastes; {{ summary.better_holm_bank }} al corregir por comparaciones múltiples en todo el banco</span>
             </div>
         </div>
     </section>
@@ -233,7 +233,7 @@
                     <dt>Naive (modelo ingenuo)</dt>
                     <dd>Pronostica para mañana el valor de hoy. Es la vara de medir: un modelo solo aporta si le gana de forma consistente.</dd>
                     <dt>Prueba DM y veredicto</dt>
-                    <dd>La prueba de Diebold-Mariano decide si la diferencia de error frente a Naive es estadísticamente significativa (p &lt; 0.05): <em>mejor</em>, <em>sin diferencia</em> o <em>peor</em>.</dd>
+                    <dd>La prueba de Diebold-Mariano decide si la diferencia de error frente a Naive es estadísticamente significativa (p &lt; 0.05): <em>mejor</em>, <em>sin diferencia</em> o <em>peor</em>. El <em>p ajustado</em> aplica la corrección de Holm por las seis comparaciones que se hacen en cada experimento; solo una diferencia con p ajustado &lt; 0.05 es robusta a comparaciones múltiples.</dd>
                 </dl>
             </div>
         </div>
@@ -280,9 +280,11 @@
         </table>
         </div>
         <p class="bt-foot">
-            Lectura rápida: la única celda con estrella es P1,T9 (Holt-Winters, p = 0.026). En el resto, el mejor modelo
-            propuesto empata con el paseo aleatorio (SARIMA converge a él cuando auto_arima elige el orden (0,1,0)) o la
-            diferencia no alcanza significancia estadística.
+            Lectura rápida: la única celda con estrella es P1,T9 (Holt-Winters, p = 0.026). Esa ventaja sobrevive a la
+            corrección de Holm dentro de su experimento (las otras cinco comparaciones son extremas), pero no al considerar las
+            {{ summary.n_tests }} pruebas del banco completo: una sola victoria entre {{ summary.n_tests }} contrastes es compatible con el azar. En el
+            resto, el mejor modelo propuesto empata con el paseo aleatorio (SARIMA converge a él cuando auto_arima elige el
+            orden (0,1,0)) o la diferencia no alcanza significancia estadística.
         </p>
     </section>
 
@@ -313,12 +315,13 @@
                     igual o peor que Naive con significancia al 5 %.
                 </p>
                 <table class="bt-mini bt-counts">
-                    <thead><tr><th>Modelo</th><th>Mejor</th><th>Sin diferencia</th><th>Peor</th><th>No calculable</th></tr></thead>
+                    <thead><tr><th>Modelo</th><th>Mejor</th><th title="Mejor que Naive con p ajustado por Holm &lt; 0.05">Mejor (p ajust.)</th><th>Sin diferencia</th><th>Peor</th><th>No calculable</th></tr></thead>
                     <tbody>
                     {% for m in models6 %}
                         <tr>
                             <td>{{ m }}</td>
                             <td class="bt-num {% if dm_counts[m]['mejor que Naive'] %}bt-good{% else %}bt-zero{% endif %}">{{ dm_counts[m]['mejor que Naive'] }}</td>
+                            <td class="bt-num {% if dm_counts[m]['mejor (Holm)'] %}bt-good{% else %}bt-zero{% endif %}">{{ dm_counts[m]['mejor (Holm)'] }}</td>
                             <td class="bt-num">{{ dm_counts[m]['sin diferencia'] }}</td>
                             <td class="bt-num {% if dm_counts[m]['peor que Naive'] %}bt-bad{% else %}bt-zero{% endif %}">{{ dm_counts[m]['peor que Naive'] }}</td>
                             <td class="bt-num bt-zero">{{ dm_counts[m]['n/a'] }}</td>
@@ -326,7 +329,7 @@
                     {% endfor %}
                     </tbody>
                 </table>
-                <p class="bt-foot">"No calculable": las predicciones son idénticas a las de Naive (SARIMA con orden (0,1,0)), por lo que no hay diferencia que probar.</p>
+                <p class="bt-foot">"No calculable": las predicciones son idénticas a las de Naive (SARIMA con orden (0,1,0)), por lo que no hay diferencia que probar. "Mejor (p ajust.)": victorias que sobreviven a la corrección de Holm dentro de su experimento ({{ summary.better_holm }} en total); al corregir por las {{ summary.n_tests }} pruebas del banco completo sobreviven {{ summary.better_holm_bank }}.</p>
             </div>
         </div>
     </section>
@@ -353,7 +356,7 @@
                 <div class="bt-scroll">
                 <table class="bt-res">
                     <thead>
-                        <tr><th>#</th><th>Modelo</th><th>MAE</th><th>vs Naive</th><th>RMSE</th><th>MAPE %</th><th>R²</th><th>Rank 6</th><th>DM p</th><th>Veredicto</th></tr>
+                        <tr><th>#</th><th>Modelo</th><th>MAE</th><th>vs Naive</th><th>RMSE</th><th>MAPE %</th><th>R²</th><th>Rank 6</th><th>DM p</th><th title="p ajustado por la corrección de Holm">p ajust.</th><th>Veredicto</th></tr>
                     </thead>
                     <tbody>
                     {% for r in e.rows %}
@@ -367,6 +370,7 @@
                             <td class="bt-num">{{ '%.4f'|format(r['R^2']) if r['R^2'] is not none else '—' }}</td>
                             <td class="bt-num">{{ r.rank6 if r.rank6 else '—' }}</td>
                             <td class="bt-num">{{ '%.4f'|format(r.p) if r.p is not none else '—' }}</td>
+                            <td class="bt-num">{{ '%.4f'|format(r.p_holm) if r.p_holm is not none else '—' }}</td>
                             <td><span class="bt-badge bt-badge-{{ r.veredicto|replace(' ', '-')|replace('/', '') }}">{{ r.veredicto }}</span></td>
                         </tr>
                     {% endfor %}

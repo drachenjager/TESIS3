@@ -72,6 +72,17 @@ def _lectura(e, models, naive):
     sig_worse = [ABBR[m["Modelo"]] for m in models if m["veredicto"] == "peor que Naive"]
     if sig_better:
         parts.append(f"Supera a Naive con significancia: {', '.join(sig_better)}.")
+        for m in models:
+            if m["veredicto"] != "mejor que Naive":
+                continue
+            ph, pb = m.get("p_holm"), m.get("p_holm_bank")
+            if ph is not None and ph >= 0.05:
+                parts.append(f"Con la corrección de Holm por las seis comparaciones del experimento "
+                             f"(p ajustado = {ph:.3f}) esa ventaja deja de ser significativa.")
+            elif ph is not None:
+                parts.append(f"La ventaja se mantiene con la corrección de Holm dentro del experimento (p ajustado = {ph:.3f}, "
+                             f"porque las otras comparaciones son extremas)"
+                             + (f", pero no al considerar las pruebas del banco completo (p ajustado = {pb:.2f})." if pb is not None and pb >= 0.05 else "."))
     else:
         parts.append("Ningún modelo supera a Naive con significancia estadística.")
     if sig_worse:
@@ -90,7 +101,8 @@ def _build_context(pub):
                         "fecha_inicio": e1["fecha_inicio"], "fecha_fin": e1["fecha_fin"]})
 
     heat, rank1, details = [], [], []
-    dm_counts = {m: {"mejor que Naive": 0, "sin diferencia": 0, "peor que Naive": 0, "n/a": 0} for m in MODELS6}
+    dm_counts = {m: {"mejor que Naive": 0, "sin diferencia": 0, "peor que Naive": 0, "n/a": 0, "mejor (Holm)": 0}
+                 for m in MODELS6}
     for per in periods:
         P = per["P"]
         cells, counts, elems = [], {m: 0 for m in MODELS6}, []
@@ -107,6 +119,8 @@ def _build_context(pub):
             for m in models:
                 if m["Modelo"] != "Naive":
                     dm_counts[m["Modelo"]][m["veredicto"]] += 1
+                    if m["veredicto"] == "mejor que Naive" and m.get("p_holm") is not None and m["p_holm"] < 0.05:
+                        dm_counts[m["Modelo"]]["mejor (Holm)"] += 1
                 if m.get("rank6") == 1:
                     counts[m["Modelo"]] += 1
             cells.append({
@@ -140,6 +154,9 @@ def _build_context(pub):
         "n_elements": pub["summary"]["n_elements"],
         "naive_first": sum(r["naive_first"] for r in rank1),
         "better": pub["summary"]["better_than_naive"],
+        "better_holm": pub["summary"].get("better_holm", 0),
+        "better_holm_bank": pub["summary"].get("better_holm_bank", 0),
+        "n_tests": pub["summary"].get("n_tests", 0),
         "worse": pub["summary"]["worse_than_naive"],
     }
     return dict(pub=pub, periods=periods, tests=tests, heat=heat, rank1=rank1, rank1_total=rank1_total,

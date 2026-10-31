@@ -41,6 +41,13 @@ def _compute_metrics(predictions, test_data, model_name):
     }
 
 
+def _train_sigma(resid):
+    """Desviación estándar de los errores de entrenamiento a un paso (base del intervalo del 95 %)."""
+    r = np.asarray(resid, dtype=float)
+    r = r[np.isfinite(r)]
+    return float(np.std(r)) if len(r) >= 3 else float("nan")
+
+
 def _empty_metrics(model_name, n_test, forecast_steps):
     metrics = {
         "Modelo": model_name,
@@ -65,6 +72,7 @@ def train_naive(train_data, test_data, forecast_steps=1):
     predictions = history[n - 1:n - 1 + len(test_data)]
     forecast_next = [float(history[-1])] * forecast_steps
     metrics = _compute_metrics(predictions, test_data, "Naive")
+    metrics["sigma_train"] = _train_sigma(np.diff(np.asarray(train_data, dtype=float)))
     return metrics, np.array(predictions), forecast_next
 
 
@@ -119,6 +127,7 @@ def train_sarima(train_data, test_data, forecast_steps=1):
 
         predictions, forecast_next = _sarima_one_step(res, train_data, test_data, forecast_steps)
         metrics = _compute_metrics(predictions, test_data, "SARIMA")
+        metrics["sigma_train"] = _train_sigma(np.asarray(res.resid, dtype=float)[5:])   # sin el arranque difuso
         return metrics, predictions, forecast_next
 
     except Exception:
@@ -161,6 +170,7 @@ def train_holtwinters(train_data, test_data, forecast_steps=1):
         forecast_next = np.asarray(fixed.forecast(forecast_steps), dtype=float).tolist()
 
         metrics = _compute_metrics(predictions, test_data, "Holt-Winters")
+        metrics["sigma_train"] = _train_sigma(np.asarray(hw_fit.resid, dtype=float)[5:])
         return metrics, predictions, forecast_next
 
     except Exception:

@@ -78,6 +78,14 @@
             <div class="chart-wrapper">
                 <canvas id="chart" height="90"></canvas>
             </div>
+            {% if coverage %}
+            <p style="font-size:0.84rem; color:var(--text-secondary); margin:14px 0 0; line-height:1.6;">
+                <strong>Banda del 95 %:</strong> ±1.96 σ, con σ = {{ coverage.sigma }}
+                ({% if coverage.source == 'entrenamiento' %}desviación de los errores de entrenamiento a un paso{% else %}desviación de los errores de prueba{% endif %}).
+                <strong>Cobertura empírica en prueba: {{ coverage.pct }} %</strong>
+                ({{ coverage.n_in }} de {{ coverage.n }} valores reales dentro de la banda; nominal 95 %). {{ coverage.reading }}
+            </p>
+            {% endif %}
         </div>
     </div>
 

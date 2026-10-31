@@ -397,10 +397,48 @@
                 modelo de referencia (paseo aleatorio: el pronóstico de mañana es el valor de hoy); las columnas
                 <strong>DM</strong> y <strong>DM p-valor</strong> corresponden a la prueba de Diebold-Mariano de cada modelo
                 frente a Naive (DM negativo = menor error que Naive; p &lt; 0.05 = diferencia significativa).
+                <strong>DM p ajust.</strong> es el mismo p-valor con la corrección de Holm por las seis comparaciones
+                simultáneas del experimento: si sigue por debajo de 0.05, la diferencia es robusta a comparaciones múltiples.
             </p>
             <div class="table-responsive">
                 {{ metrics_table|safe }}
             </div>
+
+            {% if direction_rows %}
+            <p class="section-label" style="margin-top:22px;">Acierto de dirección (prueba de Pesaran-Timmermann)</p>
+            <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">
+                Independientemente de por cuánto se equivoque, ¿acertó el modelo si el tipo de cambio <strong>subió o bajó</strong>
+                respecto al día anterior? El porcentaje es la fracción de días de prueba con la dirección correcta y la prueba de
+                Pesaran-Timmermann indica si ese acierto supera al esperado por azar (p &lt; 0.05). Naive pronostica "sin cambio",
+                por lo que no toma dirección.
+            </p>
+            <div class="table-responsive">
+            <table style="border-collapse:collapse; width:100%; font-size:0.84rem;">
+                <thead>
+                    <tr style="background:linear-gradient(90deg,#003087,#005EB8); color:#fff; font-size:0.72rem; letter-spacing:0.06em; text-transform:uppercase;">
+                        <th style="padding:9px 12px; text-align:left;">Modelo</th>
+                        <th style="padding:9px 12px; text-align:center;">Acierta la dirección</th>
+                        <th style="padding:9px 12px; text-align:center;">Días evaluados</th>
+                        <th style="padding:9px 12px; text-align:center;">Estadístico PT</th>
+                        <th style="padding:9px 12px; text-align:center;">p-valor</th>
+                        <th style="padding:9px 12px; text-align:left;">Lectura</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for r in direction_rows %}
+                    <tr style="border-bottom:1px solid #D6DCE8;">
+                        <td style="padding:8px 12px; font-weight:600;">{{ r.Modelo }}</td>
+                        <td style="padding:8px 12px; text-align:center; font-variant-numeric:tabular-nums;">{{ r.hit }}</td>
+                        <td style="padding:8px 12px; text-align:center;">{{ r.n }}</td>
+                        <td style="padding:8px 12px; text-align:center; font-variant-numeric:tabular-nums;">{{ r.pt }}</td>
+                        <td style="padding:8px 12px; text-align:center; font-variant-numeric:tabular-nums;">{{ r.p }}</td>
+                        <td style="padding:8px 12px; {% if r.verdict == 'acierta más que el azar' %}color:#1A7340; font-weight:700;{% else %}color:var(--text-secondary);{% endif %}">{{ r.verdict }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% endif %}
         </div>
     </div>
 

@@ -54,6 +54,26 @@ class _ColorDot(Flowable):
         self.canv.circle(r, r, r - 1, fill=1, stroke=0)
 
 
+def _band_sigma(cached, model_name, pred_vals, test_vals):
+    """σ de la banda del 95 %: errores de entrenamiento del modelo; si no existen, errores de prueba."""
+    sigma = float(cached.get("extras", {}).get("sigma_train", {}).get(model_name, float("nan")))
+    if np.isfinite(sigma) and sigma > 0:
+        return sigma, "entrenamiento"
+    return float(np.std(np.array(pred_vals) - np.array(test_vals))), "prueba"
+
+
+def _coverage(cached, model_name):
+    """Cobertura empírica de la banda del 95 % sobre el periodo de prueba."""
+    pred_vals = [v for v in cached["predictions_dict"].get(model_name, []) if v is not None]
+    test_vals = [v for v in cached["test_series"] if v is not None]
+    if not pred_vals or len(pred_vals) != len(test_vals):
+        return None
+    sigma, source = _band_sigma(cached, model_name, pred_vals, test_vals)
+    inside = np.abs(np.array(test_vals) - np.array(pred_vals)) <= 1.96 * sigma
+    return {"pct": float(inside.mean() * 100), "n_in": int(inside.sum()), "n": int(len(inside)),
+            "sigma": sigma, "source": source}
+
+
 def _forecast_png(cached, best_model, w_cm=17.0, h_cm=7.0):
     """PNG con la serie completa + predicción del mejor modelo + IC 95%."""
     train_s = cached["train_series"]
@@ -71,7 +91,7 @@ def _forecast_png(cached, best_model, w_cm=17.0, h_cm=7.0):
     n_train   = sum(1 for v in train_s if v is not None)
 
     if pred_vals and len(pred_vals) == len(test_vals):
-        sigma = float(np.std(np.array(pred_vals) - np.array(test_vals)))
+        sigma = _band_sigma(cached, best_model, pred_vals, test_vals)[0]
         ci_u = [float("nan")] * n_train + [v + 1.96 * sigma for v in pred_vals]
         ci_l = [float("nan")] * n_train + [v - 1.96 * sigma for v in pred_vals]
     else:
@@ -329,17 +349,17 @@ def download_pdf():
     def _num(v, fmt):
         return fmt.format(v) if v is not None and not pd.isna(v) else "—"
 
-    m_rows = [["Modelo", "MAE", "RMSE", "MAPE", "R²", "DM p", "Veredicto", "Rank"]]
+    m_rows = [["Modelo", "MAE", "RMSE", "MAPE", "R²", "DM p", "p aj.", "Veredicto", "Rank"]]
     for _, row in metrics_df.iterrows():
         m_rows.append([
             str(row["Modelo"]),
             _num(row["MAE"], "{:.4f}"), _num(row["RMSE"], "{:.4f}"),
             _num(row["MAPE"], "{:.4f}"), _num(row["R^2"], "{:.4f}"),
-            _num(row.get("DM p-valor"), "{:.4f}"), str(row.get("Veredicto", "")),
-            str(int(row["Rank"])),
+            _num(row.get("DM p-valor"), "{:.4f}"), _num(row.get("DM p ajust."), "{:.4f}"),
+            str(row.get("Veredicto", "")), str(int(row["Rank"])),
         ])
 
-    col_w = [3.6*cm, 1.9*cm, 1.9*cm, 1.9*cm, 1.9*cm, 1.6*cm, 3.1*cm, 1.1*cm]
+    col_w = [3.0*cm, 1.8*cm, 1.8*cm, 1.8*cm, 1.8*cm, 1.5*cm, 1.5*cm, 2.7*cm, 1.1*cm]
     m_tbl = Table(m_rows, colWidths=col_w)
     ts = [
         ("BACKGROUND",    (0,0), (-1,0),  UNAM_BLUE),
@@ -370,7 +390,8 @@ def download_pdf():
     story.append(Spacer(1, 0.15*cm))
     story.append(Paragraph(
         f"Mejor modelo: <b>{best_model}</b> — menor puntuación compuesta en MAE, RMSE, MAPE y R². "
-        "Evaluación a un paso adelante; DM p = p-valor de la prueba de Diebold-Mariano frente al modelo ingenuo (Naive).",
+        "Evaluación a un paso adelante; DM p = p-valor de la prueba de Diebold-Mariano frente al modelo ingenuo (Naive); "
+        "p aj. = el mismo p-valor con la corrección de Holm por las seis comparaciones simultáneas.",
         small_s,
     ))
 
@@ -380,9 +401,15 @@ def download_pdf():
 
     # ── Sección 3: Gráfica del mejor modelo (con IC 95%) ────────────────────
     story.append(Paragraph(f"3. Pronóstico del Mejor Modelo — {best_model}", section_s))
+    cov = _coverage(cached, best_model)
+    cov_txt = ""
+    if cov:
+        cov_txt = (f" Cobertura empírica en prueba: {cov['pct']:.1f} % ({cov['n_in']} de {cov['n']} valores reales "
+                   f"dentro de la banda; nominal 95 %; sigma = {cov['sigma']:.4f}, errores de {cov['source']}).")
     story.append(Paragraph(
         "Serie histórica completa con la predicción del modelo ganador y su intervalo de confianza al 95 %. "
-        "La banda sombreada se obtiene como ±1.96 desviaciones estándar de los residuales del período de prueba.",
+        "La banda sombreada se obtiene como ±1.96 desviaciones estándar de los errores de entrenamiento a un paso "
+        "del modelo, de modo que la cobertura observada en prueba es una verificación honesta." + cov_txt,
         body_s,
     ))
     story.append(Spacer(1, 0.2*cm))

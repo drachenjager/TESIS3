@@ -30,6 +30,7 @@ tesis-forecast/
 │   ├── data.py
 │   ├── launch.ps1
 │   ├── run_bench.py
+│   ├── run_block2.py
 │   └── usdmxn_cache.csv
 ├── data/
 ├── notebooks/

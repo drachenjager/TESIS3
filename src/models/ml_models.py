@@ -61,7 +61,9 @@ def _fit_predict(model, name, train_data, test_data, forecast_steps):
         history.append(actual)
     test_preds = np.array(test_preds)
     forecast_next = _recursive_predict(model, list(train_data) + list(test_data), forecast_steps, lags)
-    return _compute_metrics(test_preds, test_data, name), test_preds, forecast_next
+    metrics = _compute_metrics(test_preds, test_data, name)
+    metrics["sigma_train"] = float(np.std(model.predict(X) - y)) if len(y) >= 3 else float("nan")
+    return metrics, test_preds, forecast_next
 
 
 def train_linear_regression(train_data, test_data, forecast_steps=1):

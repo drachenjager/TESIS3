@@ -10,6 +10,7 @@ from flask import Blueprint, render_template, request
 from app import cache
 from src.data.fetch import get_usdmxn
 from src.features.build import compute_risk
+from src.models.evaluation import ljung_box_p
 from src.models.pipeline import train_and_evaluate
 from src.models.ranking import add_ranking
 
@@ -37,10 +38,38 @@ def _render_index(**kwargs):
         error=None, selected_period="1y", selected_test_percent=20,
         query_mode="period", selected_start_date="", selected_end_date="",
         selected_anchor_date="", selected_anchor_period="1y",
-        semaforo=None,
+        semaforo=None, direction_rows=None,
     )
     defaults.update(kwargs)
     return render_template("index.html", **defaults)
+
+
+def _direction_rows(direction, order):
+    """Filas de acierto de dirección (prueba de Pesaran-Timmermann) en el orden del ranking."""
+    rows = []
+    for name in order:
+        d = direction.get(name) or {}
+        hit, n, pt, p = d.get("hit"), d.get("n", 0), d.get("pt"), d.get("p")
+        if name == "Naive" or hit is None or not np.isfinite(hit):
+            rows.append({"Modelo": name, "hit": "—", "n": n, "pt": "—", "p": "—",
+                         "verdict": "sin dirección: pronostica 'sin cambio'" if name == "Naive" else "sin dirección definida"})
+            continue
+        if p is not None and np.isfinite(p):
+            verdict = "acierta más que el azar" if p < 0.05 else "no distinguible del azar"
+        else:
+            verdict = "pronostica siempre la misma dirección; la prueba no aplica"
+        rows.append({"Modelo": name, "hit": f"{hit * 100:.1f} %", "n": n,
+                     "pt": f"{pt:.2f}" if pt is not None and np.isfinite(pt) else "—",
+                     "p": f"{p:.3f}" if p is not None and np.isfinite(p) else "—", "verdict": verdict})
+    return rows
+
+
+def _band_sigma(cached, model_name, pred_values, test_values):
+    """σ de la banda del 95 %: errores de entrenamiento del modelo; si no existen, errores de prueba."""
+    sigma = float(cached.get("extras", {}).get("sigma_train", {}).get(model_name, float("nan")))
+    if np.isfinite(sigma) and sigma > 0:
+        return sigma, "entrenamiento"
+    return float(np.std(np.array(pred_values) - np.array(test_values))), "prueba"
 
 
 # ---------------------------------------------------------------------------
@@ -161,7 +190,7 @@ def index():
             ), 400
 
         test_size = max(1, int(len(df) * test_percent / 100))
-        metrics_df, forecast_values, train_series, test_series, predictions_dict = (
+        metrics_df, forecast_values, train_series, test_series, predictions_dict, extras = (
             train_and_evaluate(df, forecast_steps=test_size, test_size=test_size)
         )
         dates = df["Date"].dt.strftime("%Y-%m-%d").tolist()
@@ -171,6 +200,7 @@ def index():
             "metrics_df": metrics_df, "forecast_values": forecast_values,
             "train_series": train_series, "test_series": test_series,
             "predictions_dict": predictions_dict, "dates": dates, "semaforo": semaforo,
+            "extras": extras,
         }
         cache.set(cache_key, cached)
 
@@ -178,7 +208,7 @@ def index():
     metrics_df, best_idx = add_ranking(cached["metrics_df"])
 
     format_dict = {"MAE": "{:.4f}", "RMSE": "{:.4f}", "MAPE": "{:.4f}", "R^2": "{:.4f}",
-                   "DM": "{:.3f}", "DM p-valor": "{:.4f}", "Rank": "{:.0f}"}
+                   "DM": "{:.3f}", "DM p-valor": "{:.4f}", "DM p ajust.": "{:.4f}", "Rank": "{:.0f}"}
 
     def highlight_best(row):
         if row.name == best_idx:
@@ -234,6 +264,7 @@ def index():
         selected_end_date=end_date or "", selected_test_percent=test_percent,
         selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
         semaforo=cached.get("semaforo"),
+        direction_rows=_direction_rows(cached.get("extras", {}).get("direction", {}), metrics_df["Modelo"].tolist()),
     )
 
 
@@ -259,11 +290,22 @@ def plot():
     pred_values  = [x for x in pred_series  if x is not None]
     test_values  = [x for x in test_series  if x is not None]
 
+    coverage = None
     if pred_values and test_values and len(pred_values) == len(test_values):
-        residuals = np.array(pred_values) - np.array(test_values)
-        sigma = float(np.std(residuals))
+        sigma, sigma_source = _band_sigma(cached, model_name, pred_values, test_values)
         ci_upper = [None] * n_train + [round(v + 1.96 * sigma, 4) for v in pred_values]
         ci_lower = [None] * n_train + [round(v - 1.96 * sigma, 4) for v in pred_values]
+        inside = np.abs(np.array(test_values) - np.array(pred_values)) <= 1.96 * sigma
+        pct = float(inside.mean() * 100)
+        if pct < 90:
+            reading = ("La banda es más estrecha de lo que debería: el modelo se equivoca más en prueba que en "
+                       "entrenamiento, señal de sobreajuste.")
+        elif pct > 98.5:
+            reading = "La banda es más ancha de lo necesario: los errores de prueba fueron menores que los de entrenamiento."
+        else:
+            reading = "La banda es consistente con su nivel nominal del 95 %."
+        coverage = {"pct": round(pct, 1), "n_in": int(inside.sum()), "n": int(len(inside)),
+                    "sigma": round(sigma, 4), "source": sigma_source, "reading": reading}
     else:
         ci_upper = [None] * len(pred_series)
         ci_lower = [None] * len(pred_series)
@@ -276,7 +318,7 @@ def plot():
         model_name=model_name, train_series=train_series, test_series=test_series,
         pred_series=pred_series, ci_upper=ci_upper, ci_lower=ci_lower, dates=dates,
         train_display=fmt(train_series), test_display=fmt(test_series),
-        pred_display=fmt(pred_series), cache_key=cache_key,
+        pred_display=fmt(pred_series), cache_key=cache_key, coverage=coverage,
     )
 
 
@@ -346,13 +388,25 @@ def residuals():
         else:
             var_txt = "La alta variabilidad sugiere que el modelo presenta dificultades para capturar ciertos patrones de la serie."
 
-        interpretations[model_name] = f"{bias_txt} {var_txt}"
+        lb_p, lb_lags = ljung_box_p(resid, lags=10)
+        residuals_stats[model_name]["lb_p"] = f"{lb_p:.3f}" if np.isfinite(lb_p) else "—"
+        residuals_stats[model_name]["lb_lags"] = lb_lags
+        if not np.isfinite(lb_p):
+            lb_txt = ""
+        elif lb_p >= 0.05:
+            lb_txt = (f" Prueba de Ljung-Box (p = {lb_p:.3f}, {lb_lags} rezagos): los residuales <strong>no muestran "
+                      "autocorrelación</strong>; lo que queda es ruido sin estructura que otro modelo pudiera aprovechar.")
+        else:
+            lb_txt = (f" Prueba de Ljung-Box (p = {lb_p:.3f}, {lb_lags} rezagos): los residuales <strong>conservan "
+                      "autocorrelación</strong>; quedan patrones que el modelo no capturó.")
+        interpretations[model_name] = f"{bias_txt} {var_txt}{lb_txt}"
 
     return render_template(
         "residuals.html",
         residuals_data=residuals_data, residuals_stats=residuals_stats,
         hist_data=hist_data, interpretations=interpretations,
         dates_test=dates_test, cache_key=cache_key,
+        stationarity=cached.get("extras", {}).get("stationarity"),
     )
 
 

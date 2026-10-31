@@ -35,6 +35,7 @@ tesis-forecast/
 │   ├── data.py
 │   ├── launch.ps1
 │   ├── run_bench.py
+│   ├── run_block2.py
 │   └── usdmxn_cache.csv
 ├── data/
 ├── notebooks/
@@ -260,6 +261,17 @@ def _lectura(e, models, naive):
     sig_worse = [ABBR[m["Modelo"]] for m in models if m["veredicto"] == "peor que Naive"]
     if sig_better:
         parts.append(f"Supera a Naive con significancia: {', '.join(sig_better)}.")
+        for m in models:
+            if m["veredicto"] != "mejor que Naive":
+                continue
+            ph, pb = m.get("p_holm"), m.get("p_holm_bank")
+            if ph is not None and ph >= 0.05:
+                parts.append(f"Con la corrección de Holm por las seis comparaciones del experimento "
+                             f"(p ajustado = {ph:.3f}) esa ventaja deja de ser significativa.")
+            elif ph is not None:
+                parts.append(f"La ventaja se mantiene con la corrección de Holm dentro del experimento (p ajustado = {ph:.3f}, "
+                             f"porque las otras comparaciones son extremas)"
+                             + (f", pero no al considerar las pruebas del banco completo (p ajustado = {pb:.2f})." if pb is not None and pb >= 0.05 else "."))
     else:
         parts.append("Ningún modelo supera a Naive con significancia estadística.")
     if sig_worse:
@@ -278,7 +290,8 @@ def _build_context(pub):
                         "fecha_inicio": e1["fecha_inicio"], "fecha_fin": e1["fecha_fin"]})
 
     heat, rank1, details = [], [], []
-    dm_counts = {m: {"mejor que Naive": 0, "sin diferencia": 0, "peor que Naive": 0, "n/a": 0} for m in MODELS6}
+    dm_counts = {m: {"mejor que Naive": 0, "sin diferencia": 0, "peor que Naive": 0, "n/a": 0, "mejor (Holm)": 0}
+                 for m in MODELS6}
     for per in periods:
         P = per["P"]
         cells, counts, elems = [], {m: 0 for m in MODELS6}, []
@@ -295,6 +308,8 @@ def _build_context(pub):
             for m in models:
                 if m["Modelo"] != "Naive":
                     dm_counts[m["Modelo"]][m["veredicto"]] += 1
+                    if m["veredicto"] == "mejor que Naive" and m.get("p_holm") is not None and m["p_holm"] < 0.05:
+                        dm_counts[m["Modelo"]]["mejor (Holm)"] += 1
                 if m.get("rank6") == 1:
                     counts[m["Modelo"]] += 1
             cells.append({
@@ -328,6 +343,9 @@ def _build_context(pub):
         "n_elements": pub["summary"]["n_elements"],
         "naive_first": sum(r["naive_first"] for r in rank1),
         "better": pub["summary"]["better_than_naive"],
+        "better_holm": pub["summary"].get("better_holm", 0),
+        "better_holm_bank": pub["summary"].get("better_holm_bank", 0),
+        "n_tests": pub["summary"].get("n_tests", 0),
         "worse": pub["summary"]["worse_than_naive"],
     }
     return dict(pub=pub, periods=periods, tests=tests, heat=heat, rank1=rank1, rank1_total=rank1_total,
@@ -402,6 +420,26 @@ class _ColorDot(Flowable):
         self.canv.circle(r, r, r - 1, fill=1, stroke=0)
 
 
+def _band_sigma(cached, model_name, pred_vals, test_vals):
+    """σ de la banda del 95 %: errores de entrenamiento del modelo; si no existen, errores de prueba."""
+    sigma = float(cached.get("extras", {}).get("sigma_train", {}).get(model_name, float("nan")))
+    if np.isfinite(sigma) and sigma > 0:
+        return sigma, "entrenamiento"
+    return float(np.std(np.array(pred_vals) - np.array(test_vals))), "prueba"
+
+
+def _coverage(cached, model_name):
+    """Cobertura empírica de la banda del 95 % sobre el periodo de prueba."""
+    pred_vals = [v for v in cached["predictions_dict"].get(model_name, []) if v is not None]
+    test_vals = [v for v in cached["test_series"] if v is not None]
+    if not pred_vals or len(pred_vals) != len(test_vals):
+        return None
+    sigma, source = _band_sigma(cached, model_name, pred_vals, test_vals)
+    inside = np.abs(np.array(test_vals) - np.array(pred_vals)) <= 1.96 * sigma
+    return {"pct": float(inside.mean() * 100), "n_in": int(inside.sum()), "n": int(len(inside)),
+            "sigma": sigma, "source": source}
+
+
 def _forecast_png(cached, best_model, w_cm=17.0, h_cm=7.0):
     """PNG con la serie completa + predicción del mejor modelo + IC 95%."""
     train_s = cached["train_series"]
@@ -419,7 +457,7 @@ def _forecast_png(cached, best_model, w_cm=17.0, h_cm=7.0):
     n_train   = sum(1 for v in train_s if v is not None)
 
     if pred_vals and len(pred_vals) == len(test_vals):
-        sigma = float(np.std(np.array(pred_vals) - np.array(test_vals)))
+        sigma = _band_sigma(cached, best_model, pred_vals, test_vals)[0]
         ci_u = [float("nan")] * n_train + [v + 1.96 * sigma for v in pred_vals]
         ci_l = [float("nan")] * n_train + [v - 1.96 * sigma for v in pred_vals]
     else:
@@ -677,17 +715,17 @@ def download_pdf():
     def _num(v, fmt):
         return fmt.format(v) if v is not None and not pd.isna(v) else "—"
 
-    m_rows = [["Modelo", "MAE", "RMSE", "MAPE", "R²", "DM p", "Veredicto", "Rank"]]
+    m_rows = [["Modelo", "MAE", "RMSE", "MAPE", "R²", "DM p", "p aj.", "Veredicto", "Rank"]]
     for _, row in metrics_df.iterrows():
         m_rows.append([
             str(row["Modelo"]),
             _num(row["MAE"], "{:.4f}"), _num(row["RMSE"], "{:.4f}"),
             _num(row["MAPE"], "{:.4f}"), _num(row["R^2"], "{:.4f}"),
-            _num(row.get("DM p-valor"), "{:.4f}"), str(row.get("Veredicto", "")),
-            str(int(row["Rank"])),
+            _num(row.get("DM p-valor"), "{:.4f}"), _num(row.get("DM p ajust."), "{:.4f}"),
+            str(row.get("Veredicto", "")), str(int(row["Rank"])),
         ])
 
-    col_w = [3.6*cm, 1.9*cm, 1.9*cm, 1.9*cm, 1.9*cm, 1.6*cm, 3.1*cm, 1.1*cm]
+    col_w = [3.0*cm, 1.8*cm, 1.8*cm, 1.8*cm, 1.8*cm, 1.5*cm, 1.5*cm, 2.7*cm, 1.1*cm]
     m_tbl = Table(m_rows, colWidths=col_w)
     ts = [
         ("BACKGROUND",    (0,0), (-1,0),  UNAM_BLUE),
@@ -718,7 +756,8 @@ def download_pdf():
     story.append(Spacer(1, 0.15*cm))
     story.append(Paragraph(
         f"Mejor modelo: <b>{best_model}</b> — menor puntuación compuesta en MAE, RMSE, MAPE y R². "
-        "Evaluación a un paso adelante; DM p = p-valor de la prueba de Diebold-Mariano frente al modelo ingenuo (Naive).",
+        "Evaluación a un paso adelante; DM p = p-valor de la prueba de Diebold-Mariano frente al modelo ingenuo (Naive); "
+        "p aj. = el mismo p-valor con la corrección de Holm por las seis comparaciones simultáneas.",
         small_s,
     ))
 
@@ -728,9 +767,15 @@ def download_pdf():
 
     # ── Sección 3: Gráfica del mejor modelo (con IC 95%) ────────────────────
     story.append(Paragraph(f"3. Pronóstico del Mejor Modelo — {best_model}", section_s))
+    cov = _coverage(cached, best_model)
+    cov_txt = ""
+    if cov:
+        cov_txt = (f" Cobertura empírica en prueba: {cov['pct']:.1f} % ({cov['n_in']} de {cov['n']} valores reales "
+                   f"dentro de la banda; nominal 95 %; sigma = {cov['sigma']:.4f}, errores de {cov['source']}).")
     story.append(Paragraph(
         "Serie histórica completa con la predicción del modelo ganador y su intervalo de confianza al 95 %. "
-        "La banda sombreada se obtiene como ±1.96 desviaciones estándar de los residuales del período de prueba.",
+        "La banda sombreada se obtiene como ±1.96 desviaciones estándar de los errores de entrenamiento a un paso "
+        "del modelo, de modo que la cobertura observada en prueba es una verificación honesta." + cov_txt,
         body_s,
     ))
     story.append(Spacer(1, 0.2*cm))
@@ -835,6 +880,7 @@ from flask import Blueprint, render_template, request
 from app import cache
 from src.data.fetch import get_usdmxn
 from src.features.build import compute_risk
+from src.models.evaluation import ljung_box_p
 from src.models.pipeline import train_and_evaluate
 from src.models.ranking import add_ranking
 
@@ -862,10 +908,38 @@ def _render_index(**kwargs):
         error=None, selected_period="1y", selected_test_percent=20,
         query_mode="period", selected_start_date="", selected_end_date="",
         selected_anchor_date="", selected_anchor_period="1y",
-        semaforo=None,
+        semaforo=None, direction_rows=None,
     )
     defaults.update(kwargs)
     return render_template("index.html", **defaults)
+
+
+def _direction_rows(direction, order):
+    """Filas de acierto de dirección (prueba de Pesaran-Timmermann) en el orden del ranking."""
+    rows = []
+    for name in order:
+        d = direction.get(name) or {}
+        hit, n, pt, p = d.get("hit"), d.get("n", 0), d.get("pt"), d.get("p")
+        if name == "Naive" or hit is None or not np.isfinite(hit):
+            rows.append({"Modelo": name, "hit": "—", "n": n, "pt": "—", "p": "—",
+                         "verdict": "sin dirección: pronostica 'sin cambio'" if name == "Naive" else "sin dirección definida"})
+            continue
+        if p is not None and np.isfinite(p):
+            verdict = "acierta más que el azar" if p < 0.05 else "no distinguible del azar"
+        else:
+            verdict = "pronostica siempre la misma dirección; la prueba no aplica"
+        rows.append({"Modelo": name, "hit": f"{hit * 100:.1f} %", "n": n,
+                     "pt": f"{pt:.2f}" if pt is not None and np.isfinite(pt) else "—",
+                     "p": f"{p:.3f}" if p is not None and np.isfinite(p) else "—", "verdict": verdict})
+    return rows
+
+
+def _band_sigma(cached, model_name, pred_values, test_values):
+    """σ de la banda del 95 %: errores de entrenamiento del modelo; si no existen, errores de prueba."""
+    sigma = float(cached.get("extras", {}).get("sigma_train", {}).get(model_name, float("nan")))
+    if np.isfinite(sigma) and sigma > 0:
+        return sigma, "entrenamiento"
+    return float(np.std(np.array(pred_values) - np.array(test_values))), "prueba"
 
 
 # ---------------------------------------------------------------------------
@@ -986,7 +1060,7 @@ def index():
             ), 400
 
         test_size = max(1, int(len(df) * test_percent / 100))
-        metrics_df, forecast_values, train_series, test_series, predictions_dict = (
+        metrics_df, forecast_values, train_series, test_series, predictions_dict, extras = (
             train_and_evaluate(df, forecast_steps=test_size, test_size=test_size)
         )
         dates = df["Date"].dt.strftime("%Y-%m-%d").tolist()
@@ -996,6 +1070,7 @@ def index():
             "metrics_df": metrics_df, "forecast_values": forecast_values,
             "train_series": train_series, "test_series": test_series,
             "predictions_dict": predictions_dict, "dates": dates, "semaforo": semaforo,
+            "extras": extras,
         }
         cache.set(cache_key, cached)
 
@@ -1003,7 +1078,7 @@ def index():
     metrics_df, best_idx = add_ranking(cached["metrics_df"])
 
     format_dict = {"MAE": "{:.4f}", "RMSE": "{:.4f}", "MAPE": "{:.4f}", "R^2": "{:.4f}",
-                   "DM": "{:.3f}", "DM p-valor": "{:.4f}", "Rank": "{:.0f}"}
+                   "DM": "{:.3f}", "DM p-valor": "{:.4f}", "DM p ajust.": "{:.4f}", "Rank": "{:.0f}"}
 
     def highlight_best(row):
         if row.name == best_idx:
@@ -1059,6 +1134,7 @@ def index():
         selected_end_date=end_date or "", selected_test_percent=test_percent,
         selected_anchor_date=anchor_date_str, selected_anchor_period=anchor_period,
         semaforo=cached.get("semaforo"),
+        direction_rows=_direction_rows(cached.get("extras", {}).get("direction", {}), metrics_df["Modelo"].tolist()),
     )
 
 
@@ -1084,11 +1160,22 @@ def plot():
     pred_values  = [x for x in pred_series  if x is not None]
     test_values  = [x for x in test_series  if x is not None]
 
+    coverage = None
     if pred_values and test_values and len(pred_values) == len(test_values):
-        residuals = np.array(pred_values) - np.array(test_values)
-        sigma = float(np.std(residuals))
+        sigma, sigma_source = _band_sigma(cached, model_name, pred_values, test_values)
         ci_upper = [None] * n_train + [round(v + 1.96 * sigma, 4) for v in pred_values]
         ci_lower = [None] * n_train + [round(v - 1.96 * sigma, 4) for v in pred_values]
+        inside = np.abs(np.array(test_values) - np.array(pred_values)) <= 1.96 * sigma
+        pct = float(inside.mean() * 100)
+        if pct < 90:
+            reading = ("La banda es más estrecha de lo que debería: el modelo se equivoca más en prueba que en "
+                       "entrenamiento, señal de sobreajuste.")
+        elif pct > 98.5:
+            reading = "La banda es más ancha de lo necesario: los errores de prueba fueron menores que los de entrenamiento."
+        else:
+            reading = "La banda es consistente con su nivel nominal del 95 %."
+        coverage = {"pct": round(pct, 1), "n_in": int(inside.sum()), "n": int(len(inside)),
+                    "sigma": round(sigma, 4), "source": sigma_source, "reading": reading}
     else:
         ci_upper = [None] * len(pred_series)
         ci_lower = [None] * len(pred_series)
@@ -1101,7 +1188,7 @@ def plot():
         model_name=model_name, train_series=train_series, test_series=test_series,
         pred_series=pred_series, ci_upper=ci_upper, ci_lower=ci_lower, dates=dates,
         train_display=fmt(train_series), test_display=fmt(test_series),
-        pred_display=fmt(pred_series), cache_key=cache_key,
+        pred_display=fmt(pred_series), cache_key=cache_key, coverage=coverage,
     )
 
 
@@ -1171,13 +1258,25 @@ def residuals():
         else:
             var_txt = "La alta variabilidad sugiere que el modelo presenta dificultades para capturar ciertos patrones de la serie."
 
-        interpretations[model_name] = f"{bias_txt} {var_txt}"
+        lb_p, lb_lags = ljung_box_p(resid, lags=10)
+        residuals_stats[model_name]["lb_p"] = f"{lb_p:.3f}" if np.isfinite(lb_p) else "—"
+        residuals_stats[model_name]["lb_lags"] = lb_lags
+        if not np.isfinite(lb_p):
+            lb_txt = ""
+        elif lb_p >= 0.05:
+            lb_txt = (f" Prueba de Ljung-Box (p = {lb_p:.3f}, {lb_lags} rezagos): los residuales <strong>no muestran "
+                      "autocorrelación</strong>; lo que queda es ruido sin estructura que otro modelo pudiera aprovechar.")
+        else:
+            lb_txt = (f" Prueba de Ljung-Box (p = {lb_p:.3f}, {lb_lags} rezagos): los residuales <strong>conservan "
+                      "autocorrelación</strong>; quedan patrones que el modelo no capturó.")
+        interpretations[model_name] = f"{bias_txt} {var_txt}{lb_txt}"
 
     return render_template(
         "residuals.html",
         residuals_data=residuals_data, residuals_stats=residuals_stats,
         hist_data=hist_data, interpretations=interpretations,
         dates_test=dates_test, cache_key=cache_key,
+        stationarity=cached.get("extras", {}).get("stationarity"),
     )
 
 
@@ -2351,7 +2450,7 @@ $(document).ready(function () {
             <div class="bt-stat">
                 <span class="bt-stat-label">Naive en primer lugar</span>
                 <span class="bt-stat-value">{{ summary.naive_first }} de {{ summary.n_elements }}</span>
-                <span class="bt-stat-note">Solo o empatado, en el ranking con los siete modelos</span>
+                <span class="bt-stat-note">Solo o empatado, en el ranking con los siete modelos. Victorias significativas frente a Naive: {{ summary.better|length }} de {{ summary.n_tests }} contrastes; {{ summary.better_holm_bank }} al corregir por comparaciones múltiples en todo el banco</span>
             </div>
         </div>
     </section>
@@ -2377,7 +2476,7 @@ $(document).ready(function () {
                 </table>
                 <table class="bt-mini">
                     <thead><tr><th>Clave</th>{% for t in tests %}<th style="text-align:center;">{{ t.T }}</th>{% endfor %}</tr></thead>
-                    <tbody><tr><td class="bt-key">Prueba</td>{% for t in tests %}<td style="text-align:center;">{{ t.pct }} %</td>{% endfor %}</tr></tbody>
+                    <tbody><tr><td class="bt-key">Prueba</td>{% for t in tests %}<td style="text-align:center; white-space:nowrap;">{{ t.pct }}&nbsp;%</td>{% endfor %}</tr></tbody>
                 </table>
             </div>
             <div>
@@ -2391,7 +2490,7 @@ $(document).ready(function () {
                     <dt>Naive (modelo ingenuo)</dt>
                     <dd>Pronostica para mañana el valor de hoy. Es la vara de medir: un modelo solo aporta si le gana de forma consistente.</dd>
                     <dt>Prueba DM y veredicto</dt>
-                    <dd>La prueba de Diebold-Mariano decide si la diferencia de error frente a Naive es estadísticamente significativa (p &lt; 0.05): <em>mejor</em>, <em>sin diferencia</em> o <em>peor</em>.</dd>
+                    <dd>La prueba de Diebold-Mariano decide si la diferencia de error frente a Naive es estadísticamente significativa (p &lt; 0.05): <em>mejor</em>, <em>sin diferencia</em> o <em>peor</em>. El <em>p ajustado</em> aplica la corrección de Holm por las seis comparaciones que se hacen en cada experimento; solo una diferencia con p ajustado &lt; 0.05 es robusta a comparaciones múltiples.</dd>
                 </dl>
             </div>
         </div>
@@ -2438,9 +2537,11 @@ $(document).ready(function () {
         </table>
         </div>
         <p class="bt-foot">
-            Lectura rápida: la única celda con estrella es P1,T9 (Holt-Winters, p = 0.026). En el resto, el mejor modelo
-            propuesto empata con el paseo aleatorio (SARIMA converge a él cuando auto_arima elige el orden (0,1,0)) o la
-            diferencia no alcanza significancia estadística.
+            Lectura rápida: la única celda con estrella es P1,T9 (Holt-Winters, p = 0.026). Esa ventaja sobrevive a la
+            corrección de Holm dentro de su experimento (las otras cinco comparaciones son extremas), pero no al considerar las
+            {{ summary.n_tests }} pruebas del banco completo: una sola victoria entre {{ summary.n_tests }} contrastes es compatible con el azar. En el
+            resto, el mejor modelo propuesto empata con el paseo aleatorio (SARIMA converge a él cuando auto_arima elige el
+            orden (0,1,0)) o la diferencia no alcanza significancia estadística.
         </p>
     </section>
 
@@ -2471,12 +2572,13 @@ $(document).ready(function () {
                     igual o peor que Naive con significancia al 5 %.
                 </p>
                 <table class="bt-mini bt-counts">
-                    <thead><tr><th>Modelo</th><th>Mejor</th><th>Sin diferencia</th><th>Peor</th><th>No calculable</th></tr></thead>
+                    <thead><tr><th>Modelo</th><th>Mejor</th><th title="Mejor que Naive con p ajustado por Holm &lt; 0.05">Mejor (p ajust.)</th><th>Sin diferencia</th><th>Peor</th><th>No calculable</th></tr></thead>
                     <tbody>
                     {% for m in models6 %}
                         <tr>
                             <td>{{ m }}</td>
                             <td class="bt-num {% if dm_counts[m]['mejor que Naive'] %}bt-good{% else %}bt-zero{% endif %}">{{ dm_counts[m]['mejor que Naive'] }}</td>
+                            <td class="bt-num {% if dm_counts[m]['mejor (Holm)'] %}bt-good{% else %}bt-zero{% endif %}">{{ dm_counts[m]['mejor (Holm)'] }}</td>
                             <td class="bt-num">{{ dm_counts[m]['sin diferencia'] }}</td>
                             <td class="bt-num {% if dm_counts[m]['peor que Naive'] %}bt-bad{% else %}bt-zero{% endif %}">{{ dm_counts[m]['peor que Naive'] }}</td>
                             <td class="bt-num bt-zero">{{ dm_counts[m]['n/a'] }}</td>
@@ -2484,7 +2586,7 @@ $(document).ready(function () {
                     {% endfor %}
                     </tbody>
                 </table>
-                <p class="bt-foot">"No calculable": las predicciones son idénticas a las de Naive (SARIMA con orden (0,1,0)), por lo que no hay diferencia que probar.</p>
+                <p class="bt-foot">"No calculable": las predicciones son idénticas a las de Naive (SARIMA con orden (0,1,0)), por lo que no hay diferencia que probar. "Mejor (p ajust.)": victorias que sobreviven a la corrección de Holm dentro de su experimento ({{ summary.better_holm }} en total); al corregir por las {{ summary.n_tests }} pruebas del banco completo sobreviven {{ summary.better_holm_bank }}.</p>
             </div>
         </div>
     </section>
@@ -2511,7 +2613,7 @@ $(document).ready(function () {
                 <div class="bt-scroll">
                 <table class="bt-res">
                     <thead>
-                        <tr><th>#</th><th>Modelo</th><th>MAE</th><th>vs Naive</th><th>RMSE</th><th>MAPE %</th><th>R²</th><th>Rank 6</th><th>DM p</th><th>Veredicto</th></tr>
+                        <tr><th>#</th><th>Modelo</th><th>MAE</th><th>vs Naive</th><th>RMSE</th><th>MAPE %</th><th>R²</th><th>Rank 6</th><th>DM p</th><th title="p ajustado por la corrección de Holm">p ajust.</th><th>Veredicto</th></tr>
                     </thead>
                     <tbody>
                     {% for r in e.rows %}
@@ -2525,6 +2627,7 @@ $(document).ready(function () {
                             <td class="bt-num">{{ '%.4f'|format(r['R^2']) if r['R^2'] is not none else '—' }}</td>
                             <td class="bt-num">{{ r.rank6 if r.rank6 else '—' }}</td>
                             <td class="bt-num">{{ '%.4f'|format(r.p) if r.p is not none else '—' }}</td>
+                            <td class="bt-num">{{ '%.4f'|format(r.p_holm) if r.p_holm is not none else '—' }}</td>
                             <td><span class="bt-badge bt-badge-{{ r.veredicto|replace(' ', '-')|replace('/', '') }}">{{ r.veredicto }}</span></td>
                         </tr>
                     {% endfor %}
@@ -3358,10 +3461,48 @@ $(document).ready(function () {
                 modelo de referencia (paseo aleatorio: el pronóstico de mañana es el valor de hoy); las columnas
                 <strong>DM</strong> y <strong>DM p-valor</strong> corresponden a la prueba de Diebold-Mariano de cada modelo
                 frente a Naive (DM negativo = menor error que Naive; p &lt; 0.05 = diferencia significativa).
+                <strong>DM p ajust.</strong> es el mismo p-valor con la corrección de Holm por las seis comparaciones
+                simultáneas del experimento: si sigue por debajo de 0.05, la diferencia es robusta a comparaciones múltiples.
             </p>
             <div class="table-responsive">
                 {{ metrics_table|safe }}
             </div>
+
+            {% if direction_rows %}
+            <p class="section-label" style="margin-top:22px;">Acierto de dirección (prueba de Pesaran-Timmermann)</p>
+            <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">
+                Independientemente de por cuánto se equivoque, ¿acertó el modelo si el tipo de cambio <strong>subió o bajó</strong>
+                respecto al día anterior? El porcentaje es la fracción de días de prueba con la dirección correcta y la prueba de
+                Pesaran-Timmermann indica si ese acierto supera al esperado por azar (p &lt; 0.05). Naive pronostica "sin cambio",
+                por lo que no toma dirección.
+            </p>
+            <div class="table-responsive">
+            <table style="border-collapse:collapse; width:100%; font-size:0.84rem;">
+                <thead>
+                    <tr style="background:linear-gradient(90deg,#003087,#005EB8); color:#fff; font-size:0.72rem; letter-spacing:0.06em; text-transform:uppercase;">
+                        <th style="padding:9px 12px; text-align:left;">Modelo</th>
+                        <th style="padding:9px 12px; text-align:center;">Acierta la dirección</th>
+                        <th style="padding:9px 12px; text-align:center;">Días evaluados</th>
+                        <th style="padding:9px 12px; text-align:center;">Estadístico PT</th>
+                        <th style="padding:9px 12px; text-align:center;">p-valor</th>
+                        <th style="padding:9px 12px; text-align:left;">Lectura</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for r in direction_rows %}
+                    <tr style="border-bottom:1px solid #D6DCE8;">
+                        <td style="padding:8px 12px; font-weight:600;">{{ r.Modelo }}</td>
+                        <td style="padding:8px 12px; text-align:center; font-variant-numeric:tabular-nums;">{{ r.hit }}</td>
+                        <td style="padding:8px 12px; text-align:center;">{{ r.n }}</td>
+                        <td style="padding:8px 12px; text-align:center; font-variant-numeric:tabular-nums;">{{ r.pt }}</td>
+                        <td style="padding:8px 12px; text-align:center; font-variant-numeric:tabular-nums;">{{ r.p }}</td>
+                        <td style="padding:8px 12px; {% if r.verdict == 'acierta más que el azar' %}color:#1A7340; font-weight:700;{% else %}color:var(--text-secondary);{% endif %}">{{ r.verdict }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -3590,6 +3731,14 @@ $(document).ready(function () {
             <div class="chart-wrapper">
                 <canvas id="chart" height="90"></canvas>
             </div>
+            {% if coverage %}
+            <p style="font-size:0.84rem; color:var(--text-secondary); margin:14px 0 0; line-height:1.6;">
+                <strong>Banda del 95 %:</strong> ±1.96 σ, con σ = {{ coverage.sigma }}
+                ({% if coverage.source == 'entrenamiento' %}desviación de los errores de entrenamiento a un paso{% else %}desviación de los errores de prueba{% endif %}).
+                <strong>Cobertura empírica en prueba: {{ coverage.pct }} %</strong>
+                ({{ coverage.n_in }} de {{ coverage.n }} valores reales dentro de la banda; nominal 95 %). {{ coverage.reading }}
+            </p>
+            {% endif %}
         </div>
     </div>
 
@@ -4025,8 +4174,44 @@ $(document).ready(function () {
             <li><strong>Distribución simétrica</strong>: los errores se distribuyen de forma equilibrada alrededor de cero.</li>
             <li><strong>Sin patrón temporal</strong>: si los residuales no muestran tendencia ni estacionalidad, el modelo captura bien la dinámica de la serie.</li>
             <li><strong>Baja dispersión (σ pequeña)</strong>: los errores son consistentes y acotados.</li>
+            <li><strong>Sin autocorrelación (Ljung-Box, p &gt; 0.05)</strong>: lo que queda en los errores es ruido; no hay estructura que otro modelo pudiera aprovechar.</li>
         </ul>
     </div>
+
+    {% if stationarity %}
+    <div class="intro-card">
+        <h3>Diagnóstico de la serie consultada</h3>
+        <p>
+            ¿La serie se comporta como un paseo aleatorio? Dos pruebas complementarias: <strong>ADF</strong> (H0: hay raíz
+            unitaria, es decir, la serie no es estacionaria) y <strong>KPSS</strong> (H0: la serie es estacionaria). Un paseo
+            aleatorio no rechaza ADF y sí rechaza KPSS en nivel, y lo contrario en primeras diferencias (los cambios diarios).
+        </p>
+        <table style="border-collapse:collapse; font-size:0.84rem; margin:6px 0 10px; min-width:460px;">
+            <thead>
+                <tr style="font-size:0.7rem; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-muted);">
+                    <th style="text-align:left; padding:4px 10px 4px 0;">Serie</th>
+                    <th style="padding:4px 10px; text-align:right;">ADF</th><th style="padding:4px 10px; text-align:right;">p</th>
+                    <th style="padding:4px 10px; text-align:right;">KPSS</th><th style="padding:4px 10px; text-align:right;">p</th>
+                    <th style="padding:4px 10px; text-align:right;">n</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for key, label in [('nivel', 'Nivel (precio)'), ('diferencia', 'Primeras diferencias (cambio diario)')] %}
+            {% set r = stationarity[key] %}
+                <tr style="border-top:1px solid var(--border, #D6DCE8);">
+                    <td style="padding:5px 10px 5px 0; font-weight:600;">{{ label }}</td>
+                    <td style="padding:5px 10px; text-align:right; font-variant-numeric:tabular-nums;">{{ '%.2f'|format(r.adf_stat) if r.adf_stat == r.adf_stat else '—' }}</td>
+                    <td style="padding:5px 10px; text-align:right; font-variant-numeric:tabular-nums;">{{ '%.3f'|format(r.adf_p) if r.adf_p == r.adf_p else '—' }}</td>
+                    <td style="padding:5px 10px; text-align:right; font-variant-numeric:tabular-nums;">{{ '%.2f'|format(r.kpss_stat) if r.kpss_stat == r.kpss_stat else '—' }}</td>
+                    <td style="padding:5px 10px; text-align:right; font-variant-numeric:tabular-nums;">{% if r.kpss_p == r.kpss_p %}{% if r.kpss_p <= 0.01 %}≤ 0.01{% elif r.kpss_p >= 0.1 %}≥ 0.10{% else %}{{ '%.3f'|format(r.kpss_p) }}{% endif %}{% else %}—{% endif %}</td>
+                    <td style="padding:5px 10px; text-align:right;">{{ r.n }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <p><strong>Lectura:</strong> {{ stationarity.conclusion }}</p>
+    </div>
+    {% endif %}
 
     <!-- ---- Una tarjeta por modelo ---- -->
     {% for model_name in residuals_data.keys() %}
@@ -4063,6 +4248,10 @@ $(document).ready(function () {
                 <div class="resid-stat-chip">
                     <div class="stat-label">Error mínimo</div>
                     <div class="stat-value">{{ stats.min }}</div>
+                </div>
+                <div class="resid-stat-chip">
+                    <div class="stat-label">Ljung-Box p ({{ stats.lb_lags }} rez.)</div>
+                    <div class="stat-value">{{ stats.lb_p }}</div>
                 </div>
             </div>
 
@@ -5527,6 +5716,88 @@ say(f"{P}: terminado")
 
 ══════════════════════════════════════════════════════════════════════
 
+══ ARCHIVO: benchmark\run_block2.py ══════════════════════════════════════════
+
+"""Bloque 2 sobre los 54 experimentos de la tesis (misma serie y particiones del banco):
+corrección de Holm, acierto direccional (Pesaran-Timmermann), cobertura empírica del
+intervalo del 95 % (sigma de entrenamiento) y prueba de Ljung-Box sobre los residuales.
+
+Usa el pipeline de la plataforma (src/models/pipeline.py), que reproduce el banco
+(RNN y LSTM con semilla 0). Guarda results_b2/{P}_{T}.json.
+
+Uso: python benchmark/run_block2.py [P1 P2 ...]
+"""
+import json
+import os
+import sys
+import time
+import warnings
+
+warnings.filterwarnings("ignore")
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+sys.path.insert(0, ROOT)
+sys.path.insert(0, HERE)
+
+import numpy as np
+import pandas as pd
+import torch
+
+torch.set_num_threads(1)
+import data                                            # noqa: E402  (benchmark/data.py)
+from src.models.pipeline import train_and_evaluate     # noqa: E402
+from src.models.evaluation import ljung_box_p          # noqa: E402
+
+OUT = os.path.join(HERE, "results_b2")
+os.makedirs(OUT, exist_ok=True)
+PERIODS = sys.argv[1:] or ["P1", "P2", "P3", "P4", "P5", "P6"]
+
+
+def _f(v):
+    return None if v is None or (isinstance(v, float) and not np.isfinite(v)) else float(v)
+
+
+for P in PERIODS:
+    series, dates = data.series_for(P)
+    for T in [f"T{i}" for i in range(1, 10)]:
+        out = os.path.join(OUT, f"{P}_{T}.json")
+        if os.path.exists(out):
+            print(f"{P},{T}: ya existe", flush=True)
+            continue
+        tr, te = data.split(series, T)
+        df = pd.DataFrame({"Date": pd.to_datetime(dates), "Close": series})
+        t0 = time.time()
+        metrics_df, _, _, test_series, preds, extras = train_and_evaluate(df, forecast_steps=1, test_size=len(te))
+        y = np.asarray([v for v in test_series if v is not None], dtype=float)
+        rec = {"P": P, "T": T, "n": int(len(series)), "n_train": int(len(tr)), "n_test": int(len(te)), "models": {}}
+        for _, row in metrics_df.iterrows():
+            name = row["Modelo"]
+            p = np.asarray([v for v in preds[name] if v is not None], dtype=float)
+            sigma = extras["sigma_train"].get(name, float("nan"))
+            if len(p) == len(y) and np.isfinite(sigma) and sigma > 0:
+                coverage = float(np.mean(np.abs(y - p) <= 1.96 * sigma))
+            else:
+                coverage = None
+            resid = p - y if len(p) == len(y) else np.array([])
+            lb_p, lb_lags = ljung_box_p(resid, lags=10) if len(resid) >= 8 else (float("nan"), 0)
+            d = extras["direction"].get(name, {})
+            rec["models"][name] = {
+                "MAE": _f(row["MAE"]), "DM": _f(row["DM"]), "p": _f(row["DM p-valor"]), "p_holm": _f(row["DM p ajust."]),
+                "veredicto": row["Veredicto"], "sigma_train": _f(sigma), "coverage": coverage,
+                "lb_p": _f(lb_p), "lb_lags": int(lb_lags),
+                "dir_hit": _f(d.get("hit")), "dir_n": int(d.get("n", 0)), "pt": _f(d.get("pt")), "pt_p": _f(d.get("p")),
+            }
+        rec["stationarity"] = {k: {kk: _f(vv) if isinstance(vv, float) else vv for kk, vv in v.items()}
+                               for k, v in extras["stationarity"].items() if isinstance(v, dict)}
+        rec["seconds"] = round(time.time() - t0, 1)
+        json.dump(rec, open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        hw = rec["models"]["Holt-Winters"]
+        print(f"{P},{T}: {rec['seconds']}s | HW MAE {hw['MAE']} p {hw['p']} holm {hw['p_holm']} cov {hw['coverage']} "
+              f"dir {hw['dir_hit']} lb {hw['lb_p']}", flush=True)
+print("terminado", flush=True)
+
+══════════════════════════════════════════════════════════════════════
+
 ══ ARCHIVO: Dockerfile ═══════════════════════════════════════════════════════
 
 FROM python:3.10-slim
@@ -6316,6 +6587,20 @@ de `src/benchmark_data/resultados_tesis.json`, que genera
 `scripts/build_published.py` a partir de `benchmark/`; en esa página no se
 entrena nada.
 
+## Diagnósticos adicionales (v2.2)
+
+* **p ajustado (Holm)**: la tabla de métricas y el Banco de Tesis reportan el
+  p-valor de Diebold-Mariano con la corrección de Holm por las seis comparaciones
+  del experimento (y, en el banco, por las 324 pruebas del conjunto completo).
+* **Acierto de dirección**: porcentaje de días de prueba en que cada modelo acertó
+  si el tipo de cambio subió o bajó, con la prueba de Pesaran-Timmermann.
+* **Intervalo del 95 % honesto**: la banda se construye con los errores de
+  entrenamiento a un paso de cada modelo y se reporta su cobertura empírica en
+  prueba (gráfica y PDF).
+* **Residuales**: ADF y KPSS de la serie consultada y prueba de Ljung-Box por
+  modelo. `benchmark/run_block2.py` calcula todo lo anterior sobre los 54
+  experimentos de la tesis.
+
 ## Ejecución local
 
 ```bash
@@ -6403,9 +6688,12 @@ import csv
 import glob
 import json
 import os
+import sys
 from datetime import date
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+from src.models.evaluation import holm_adjust  # noqa: E402
 BENCH = os.path.join(ROOT, "benchmark")
 OUT = os.path.join(ROOT, "src", "benchmark_data", "resultados_tesis.json")
 
@@ -6450,10 +6738,23 @@ def main():
             if s0:
                 e["models"][name]["seed0"] = {k: s0[k] for k in ("MAE", "RMSE", "MAPE", "R^2")}
     for el, e in elements.items():
+        names = [m for m in MODELS if m != "Naive" and m in e["models"]]
+        for m, p_adj in zip(names, holm_adjust([e["models"][m]["p"] for m in names])):
+            e["models"][m]["p_holm"] = None if p_adj != p_adj else round(float(p_adj), 4)
+        e["models"]["Naive"]["p_holm"] = None
+    # Holm sobre las 324 pruebas del banco completo (54 experimentos x 6 comparaciones)
+    keys = [(el, m) for el, e in elements.items() for m in MODELS if m != "Naive" and m in e["models"]]
+    for (el, m), p_adj in zip(keys, holm_adjust([elements[el]["models"][m]["p"] for el, m in keys])):
+        elements[el]["models"][m]["p_holm_bank"] = None if p_adj != p_adj else round(float(p_adj), 4)
+    for el, e in elements.items():
+        e["models"]["Naive"]["p_holm_bank"] = None
         e["models"] = [dict(Modelo=m, **e["models"][m]) for m in MODELS if m in e["models"]]
     # resumen global
     n_naive_best = sum(1 for e in elements.values() if next(m for m in e["models"] if m["Modelo"] == "Naive")["rank7"] == 1)
-    better = [(el, m["Modelo"], m["p"]) for el, e in elements.items() for m in e["models"] if m["veredicto"] == "mejor que Naive"]
+    better = [(el, m["Modelo"], m["p"], m.get("p_holm"), m.get("p_holm_bank")) for el, e in elements.items()
+              for m in e["models"] if m["veredicto"] == "mejor que Naive"]
+    better_holm = sum(1 for _, _, _, ph, _ in better if ph is not None and ph < 0.05)
+    better_holm_bank = sum(1 for _, _, _, _, pb in better if pb is not None and pb < 0.05)
     worse = {m: 0 for m in MODELS if m != "Naive"}
     for e in elements.values():
         for m in e["models"]:
@@ -6466,7 +6767,10 @@ def main():
         "periods": {P: {"key": k, "label": l} for P, (k, l) in PERIODS.items()},
         "tests": TESTS, "models": MODELS,
         "summary": {"n_elements": len(elements), "naive_rank1": n_naive_best,
-                    "better_than_naive": [{"elemento": el, "modelo": m, "p": p} for el, m, p in better],
+                    "better_than_naive": [{"elemento": el, "modelo": m, "p": p, "p_holm": ph, "p_holm_bank": pb}
+                                          for el, m, p, ph, pb in better],
+                    "better_holm": better_holm, "better_holm_bank": better_holm_bank,
+                    "n_tests": len(keys),
                     "worse_than_naive": worse},
         "elements": elements,
     }
@@ -6987,7 +7291,12 @@ def _train(net_cls, name, train_data, test_data, forecast_steps, seed):
     model = net_cls()
     _fit(model, X_train, y_train)
     predictions, forecast_next = _predict_and_forecast(model, train_data, test_data, forecast_steps, scaler, lag)
-    return _compute_metrics(predictions, test_data, name), predictions, forecast_next
+    metrics = _compute_metrics(predictions, test_data, name)
+    fit_s = _predict_batch(model, X_train)
+    fit = scaler.inverse_transform(fit_s.reshape(-1, 1)).ravel()
+    y_fit = scaler.inverse_transform(np.asarray(y_train).reshape(-1, 1)).ravel()
+    metrics["sigma_train"] = float(np.std(fit - y_fit)) if len(y_fit) >= 3 else float("nan")
+    return metrics, predictions, forecast_next
 
 
 def train_rnn(train_data, test_data, forecast_steps=1, seed=0):
@@ -7001,7 +7310,16 @@ def train_lstm(train_data, test_data, forecast_steps=1, seed=0):
 
 ══ ARCHIVO: src\models\evaluation.py ═════════════════════════════════════════
 
-"""Comparación estadística de pronósticos."""
+"""Comparación estadística de pronósticos y diagnósticos de la serie.
+
+* ``diebold_mariano``: ¿un modelo tiene menor error esperado que otro?
+* ``holm_adjust``: corrección de Holm para varias comparaciones a la vez.
+* ``pesaran_timmermann``: ¿el modelo acierta la dirección (sube/baja) más que el azar?
+* ``ljung_box_p``: ¿los residuales conservan autocorrelación o ya son ruido?
+* ``stationarity_tests``: ADF y KPSS de la serie en nivel y en primeras diferencias.
+"""
+
+import warnings
 
 import numpy as np
 from scipy import stats
@@ -7037,6 +7355,129 @@ def diebold_mariano(y_true, pred_a, pred_b, h=1, loss="squared"):
     dm_c = dm * hln
     p = 2 * stats.t.sf(abs(dm_c), df=n - 1)
     return float(dm_c), float(p)
+
+
+def holm_adjust(pvalues):
+    """Corrección de Holm (1979) para ``m`` comparaciones simultáneas.
+
+    Recibe una lista de p-valores (los NaN se ignoran y se devuelven como NaN) y
+    devuelve los p-valores ajustados: se ordenan de menor a mayor, el i-ésimo se
+    multiplica por (m − i + 1) y se fuerza a que la secuencia no decrezca. Un
+    p ajustado < 0.05 sigue siendo significativo aunque se hagan m pruebas.
+    """
+    p = np.asarray(pvalues, dtype=float)
+    out = np.full(len(p), np.nan)
+    idx = np.where(np.isfinite(p))[0]
+    m = len(idx)
+    if m == 0:
+        return out.tolist()
+    order = idx[np.argsort(p[idx])]
+    running = 0.0
+    for rank, i in enumerate(order):
+        adj = min(1.0, (m - rank) * p[i])
+        running = max(running, adj)
+        out[i] = running
+    return out.tolist()
+
+
+def pesaran_timmermann(y_true, y_pred, y_prev):
+    """Acierto de dirección y prueba de Pesaran-Timmermann (1992).
+
+    Compara el signo del cambio real (y_t − y_{t−1}) con el del cambio pronosticado
+    (ŷ_t − y_{t−1}). Devuelve ``(acierto, n, estadístico, p)``: ``acierto`` es la
+    fracción de días con la dirección correcta, ``n`` los días evaluados (se
+    excluyen los días sin cambio real o sin dirección pronosticada), ``p`` es el
+    p-valor unilateral de H1: el acierto supera al esperado por azar. Si quedan
+    menos de 10 días o el pronóstico nunca toma dirección (Naive), devuelve NaN.
+    """
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+    y_prev = np.asarray(y_prev, dtype=float)
+    da = np.sign(y_true - y_prev)
+    dp = np.sign(y_pred - y_prev)
+    mask = np.isfinite(da) & np.isfinite(dp) & (da != 0) & (dp != 0)
+    da, dp = da[mask], dp[mask]
+    n = len(da)
+    if n < 10:
+        return float("nan"), int(n), float("nan"), float("nan")
+    hit = float(np.mean(da == dp))
+    py = float(np.mean(da > 0))
+    px = float(np.mean(dp > 0))
+    p_star = py * px + (1 - py) * (1 - px)
+    var_p = p_star * (1 - p_star) / n
+    var_star = ((2 * py - 1) ** 2 * px * (1 - px) / n + (2 * px - 1) ** 2 * py * (1 - py) / n
+                + 4 * py * px * (1 - py) * (1 - px) / n ** 2)
+    denom = var_p - var_star
+    if denom <= 0:
+        return hit, n, float("nan"), float("nan")
+    pt = (hit - p_star) / np.sqrt(denom)
+    return hit, n, float(pt), float(stats.norm.sf(pt))
+
+
+def ljung_box_p(resid, lags=10):
+    """p-valor de la prueba de Ljung-Box sobre los residuales (H0: sin autocorrelación
+    hasta ``lags`` rezagos). p > 0.05 => lo que queda en los errores es ruido."""
+    from statsmodels.stats.diagnostic import acorr_ljungbox
+    r = np.asarray(resid, dtype=float)
+    r = r[np.isfinite(r)]
+    lags = int(max(1, min(lags, len(r) // 4)))
+    if len(r) < 8:
+        return float("nan"), lags
+    try:
+        res = acorr_ljungbox(r, lags=[lags], return_df=True)
+        return float(res["lb_pvalue"].iloc[0]), lags
+    except Exception:
+        return float("nan"), lags
+
+
+def stationarity_tests(series):
+    """ADF y KPSS en nivel y en primeras diferencias.
+
+    Devuelve un diccionario con, para ``nivel`` y ``diferencia``, el estadístico y
+    el p-valor de cada prueba (KPSS reporta p acotado a [0.01, 0.10] por sus
+    tablas) y una conclusión en texto.
+    """
+    from statsmodels.tsa.stattools import adfuller, kpss
+    s = np.asarray(series, dtype=float)
+    s = s[np.isfinite(s)]
+    out = {}
+    for name, x in (("nivel", s), ("diferencia", np.diff(s))):
+        rec = {"n": int(len(x))}
+        if len(x) < 20:
+            rec.update(adf_stat=float("nan"), adf_p=float("nan"), kpss_stat=float("nan"), kpss_p=float("nan"))
+            out[name] = rec
+            continue
+        try:
+            adf = adfuller(x, autolag="AIC")
+            rec["adf_stat"], rec["adf_p"] = float(adf[0]), float(adf[1])
+        except Exception:
+            rec["adf_stat"], rec["adf_p"] = float("nan"), float("nan")
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                kp = kpss(x, regression="c", nlags="auto")
+            rec["kpss_stat"], rec["kpss_p"] = float(kp[0]), float(kp[1])
+        except Exception:
+            rec["kpss_stat"], rec["kpss_p"] = float("nan"), float("nan")
+        out[name] = rec
+
+    lv, df = out["nivel"], out["diferencia"]
+    rw_level = (lv.get("adf_p", 1) > 0.05) and (lv.get("kpss_p", 0) < 0.05)
+    stat_diff = (df.get("adf_p", 1) < 0.05) and (df.get("kpss_p", 0) >= 0.05)
+    if rw_level and stat_diff:
+        concl = ("La serie no es estacionaria en nivel (ADF no rechaza la raíz unitaria y KPSS rechaza la "
+                 "estacionariedad) pero sí en primeras diferencias: se comporta como un paseo aleatorio, lo que "
+                 "justifica usar el modelo ingenuo como referencia.")
+    elif rw_level:
+        concl = ("La serie no es estacionaria en nivel; en primeras diferencias las dos pruebas no coinciden del "
+                 "todo, aunque el comportamiento es cercano al de un paseo aleatorio.")
+    elif lv.get("adf_p", 1) <= 0.05 and lv.get("kpss_p", 0) >= 0.05:
+        concl = "Las pruebas indican que la serie es estacionaria en nivel: no se comporta como paseo aleatorio en esta ventana."
+    else:
+        concl = "Las pruebas ADF y KPSS no coinciden en nivel; la evidencia sobre la raíz unitaria es ambigua en esta ventana."
+    out["conclusion"] = concl
+    out["random_walk"] = bool(rw_level)
+    return out
 
 ══════════════════════════════════════════════════════════════════════
 
@@ -7105,7 +7546,9 @@ def _fit_predict(model, name, train_data, test_data, forecast_steps):
         history.append(actual)
     test_preds = np.array(test_preds)
     forecast_next = _recursive_predict(model, list(train_data) + list(test_data), forecast_steps, lags)
-    return _compute_metrics(test_preds, test_data, name), test_preds, forecast_next
+    metrics = _compute_metrics(test_preds, test_data, name)
+    metrics["sigma_train"] = float(np.std(model.predict(X) - y)) if len(y) >= 3 else float("nan")
+    return metrics, test_preds, forecast_next
 
 
 def train_linear_regression(train_data, test_data, forecast_steps=1):
@@ -7126,7 +7569,8 @@ Protocolo uniforme: todos los modelos se estiman solo con el conjunto de
 entrenamiento y se evalúan a un paso adelante sobre el conjunto de prueba,
 actualizando su estado con el valor real del día anterior. El modelo ingenuo
 (paseo aleatorio) es la referencia contra la que se contrasta cada modelo con
-la prueba de Diebold-Mariano.
+la prueba de Diebold-Mariano; los p-valores se reportan sin ajustar y con la
+corrección de Holm por las comparaciones simultáneas del experimento.
 """
 
 import numpy as np
@@ -7135,7 +7579,7 @@ import pandas as pd
 from src.models.ts_models import train_naive, train_sarima, train_holtwinters
 from src.models.ml_models import train_linear_regression, train_random_forest
 from src.models.dl_models import train_rnn, train_lstm
-from src.models.evaluation import diebold_mariano
+from src.models.evaluation import diebold_mariano, holm_adjust, pesaran_timmermann, stationarity_tests
 
 MODELS = [
     ("Naive",            train_naive),
@@ -7164,10 +7608,13 @@ def train_and_evaluate(df, forecast_steps=1, test_size=5):
     Returns
     -------
     tuple
-        ``(metrics_df, forecast_values, train_series, test_series, predictions_dict)``
-        ``metrics_df`` incluye las columnas ``DM`` (estadístico de Diebold-Mariano
-        frente al modelo ingenuo, negativo = menor error), ``DM p-valor`` y
-        ``Veredicto``.
+        ``(metrics_df, forecast_values, train_series, test_series, predictions_dict, extras)``
+        ``metrics_df`` incluye ``DM`` (estadístico de Diebold-Mariano frente al
+        modelo ingenuo, negativo = menor error), ``DM p-valor``, ``DM p ajust.``
+        (corrección de Holm) y ``Veredicto``. ``extras`` reúne diagnósticos:
+        ``sigma_train`` (desviación de los errores de entrenamiento por modelo,
+        para el intervalo de confianza), ``direction`` (acierto de dirección y
+        prueba de Pesaran-Timmermann) y ``stationarity`` (ADF/KPSS de la serie).
     """
     ts = df["Close"].values
     if test_size >= len(ts):
@@ -7176,14 +7623,16 @@ def train_and_evaluate(df, forecast_steps=1, test_size=5):
     train_data = ts[:-test_size]
     test_data  = ts[-test_size:]
 
-    metrics, preds, fcs = [], {}, {}
+    metrics, preds, fcs, sigma_train = [], {}, {}, {}
     for name, fn in MODELS:
         m, p, fc = fn(train_data, test_data, forecast_steps)
+        sigma_train[name] = float(m.pop("sigma_train", float("nan")))
         metrics.append(m)
         preds[name] = np.asarray(p, dtype=float)
         fcs[name] = fc
 
     ref = preds[REFERENCE]
+    raw_p = []
     for m in metrics:
         name = m["Modelo"]
         if name == REFERENCE:
@@ -7193,8 +7642,23 @@ def train_and_evaluate(df, forecast_steps=1, test_size=5):
         m["DM"] = round(stat, 3) if np.isfinite(stat) else float("nan")
         m["DM p-valor"] = round(p, 4) if np.isfinite(p) else float("nan")
         m["Veredicto"] = "referencia" if name == REFERENCE else _dm_verdict(stat, p)
+        raw_p.append(p)
+    for m, p_adj in zip(metrics, holm_adjust(raw_p)):
+        m["DM p ajust."] = round(p_adj, 4) if np.isfinite(p_adj) else float("nan")
+    cols = ["Modelo", "MAE", "RMSE", "MAPE", "R^2", "DM", "DM p-valor", "DM p ajust.", "Veredicto"]
+    metrics_df = pd.DataFrame(metrics)[cols]
 
-    metrics_df = pd.DataFrame(metrics)
+    # Acierto de dirección: el cambio real y el pronosticado se miden desde el valor real del día anterior
+    direction = {}
+    for name, _ in MODELS:
+        hit, n, pt, p = pesaran_timmermann(test_data, preds[name], ref)
+        direction[name] = {"hit": hit, "n": int(n), "pt": pt, "p": p}
+
+    extras = {
+        "sigma_train": sigma_train,
+        "direction": direction,
+        "stationarity": stationarity_tests(ts),
+    }
 
     n_train = len(train_data)
     n_test  = len(test_data)
@@ -7209,7 +7673,7 @@ def train_and_evaluate(df, forecast_steps=1, test_size=5):
     test_series  = _to_list([None] * n_train + test_data.tolist())
     predictions_dict = {name: [None] * n_train + _to_list(preds[name].tolist()) for name, _ in MODELS}
 
-    return metrics_df, fcs, train_series, test_series, predictions_dict
+    return metrics_df, fcs, train_series, test_series, predictions_dict, extras
 
 ══════════════════════════════════════════════════════════════════════
 
@@ -7286,6 +7750,13 @@ def _compute_metrics(predictions, test_data, model_name):
     }
 
 
+def _train_sigma(resid):
+    """Desviación estándar de los errores de entrenamiento a un paso (base del intervalo del 95 %)."""
+    r = np.asarray(resid, dtype=float)
+    r = r[np.isfinite(r)]
+    return float(np.std(r)) if len(r) >= 3 else float("nan")
+
+
 def _empty_metrics(model_name, n_test, forecast_steps):
     metrics = {
         "Modelo": model_name,
@@ -7310,6 +7781,7 @@ def train_naive(train_data, test_data, forecast_steps=1):
     predictions = history[n - 1:n - 1 + len(test_data)]
     forecast_next = [float(history[-1])] * forecast_steps
     metrics = _compute_metrics(predictions, test_data, "Naive")
+    metrics["sigma_train"] = _train_sigma(np.diff(np.asarray(train_data, dtype=float)))
     return metrics, np.array(predictions), forecast_next
 
 
@@ -7364,6 +7836,7 @@ def train_sarima(train_data, test_data, forecast_steps=1):
 
         predictions, forecast_next = _sarima_one_step(res, train_data, test_data, forecast_steps)
         metrics = _compute_metrics(predictions, test_data, "SARIMA")
+        metrics["sigma_train"] = _train_sigma(np.asarray(res.resid, dtype=float)[5:])   # sin el arranque difuso
         return metrics, predictions, forecast_next
 
     except Exception:
@@ -7406,6 +7879,7 @@ def train_holtwinters(train_data, test_data, forecast_steps=1):
         forecast_next = np.asarray(fixed.forecast(forecast_steps), dtype=float).tolist()
 
         metrics = _compute_metrics(predictions, test_data, "Holt-Winters")
+        metrics["sigma_train"] = _train_sigma(np.asarray(hw_fit.resid, dtype=float)[5:])
         return metrics, predictions, forecast_next
 
     except Exception:

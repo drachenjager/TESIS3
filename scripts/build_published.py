@@ -10,9 +10,12 @@ import csv
 import glob
 import json
 import os
+import sys
 from datetime import date
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+from src.models.evaluation import holm_adjust  # noqa: E402
 BENCH = os.path.join(ROOT, "benchmark")
 OUT = os.path.join(ROOT, "src", "benchmark_data", "resultados_tesis.json")
 
@@ -57,10 +60,23 @@ def main():
             if s0:
                 e["models"][name]["seed0"] = {k: s0[k] for k in ("MAE", "RMSE", "MAPE", "R^2")}
     for el, e in elements.items():
+        names = [m for m in MODELS if m != "Naive" and m in e["models"]]
+        for m, p_adj in zip(names, holm_adjust([e["models"][m]["p"] for m in names])):
+            e["models"][m]["p_holm"] = None if p_adj != p_adj else round(float(p_adj), 4)
+        e["models"]["Naive"]["p_holm"] = None
+    # Holm sobre las 324 pruebas del banco completo (54 experimentos x 6 comparaciones)
+    keys = [(el, m) for el, e in elements.items() for m in MODELS if m != "Naive" and m in e["models"]]
+    for (el, m), p_adj in zip(keys, holm_adjust([elements[el]["models"][m]["p"] for el, m in keys])):
+        elements[el]["models"][m]["p_holm_bank"] = None if p_adj != p_adj else round(float(p_adj), 4)
+    for el, e in elements.items():
+        e["models"]["Naive"]["p_holm_bank"] = None
         e["models"] = [dict(Modelo=m, **e["models"][m]) for m in MODELS if m in e["models"]]
     # resumen global
     n_naive_best = sum(1 for e in elements.values() if next(m for m in e["models"] if m["Modelo"] == "Naive")["rank7"] == 1)
-    better = [(el, m["Modelo"], m["p"]) for el, e in elements.items() for m in e["models"] if m["veredicto"] == "mejor que Naive"]
+    better = [(el, m["Modelo"], m["p"], m.get("p_holm"), m.get("p_holm_bank")) for el, e in elements.items()
+              for m in e["models"] if m["veredicto"] == "mejor que Naive"]
+    better_holm = sum(1 for _, _, _, ph, _ in better if ph is not None and ph < 0.05)
+    better_holm_bank = sum(1 for _, _, _, _, pb in better if pb is not None and pb < 0.05)
     worse = {m: 0 for m in MODELS if m != "Naive"}
     for e in elements.values():
         for m in e["models"]:
@@ -73,7 +89,10 @@ def main():
         "periods": {P: {"key": k, "label": l} for P, (k, l) in PERIODS.items()},
         "tests": TESTS, "models": MODELS,
         "summary": {"n_elements": len(elements), "naive_rank1": n_naive_best,
-                    "better_than_naive": [{"elemento": el, "modelo": m, "p": p} for el, m, p in better],
+                    "better_than_naive": [{"elemento": el, "modelo": m, "p": p, "p_holm": ph, "p_holm_bank": pb}
+                                          for el, m, p, ph, pb in better],
+                    "better_holm": better_holm, "better_holm_bank": better_holm_bank,
+                    "n_tests": len(keys),
                     "worse_than_naive": worse},
         "elements": elements,
     }

@@ -46,6 +46,20 @@ de `src/benchmark_data/resultados_tesis.json`, que genera
 `scripts/build_published.py` a partir de `benchmark/`; en esa página no se
 entrena nada.
 
+## Diagnósticos adicionales (v2.2)
+
+* **p ajustado (Holm)**: la tabla de métricas y el Banco de Tesis reportan el
+  p-valor de Diebold-Mariano con la corrección de Holm por las seis comparaciones
+  del experimento (y, en el banco, por las 324 pruebas del conjunto completo).
+* **Acierto de dirección**: porcentaje de días de prueba en que cada modelo acertó
+  si el tipo de cambio subió o bajó, con la prueba de Pesaran-Timmermann.
+* **Intervalo del 95 % honesto**: la banda se construye con los errores de
+  entrenamiento a un paso de cada modelo y se reporta su cobertura empírica en
+  prueba (gráfica y PDF).
+* **Residuales**: ADF y KPSS de la serie consultada y prueba de Ljung-Box por
+  modelo. `benchmark/run_block2.py` calcula todo lo anterior sobre los 54
+  experimentos de la tesis.
+
 ## Ejecución local
 
 ```bash

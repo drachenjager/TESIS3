@@ -123,7 +123,12 @@ def _train(net_cls, name, train_data, test_data, forecast_steps, seed):
     model = net_cls()
     _fit(model, X_train, y_train)
     predictions, forecast_next = _predict_and_forecast(model, train_data, test_data, forecast_steps, scaler, lag)
-    return _compute_metrics(predictions, test_data, name), predictions, forecast_next
+    metrics = _compute_metrics(predictions, test_data, name)
+    fit_s = _predict_batch(model, X_train)
+    fit = scaler.inverse_transform(fit_s.reshape(-1, 1)).ravel()
+    y_fit = scaler.inverse_transform(np.asarray(y_train).reshape(-1, 1)).ravel()
+    metrics["sigma_train"] = float(np.std(fit - y_fit)) if len(y_fit) >= 3 else float("nan")
+    return metrics, predictions, forecast_next
 
 
 def train_rnn(train_data, test_data, forecast_steps=1, seed=0):

@@ -170,8 +170,44 @@
             <li><strong>Distribución simétrica</strong>: los errores se distribuyen de forma equilibrada alrededor de cero.</li>
             <li><strong>Sin patrón temporal</strong>: si los residuales no muestran tendencia ni estacionalidad, el modelo captura bien la dinámica de la serie.</li>
             <li><strong>Baja dispersión (σ pequeña)</strong>: los errores son consistentes y acotados.</li>
+            <li><strong>Sin autocorrelación (Ljung-Box, p &gt; 0.05)</strong>: lo que queda en los errores es ruido; no hay estructura que otro modelo pudiera aprovechar.</li>
         </ul>
     </div>
+
+    {% if stationarity %}
+    <div class="intro-card">
+        <h3>Diagnóstico de la serie consultada</h3>
+        <p>
+            ¿La serie se comporta como un paseo aleatorio? Dos pruebas complementarias: <strong>ADF</strong> (H0: hay raíz
+            unitaria, es decir, la serie no es estacionaria) y <strong>KPSS</strong> (H0: la serie es estacionaria). Un paseo
+            aleatorio no rechaza ADF y sí rechaza KPSS en nivel, y lo contrario en primeras diferencias (los cambios diarios).
+        </p>
+        <table style="border-collapse:collapse; font-size:0.84rem; margin:6px 0 10px; min-width:460px;">
+            <thead>
+                <tr style="font-size:0.7rem; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-muted);">
+                    <th style="text-align:left; padding:4px 10px 4px 0;">Serie</th>
+                    <th style="padding:4px 10px; text-align:right;">ADF</th><th style="padding:4px 10px; text-align:right;">p</th>
+                    <th style="padding:4px 10px; text-align:right;">KPSS</th><th style="padding:4px 10px; text-align:right;">p</th>
+                    <th style="padding:4px 10px; text-align:right;">n</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for key, label in [('nivel', 'Nivel (precio)'), ('diferencia', 'Primeras diferencias (cambio diario)')] %}
+            {% set r = stationarity[key] %}
+                <tr style="border-top:1px solid var(--border, #D6DCE8);">
+                    <td style="padding:5px 10px 5px 0; font-weight:600;">{{ label }}</td>
+                    <td style="padding:5px 10px; text-align:right; font-variant-numeric:tabular-nums;">{{ '%.2f'|format(r.adf_stat) if r.adf_stat == r.adf_stat else '—' }}</td>
+                    <td style="padding:5px 10px; text-align:right; font-variant-numeric:tabular-nums;">{{ '%.3f'|format(r.adf_p) if r.adf_p == r.adf_p else '—' }}</td>
+                    <td style="padding:5px 10px; text-align:right; font-variant-numeric:tabular-nums;">{{ '%.2f'|format(r.kpss_stat) if r.kpss_stat == r.kpss_stat else '—' }}</td>
+                    <td style="padding:5px 10px; text-align:right; font-variant-numeric:tabular-nums;">{% if r.kpss_p == r.kpss_p %}{% if r.kpss_p <= 0.01 %}≤ 0.01{% elif r.kpss_p >= 0.1 %}≥ 0.10{% else %}{{ '%.3f'|format(r.kpss_p) }}{% endif %}{% else %}—{% endif %}</td>
+                    <td style="padding:5px 10px; text-align:right;">{{ r.n }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <p><strong>Lectura:</strong> {{ stationarity.conclusion }}</p>
+    </div>
+    {% endif %}
 
     <!-- ---- Una tarjeta por modelo ---- -->
     {% for model_name in residuals_data.keys() %}
@@ -208,6 +244,10 @@
                 <div class="resid-stat-chip">
                     <div class="stat-label">Error mínimo</div>
                     <div class="stat-value">{{ stats.min }}</div>
+                </div>
+                <div class="resid-stat-chip">
+                    <div class="stat-label">Ljung-Box p ({{ stats.lb_lags }} rez.)</div>
+                    <div class="stat-value">{{ stats.lb_p }}</div>
                 </div>
             </div>
 

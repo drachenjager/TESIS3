@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-29",
+ "generated": "2026-10-30",
  "anchor": "2026-01-01",
  "protocol": "Evaluación a un paso adelante con parámetros estimados solo en entrenamiento; Naive como referencia; prueba de Diebold-Mariano (HLN) al 5 %; RNN y LSTM: promedio de 3 semillas (0, 1, 2).",
  "periods": {
@@ -55,9 +55,14 @@
    {
     "elemento": "P1,T9",
     "modelo": "Holt-Winters",
-    "p": 0.0256
+    "p": 0.0256,
+    "p_holm": 0.0256,
+    "p_holm_bank": 1.0
    }
   ],
+  "better_holm": 1,
+  "better_holm_bank": 0,
+  "n_tests": 324,
   "worse_than_naive": {
    "SARIMA": 6,
    "Holt-Winters": 14,
@@ -88,7 +93,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -100,7 +107,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -112,7 +121,9 @@
      "rank7": 4,
      "DM": 0.466,
      "p": 0.6608,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -124,7 +135,9 @@
      "rank7": 1,
      "DM": -1.687,
      "p": 0.1525,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.61,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -136,7 +149,9 @@
      "rank7": 6,
      "DM": 0.953,
      "p": 0.3842,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "RNN",
@@ -154,7 +169,9 @@
       "RMSE": 0.0836,
       "MAPE": 0.3721,
       "R^2": -5.6071
-     }
+     },
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -172,7 +189,9 @@
       "RMSE": 0.0879,
       "MAPE": 0.439,
       "R^2": -6.3036
-     }
+     },
+     "p_holm": 0.5825,
+     "p_holm_bank": 1.0
     }
    ],
    "fecha_inicio": "2025-10-01",
@@ -201,7 +220,9 @@
      "rank7": 4,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -213,7 +234,9 @@
      "rank7": 4,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -225,7 +248,9 @@
      "rank7": 3,
      "DM": 0.221,
      "p": 0.8307,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -237,7 +262,9 @@
      "rank7": 2,
      "DM": -0.771,
      "p": 0.4628,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -249,7 +276,9 @@
      "rank7": 1,
      "DM": -0.314,
      "p": 0.7616,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "RNN",
@@ -267,7 +296,9 @@
       "RMSE": 0.0967,
       "MAPE": 0.4687,
       "R^2": -4.5268
-     }
+     },
+     "p_holm": 0.3008,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -285,7 +316,9 @@
       "RMSE": 0.186,
       "MAPE": 1.0165,
       "R^2": -19.4377
-     }
+     },
+     "p_holm": 0.002,
+     "p_holm_bank": 0.068
     }
    ],
    "fecha_inicio": "2025-10-01",
@@ -314,7 +347,9 @@
      "rank7": 3,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -326,7 +361,9 @@
      "rank7": 3,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -338,7 +375,9 @@
      "rank7": 1,
      "DM": -0.029,
      "p": 0.9777,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -350,7 +389,9 @@
      "rank7": 1,
      "DM": -0.311,
      "p": 0.7618,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -362,7 +403,9 @@
      "rank7": 6,
      "DM": 5.073,
      "p": 0.0004,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0016,
+     "p_holm_bank": 0.068
     },
     {
      "Modelo": "RNN",
@@ -380,7 +423,9 @@
       "RMSE": 0.1243,
       "MAPE": 0.6224,
       "R^2": -9.9117
-     }
+     },
+     "p_holm": 0.0111,
+     "p_holm_bank": 0.5476
     },
     {
      "Modelo": "LSTM",
@@ -398,7 +443,9 @@
       "RMSE": 0.2414,
       "MAPE": 1.3302,
       "R^2": -40.1344
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-10-01",
@@ -427,7 +474,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -439,7 +488,9 @@
      "rank7": 3,
      "DM": 3.364,
      "p": 0.0043,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0086,
+     "p_holm_bank": 0.6192
     },
     {
      "Modelo": "Holt-Winters",
@@ -451,7 +502,9 @@
      "rank7": 1,
      "DM": -0.938,
      "p": 0.3629,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.3629,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -463,7 +516,9 @@
      "rank7": 4,
      "DM": 3.618,
      "p": 0.0025,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0075,
+     "p_holm_bank": 0.385
     },
     {
      "Modelo": "Random Forest",
@@ -475,7 +530,9 @@
      "rank7": 6,
      "DM": 5.723,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -493,7 +550,9 @@
       "RMSE": 0.1991,
       "MAPE": 1.045,
       "R^2": -3.1453
-     }
+     },
+     "p_holm": 0.0004,
+     "p_holm_bank": 0.0187
     },
     {
      "Modelo": "LSTM",
@@ -511,7 +570,9 @@
       "RMSE": 0.3006,
       "MAPE": 1.6159,
       "R^2": -8.4464
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-10-01",
@@ -540,7 +601,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -552,7 +615,9 @@
      "rank7": 3,
      "DM": 5.04,
      "p": 0.0001,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0002,
+     "p_holm_bank": 0.0187
     },
     {
      "Modelo": "Holt-Winters",
@@ -564,7 +629,9 @@
      "rank7": 1,
      "DM": -0.585,
      "p": 0.5657,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.5657,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -576,7 +643,9 @@
      "rank7": 4,
      "DM": 5.963,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "Random Forest",
@@ -588,7 +657,9 @@
      "rank7": 7,
      "DM": 7.113,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -606,7 +677,9 @@
       "RMSE": 0.2047,
       "MAPE": 1.0598,
       "R^2": -1.9891
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -624,7 +697,9 @@
       "RMSE": 0.3038,
       "MAPE": 1.6042,
       "R^2": -5.5817
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-10-01",
@@ -653,7 +728,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -665,7 +742,9 @@
      "rank7": 3,
      "DM": 5.438,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -677,7 +756,9 @@
      "rank7": 1,
      "DM": -0.421,
      "p": 0.678,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.678,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -689,7 +770,9 @@
      "rank7": 4,
      "DM": 5.956,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "Random Forest",
@@ -701,7 +784,9 @@
      "rank7": 7,
      "DM": 6.285,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -719,7 +804,9 @@
       "RMSE": 0.2199,
       "MAPE": 1.1058,
       "R^2": -1.5506
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -737,7 +824,9 @@
       "RMSE": 0.3048,
       "MAPE": 1.5718,
       "R^2": -3.8978
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-10-01",
@@ -766,7 +855,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -778,7 +869,9 @@
      "rank7": 3,
      "DM": 5.104,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -790,7 +883,9 @@
      "rank7": 1,
      "DM": -0.962,
      "p": 0.3455,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.3455,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -802,7 +897,9 @@
      "rank7": 4,
      "DM": 5.703,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "Random Forest",
@@ -814,7 +911,9 @@
      "rank7": 6,
      "DM": 5.702,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -832,7 +931,9 @@
       "RMSE": 0.2441,
       "MAPE": 1.2085,
       "R^2": -1.4323
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -850,7 +951,9 @@
       "RMSE": 0.3,
       "MAPE": 1.5038,
       "R^2": -2.6721
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-10-01",
@@ -879,7 +982,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -891,7 +996,9 @@
      "rank7": 3,
      "DM": 4.439,
      "p": 0.0001,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0002,
+     "p_holm_bank": 0.0187
     },
     {
      "Modelo": "Holt-Winters",
@@ -903,7 +1010,9 @@
      "rank7": 1,
      "DM": -1.3,
      "p": 0.2044,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.2044,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -915,7 +1024,9 @@
      "rank7": 4,
      "DM": 5.195,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "Random Forest",
@@ -927,7 +1038,9 @@
      "rank7": 7,
      "DM": 5.299,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -945,7 +1058,9 @@
       "RMSE": 0.1986,
       "MAPE": 0.9604,
       "R^2": -0.2056
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -963,7 +1078,9 @@
       "RMSE": 0.2745,
       "MAPE": 1.3227,
       "R^2": -1.3026
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-10-01",
@@ -992,7 +1109,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -1004,7 +1123,9 @@
      "rank7": 3,
      "DM": 4.103,
      "p": 0.0003,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0006,
+     "p_holm_bank": 0.0528
     },
     {
      "Modelo": "Holt-Winters",
@@ -1016,7 +1137,9 @@
      "rank7": 1,
      "DM": -2.345,
      "p": 0.0256,
-     "veredicto": "mejor que Naive"
+     "veredicto": "mejor que Naive",
+     "p_holm": 0.0256,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -1028,7 +1151,9 @@
      "rank7": 4,
      "DM": 5.235,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "Random Forest",
@@ -1040,7 +1165,9 @@
      "rank7": 7,
      "DM": 5.525,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -1058,7 +1185,9 @@
       "RMSE": 0.2318,
       "MAPE": 1.1025,
       "R^2": -0.6119
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -1076,7 +1205,9 @@
       "RMSE": 0.2778,
       "MAPE": 1.3022,
       "R^2": -1.3139
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-10-01",
@@ -1105,7 +1236,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -1117,7 +1250,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -1129,7 +1264,9 @@
      "rank7": 1,
      "DM": -1.729,
      "p": 0.1095,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.219,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -1141,7 +1278,9 @@
      "rank7": 4,
      "DM": 1.249,
      "p": 0.2354,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.2354,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -1153,7 +1292,9 @@
      "rank7": 6,
      "DM": 7.42,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -1171,7 +1312,9 @@
       "RMSE": 0.0997,
       "MAPE": 0.4614,
       "R^2": -5.2108
-     }
+     },
+     "p_holm": 0.0288,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -1189,7 +1332,9 @@
       "RMSE": 0.211,
       "MAPE": 1.1553,
       "R^2": -26.8219
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-07-01",
@@ -1218,7 +1363,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -1230,7 +1377,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -1242,7 +1391,9 @@
      "rank7": 1,
      "DM": -0.322,
      "p": 0.7514,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.7514,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -1254,7 +1405,9 @@
      "rank7": 4,
      "DM": 2.493,
      "p": 0.0226,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0452,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -1266,7 +1419,9 @@
      "rank7": 7,
      "DM": 6.94,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -1284,7 +1439,9 @@
       "RMSE": 0.0946,
       "MAPE": 0.4564,
       "R^2": 0.3621
-     }
+     },
+     "p_holm": 0.0108,
+     "p_holm_bank": 0.5364
     },
     {
      "Modelo": "LSTM",
@@ -1302,7 +1459,9 @@
       "RMSE": 0.2187,
       "MAPE": 1.1537,
       "R^2": -2.4125
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-07-01",
@@ -1331,7 +1490,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -1343,7 +1504,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -1355,7 +1518,9 @@
      "rank7": 1,
      "DM": 0.202,
      "p": 0.8413,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.8413,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -1367,7 +1532,9 @@
      "rank7": 4,
      "DM": 3.512,
      "p": 0.0017,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0051,
+     "p_holm_bank": 0.2703
     },
     {
      "Modelo": "Random Forest",
@@ -1379,7 +1546,9 @@
      "rank7": 7,
      "DM": 5.569,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -1397,7 +1566,9 @@
       "RMSE": 0.0905,
       "MAPE": 0.4306,
       "R^2": 0.7165
-     }
+     },
+     "p_holm": 0.0056,
+     "p_holm_bank": 0.4256
     },
     {
      "Modelo": "LSTM",
@@ -1415,7 +1586,9 @@
       "RMSE": 0.1947,
       "MAPE": 0.9726,
       "R^2": -0.311
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-07-01",
@@ -1444,7 +1617,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -1456,7 +1631,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -1468,7 +1645,9 @@
      "rank7": 1,
      "DM": -0.523,
      "p": 0.6048,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.6048,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -1480,7 +1659,9 @@
      "rank7": 4,
      "DM": 2.811,
      "p": 0.0085,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0183,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -1492,7 +1673,9 @@
      "rank7": 7,
      "DM": 5.002,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -1510,7 +1693,9 @@
       "RMSE": 0.0929,
       "MAPE": 0.4422,
       "R^2": 0.7413
-     }
+     },
+     "p_holm": 0.0183,
+     "p_holm_bank": 0.8479
     },
     {
      "Modelo": "LSTM",
@@ -1528,7 +1713,9 @@
       "RMSE": 0.1854,
       "MAPE": 0.8797,
       "R^2": -0.0307
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-07-01",
@@ -1557,7 +1744,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -1569,7 +1758,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -1581,7 +1772,9 @@
      "rank7": 3,
      "DM": 1.967,
      "p": 0.0565,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.0565,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -1593,7 +1786,9 @@
      "rank7": 4,
      "DM": 3.027,
      "p": 0.0044,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0123,
+     "p_holm_bank": 0.6248
     },
     {
      "Modelo": "Random Forest",
@@ -1605,7 +1800,9 @@
      "rank7": 7,
      "DM": 4.811,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -1623,7 +1820,9 @@
       "RMSE": 0.0872,
       "MAPE": 0.4098,
       "R^2": 0.8001
-     }
+     },
+     "p_holm": 0.0123,
+     "p_holm_bank": 0.5986
     },
     {
      "Modelo": "LSTM",
@@ -1641,7 +1840,9 @@
       "RMSE": 0.1843,
       "MAPE": 0.887,
       "R^2": 0.1068
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-07-01",
@@ -1670,7 +1871,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -1682,7 +1885,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -1694,7 +1899,9 @@
      "rank7": 4,
      "DM": 3.414,
      "p": 0.0014,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0042,
+     "p_holm_bank": 0.224
     },
     {
      "Modelo": "Regresión Lineal",
@@ -1706,7 +1913,9 @@
      "rank7": 3,
      "DM": 2.074,
      "p": 0.044,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.044,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -1718,7 +1927,9 @@
      "rank7": 7,
      "DM": 4.727,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -1736,7 +1947,9 @@
       "RMSE": 0.0875,
       "MAPE": 0.4084,
       "R^2": 0.8288
-     }
+     },
+     "p_holm": 0.0086,
+     "p_holm_bank": 0.6192
     },
     {
      "Modelo": "LSTM",
@@ -1754,7 +1967,9 @@
       "RMSE": 0.166,
       "MAPE": 0.7661,
       "R^2": 0.383
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-07-01",
@@ -1783,7 +1998,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -1795,7 +2012,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -1807,7 +2026,9 @@
      "rank7": 4,
      "DM": 3.321,
      "p": 0.0017,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0051,
+     "p_holm_bank": 0.2703
     },
     {
      "Modelo": "Regresión Lineal",
@@ -1819,7 +2040,9 @@
      "rank7": 3,
      "DM": 2.556,
      "p": 0.0136,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0136,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -1831,7 +2054,9 @@
      "rank7": 7,
      "DM": 4.607,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -1849,7 +2074,9 @@
       "RMSE": 0.091,
       "MAPE": 0.4216,
       "R^2": 0.7997
-     }
+     },
+     "p_holm": 0.0051,
+     "p_holm_bank": 0.3255
     },
     {
      "Modelo": "LSTM",
@@ -1867,7 +2094,9 @@
       "RMSE": 0.1686,
       "MAPE": 0.7522,
       "R^2": 0.3117
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-07-01",
@@ -1896,7 +2125,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -1908,7 +2139,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -1920,7 +2153,9 @@
      "rank7": 5,
      "DM": 3.862,
      "p": 0.0003,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0009,
+     "p_holm_bank": 0.0528
     },
     {
      "Modelo": "Regresión Lineal",
@@ -1932,7 +2167,9 @@
      "rank7": 3,
      "DM": 2.029,
      "p": 0.0472,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0472,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -1944,7 +2181,9 @@
      "rank7": 7,
      "DM": 4.659,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -1962,7 +2201,9 @@
       "RMSE": 0.0839,
       "MAPE": 0.3718,
       "R^2": 0.8253
-     }
+     },
+     "p_holm": 0.0156,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -1980,7 +2221,9 @@
       "RMSE": 0.1472,
       "MAPE": 0.6398,
       "R^2": 0.4627
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-07-01",
@@ -2009,7 +2252,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -2021,7 +2266,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -2033,7 +2280,9 @@
      "rank7": 4,
      "DM": 4.318,
      "p": 0.0001,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0003,
+     "p_holm_bank": 0.0187
     },
     {
      "Modelo": "Regresión Lineal",
@@ -2045,7 +2294,9 @@
      "rank7": 3,
      "DM": 3.131,
      "p": 0.0026,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0026,
+     "p_holm_bank": 0.3978
     },
     {
      "Modelo": "Random Forest",
@@ -2057,7 +2308,9 @@
      "rank7": 7,
      "DM": 4.464,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -2075,7 +2328,9 @@
       "RMSE": 0.0885,
       "MAPE": 0.3909,
       "R^2": 0.7864
-     }
+     },
+     "p_holm": 0.0008,
+     "p_holm_bank": 0.068
     },
     {
      "Modelo": "LSTM",
@@ -2093,7 +2348,9 @@
       "RMSE": 0.1804,
       "MAPE": 0.7758,
       "R^2": 0.1126
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-07-01",
@@ -2122,7 +2379,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -2134,7 +2393,9 @@
      "rank7": 1,
      "DM": -0.521,
      "p": 0.607,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -2146,7 +2407,9 @@
      "rank7": 4,
      "DM": 0.727,
      "p": 0.4745,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -2158,7 +2421,9 @@
      "rank7": 3,
      "DM": 0.635,
      "p": 0.5314,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -2170,7 +2435,9 @@
      "rank7": 7,
      "DM": 5.728,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -2188,7 +2455,9 @@
       "RMSE": 0.0761,
       "MAPE": 0.3547,
       "R^2": 0.7635
-     }
+     },
+     "p_holm": 0.0412,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -2206,7 +2475,9 @@
       "RMSE": 0.1709,
       "MAPE": 0.8699,
       "R^2": -0.1917
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-01-02",
@@ -2235,7 +2506,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -2247,7 +2520,9 @@
      "rank7": 2,
      "DM": 0.367,
      "p": 0.7159,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.7159,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -2259,7 +2534,9 @@
      "rank7": 4,
      "DM": 1.6,
      "p": 0.1182,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.3546,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -2271,7 +2548,9 @@
      "rank7": 3,
      "DM": 1.388,
      "p": 0.1735,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.3546,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -2283,7 +2562,9 @@
      "rank7": 7,
      "DM": 4.852,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -2301,7 +2582,9 @@
       "RMSE": 0.0825,
       "MAPE": 0.3755,
       "R^2": 0.8072
-     }
+     },
+     "p_holm": 0.0184,
+     "p_holm_bank": 0.6486
     },
     {
      "Modelo": "LSTM",
@@ -2319,7 +2602,9 @@
       "RMSE": 0.1662,
       "MAPE": 0.8231,
       "R^2": 0.2165
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-01-02",
@@ -2348,7 +2633,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -2360,7 +2647,9 @@
      "rank7": 2,
      "DM": 0.567,
      "p": 0.5734,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -2372,7 +2661,9 @@
      "rank7": 5,
      "DM": 2.518,
      "p": 0.015,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.06,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -2384,7 +2675,9 @@
      "rank7": 3,
      "DM": 0.614,
      "p": 0.5419,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -2396,7 +2689,9 @@
      "rank7": 7,
      "DM": 4.614,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -2414,7 +2709,9 @@
       "RMSE": 0.0799,
       "MAPE": 0.3425,
       "R^2": 0.848
-     }
+     },
+     "p_holm": 0.1023,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -2432,7 +2729,9 @@
       "RMSE": 0.1489,
       "MAPE": 0.6907,
       "R^2": 0.4719
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-01-02",
@@ -2461,7 +2760,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -2473,7 +2774,9 @@
      "rank7": 2,
      "DM": 0.702,
      "p": 0.4855,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.971,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -2485,7 +2788,9 @@
      "rank7": 4,
      "DM": 2.694,
      "p": 0.009,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.036,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -2497,7 +2802,9 @@
      "rank7": 3,
      "DM": 0.395,
      "p": 0.6945,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.971,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -2509,7 +2816,9 @@
      "rank7": 7,
      "DM": 4.5,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -2527,7 +2836,9 @@
       "RMSE": 0.0731,
       "MAPE": 0.318,
       "R^2": 0.8568
-     }
+     },
+     "p_holm": 0.0546,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -2545,7 +2856,9 @@
       "RMSE": 0.1285,
       "MAPE": 0.5657,
       "R^2": 0.5568
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-01-02",
@@ -2574,7 +2887,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -2586,7 +2901,9 @@
      "rank7": 2,
      "DM": 0.754,
      "p": 0.4529,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.9058,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -2598,7 +2915,9 @@
      "rank7": 4,
      "DM": 2.958,
      "p": 0.0041,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0164,
+     "p_holm_bank": 0.5986
     },
     {
      "Modelo": "Regresión Lineal",
@@ -2610,7 +2929,9 @@
      "rank7": 2,
      "DM": 0.515,
      "p": 0.6079,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.9058,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -2622,7 +2943,9 @@
      "rank7": 7,
      "DM": 9.238,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -2640,7 +2963,9 @@
       "RMSE": 0.0932,
       "MAPE": 0.4236,
       "R^2": 0.7292
-     }
+     },
+     "p_holm": 0.0465,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -2658,7 +2983,9 @@
       "RMSE": 0.1564,
       "MAPE": 0.6981,
       "R^2": 0.2378
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-01-02",
@@ -2687,7 +3014,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -2699,7 +3028,9 @@
      "rank7": 2,
      "DM": 0.783,
      "p": 0.4355,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.7116,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -2711,7 +3042,9 @@
      "rank7": 4,
      "DM": 3.223,
      "p": 0.0018,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0054,
+     "p_holm_bank": 0.2826
     },
     {
      "Modelo": "Regresión Lineal",
@@ -2723,7 +3056,9 @@
      "rank7": 3,
      "DM": 0.928,
      "p": 0.3558,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.7116,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -2735,7 +3070,9 @@
      "rank7": 7,
      "DM": 8.681,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -2753,7 +3090,9 @@
       "RMSE": 0.079,
       "MAPE": 0.3415,
       "R^2": 0.8499
-     }
+     },
+     "p_holm": 0.0044,
+     "p_holm_bank": 0.1793
     },
     {
      "Modelo": "LSTM",
@@ -2771,7 +3110,9 @@
       "RMSE": 0.1524,
       "MAPE": 0.6619,
       "R^2": 0.4417
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-01-02",
@@ -2800,7 +3141,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -2812,7 +3155,9 @@
      "rank7": 2,
      "DM": 0.717,
      "p": 0.4752,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.9504,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -2824,7 +3169,9 @@
      "rank7": 5,
      "DM": 3.553,
      "p": 0.0006,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0024,
+     "p_holm_bank": 0.1002
     },
     {
      "Modelo": "Regresión Lineal",
@@ -2836,7 +3183,9 @@
      "rank7": 3,
      "DM": 0.579,
      "p": 0.5636,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.9504,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -2848,7 +3197,9 @@
      "rank7": 7,
      "DM": 7.618,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -2866,7 +3217,9 @@
       "RMSE": 0.0759,
       "MAPE": 0.3255,
       "R^2": 0.883
-     }
+     },
+     "p_holm": 0.0138,
+     "p_holm_bank": 0.6486
     },
     {
      "Modelo": "LSTM",
@@ -2884,7 +3237,9 @@
       "RMSE": 0.1456,
       "MAPE": 0.6271,
       "R^2": 0.5695
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-01-02",
@@ -2913,7 +3268,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -2925,7 +3282,9 @@
      "rank7": 2,
      "DM": 1.521,
      "p": 0.1311,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.207,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -2937,7 +3296,9 @@
      "rank7": 4,
      "DM": 4.317,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -2949,7 +3310,9 @@
      "rank7": 3,
      "DM": 1.641,
      "p": 0.1035,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.207,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -2961,7 +3324,9 @@
      "rank7": 7,
      "DM": 7.198,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -2979,7 +3344,9 @@
       "RMSE": 0.0882,
       "MAPE": 0.3761,
       "R^2": 0.8573
-     }
+     },
+     "p_holm": 0.0003,
+     "p_holm_bank": 0.0187
     },
     {
      "Modelo": "LSTM",
@@ -2997,7 +3364,9 @@
       "RMSE": 0.1267,
       "MAPE": 0.5528,
       "R^2": 0.7055
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-01-02",
@@ -3026,7 +3395,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -3038,7 +3409,9 @@
      "rank7": 2,
      "DM": 1.683,
      "p": 0.0949,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.1492,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -3050,7 +3423,9 @@
      "rank7": 5,
      "DM": 5.026,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -3062,7 +3437,9 @@
      "rank7": 3,
      "DM": 1.798,
      "p": 0.0746,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.1492,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -3074,7 +3451,9 @@
      "rank7": 7,
      "DM": 8.749,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -3092,7 +3471,9 @@
       "RMSE": 0.0886,
       "MAPE": 0.3807,
       "R^2": 0.8561
-     }
+     },
+     "p_holm": 0.0003,
+     "p_holm_bank": 0.0187
     },
     {
      "Modelo": "LSTM",
@@ -3110,7 +3491,9 @@
       "RMSE": 0.1345,
       "MAPE": 0.5836,
       "R^2": 0.6684
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2025-01-02",
@@ -3139,7 +3522,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -3151,7 +3536,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -3163,7 +3550,9 @@
      "rank7": 1,
      "DM": -0.267,
      "p": 0.7909,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.7909,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -3175,7 +3564,9 @@
      "rank7": 4,
      "DM": 1.256,
      "p": 0.2149,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.4298,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -3187,7 +3578,9 @@
      "rank7": 5,
      "DM": 2.447,
      "p": 0.0179,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0537,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "RNN",
@@ -3205,7 +3598,9 @@
       "RMSE": 0.1074,
       "MAPE": 0.4962,
       "R^2": 0.7248
-     }
+     },
+     "p_holm": 0.0145,
+     "p_holm_bank": 0.4379
     },
     {
      "Modelo": "LSTM",
@@ -3223,7 +3618,9 @@
       "RMSE": 0.1173,
       "MAPE": 0.5501,
       "R^2": 0.6718
-     }
+     },
+     "p_holm": 0.0152,
+     "p_holm_bank": 0.5586
     }
    ],
    "fecha_inicio": "2024-01-01",
@@ -3252,7 +3649,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -3264,7 +3663,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -3276,7 +3677,9 @@
      "rank7": 3,
      "DM": 0.594,
      "p": 0.5541,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.5541,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -3288,7 +3691,9 @@
      "rank7": 3,
      "DM": 1.27,
      "p": 0.2081,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.4162,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -3300,7 +3705,9 @@
      "rank7": 7,
      "DM": 4.458,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -3318,7 +3725,9 @@
       "RMSE": 0.0961,
       "MAPE": 0.4367,
       "R^2": 0.7122
-     }
+     },
+     "p_holm": 0.0021,
+     "p_holm_bank": 0.1155
     },
     {
      "Modelo": "LSTM",
@@ -3336,7 +3745,9 @@
       "RMSE": 0.109,
       "MAPE": 0.4915,
       "R^2": 0.6302
-     }
+     },
+     "p_holm": 0.0004,
+     "p_holm_bank": 0.0187
     }
    ],
    "fecha_inicio": "2024-01-01",
@@ -3365,7 +3776,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -3377,7 +3790,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -3389,7 +3804,9 @@
      "rank7": 4,
      "DM": 1.001,
      "p": 0.3192,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.3244,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -3401,7 +3818,9 @@
      "rank7": 3,
      "DM": 1.408,
      "p": 0.1622,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.3244,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -3413,7 +3832,9 @@
      "rank7": 5,
      "DM": 4.066,
      "p": 0.0001,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0003,
+     "p_holm_bank": 0.0187
     },
     {
      "Modelo": "RNN",
@@ -3431,7 +3852,9 @@
       "RMSE": 0.0886,
       "MAPE": 0.3799,
       "R^2": 0.8405
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -3449,7 +3872,9 @@
       "RMSE": 0.0825,
       "MAPE": 0.3554,
       "R^2": 0.8616
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2024-01-01",
@@ -3478,7 +3903,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -3490,7 +3917,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -3502,7 +3931,9 @@
      "rank7": 4,
      "DM": 1.906,
      "p": 0.0589,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.106,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -3514,7 +3945,9 @@
      "rank7": 3,
      "DM": 1.953,
      "p": 0.053,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.106,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -3526,7 +3959,9 @@
      "rank7": 6,
      "DM": 6.458,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -3544,7 +3979,9 @@
       "RMSE": 0.0901,
       "MAPE": 0.3923,
       "R^2": 0.8519
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -3562,7 +3999,9 @@
       "RMSE": 0.1023,
       "MAPE": 0.4369,
       "R^2": 0.8094
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2024-01-01",
@@ -3591,7 +4030,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -3603,7 +4044,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -3615,7 +4058,9 @@
      "rank7": 4,
      "DM": 1.828,
      "p": 0.0695,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.0695,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -3627,7 +4072,9 @@
      "rank7": 3,
      "DM": 2.318,
      "p": 0.0218,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0436,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -3639,7 +4086,9 @@
      "rank7": 6,
      "DM": 6.965,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -3657,7 +4106,9 @@
       "RMSE": 0.0905,
       "MAPE": 0.3882,
       "R^2": 0.9178
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -3675,7 +4126,9 @@
       "RMSE": 0.0988,
       "MAPE": 0.4306,
       "R^2": 0.902
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2024-01-01",
@@ -3704,7 +4157,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -3716,7 +4171,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -3728,7 +4185,9 @@
      "rank7": 4,
      "DM": 1.141,
      "p": 0.2554,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.2916,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -3740,7 +4199,9 @@
      "rank7": 3,
      "DM": 1.461,
      "p": 0.1458,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.2916,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -3752,7 +4213,9 @@
      "rank7": 6,
      "DM": 6.381,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -3770,7 +4233,9 @@
       "RMSE": 0.0874,
       "MAPE": 0.3671,
       "R^2": 0.9609
-     }
+     },
+     "p_holm": 0.006,
+     "p_holm_bank": 0.312
     },
     {
      "Modelo": "LSTM",
@@ -3788,7 +4253,9 @@
       "RMSE": 0.1123,
       "MAPE": 0.4777,
       "R^2": 0.9355
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2024-01-01",
@@ -3817,7 +4284,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -3829,7 +4298,9 @@
      "rank7": 2,
      "DM": 0.575,
      "p": 0.5658,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.6172,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -3841,7 +4312,9 @@
      "rank7": 4,
      "DM": 2.152,
      "p": 0.0326,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0978,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -3853,7 +4326,9 @@
      "rank7": 3,
      "DM": 1.021,
      "p": 0.3086,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.6172,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -3865,7 +4340,9 @@
      "rank7": 6,
      "DM": 4.369,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -3883,7 +4360,9 @@
       "RMSE": 0.1301,
       "MAPE": 0.5219,
       "R^2": 0.9611
-     }
+     },
+     "p_holm": 0.0692,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -3901,7 +4380,9 @@
       "RMSE": 0.2196,
       "MAPE": 0.9982,
       "R^2": 0.8893
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2024-01-01",
@@ -3930,7 +4411,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -3942,7 +4425,9 @@
      "rank7": 2,
      "DM": 1.371,
      "p": 0.1716,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.3146,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -3954,7 +4439,9 @@
      "rank7": 4,
      "DM": 2.642,
      "p": 0.0088,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0264,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -3966,7 +4453,9 @@
      "rank7": 3,
      "DM": 1.419,
      "p": 0.1573,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.3146,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -3978,7 +4467,9 @@
      "rank7": 5,
      "DM": 4.415,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -3996,7 +4487,9 @@
       "RMSE": 0.1631,
       "MAPE": 0.6922,
       "R^2": 0.9576
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -4014,7 +4507,9 @@
       "RMSE": 0.1541,
       "MAPE": 0.6498,
       "R^2": 0.9621
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2024-01-01",
@@ -4043,7 +4538,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -4055,7 +4552,9 @@
      "rank7": 1,
      "DM": 1.0,
      "p": 0.3182,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.6364,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -4067,7 +4566,9 @@
      "rank7": 4,
      "DM": 3.004,
      "p": 0.0029,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0145,
+     "p_holm_bank": 0.4379
     },
     {
      "Modelo": "Regresión Lineal",
@@ -4079,7 +4580,9 @@
      "rank7": 3,
      "DM": 0.898,
      "p": 0.3699,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.6364,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -4091,7 +4594,9 @@
      "rank7": 6,
      "DM": 2.221,
      "p": 0.0272,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.1088,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "RNN",
@@ -4109,7 +4614,9 @@
       "RMSE": 0.155,
       "MAPE": 0.6239,
       "R^2": 0.9689
-     }
+     },
+     "p_holm": 0.3459,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -4127,7 +4634,9 @@
       "RMSE": 0.1556,
       "MAPE": 0.5807,
       "R^2": 0.9687
-     }
+     },
+     "p_holm": 0.0018,
+     "p_holm_bank": 0.0528
     }
    ],
    "fecha_inicio": "2024-01-01",
@@ -4156,7 +4665,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -4168,7 +4679,9 @@
      "rank7": 2,
      "DM": 0.631,
      "p": 0.5293,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.5293,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -4180,7 +4693,9 @@
      "rank7": 4,
      "DM": 1.746,
      "p": 0.0832,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.2496,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -4192,7 +4707,9 @@
      "rank7": 3,
      "DM": 1.333,
      "p": 0.185,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.37,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -4204,7 +4721,9 @@
      "rank7": 7,
      "DM": 5.6,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -4222,7 +4741,9 @@
       "RMSE": 0.1178,
       "MAPE": 0.561,
       "R^2": 0.7476
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -4240,7 +4761,9 @@
       "RMSE": 0.0692,
       "MAPE": 0.2962,
       "R^2": 0.9128
-     }
+     },
+     "p_holm": 0.134,
+     "p_holm_bank": 1.0
     }
    ],
    "fecha_inicio": "2021-01-01",
@@ -4269,7 +4792,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -4281,7 +4806,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -4293,7 +4820,9 @@
      "rank7": 1,
      "DM": -0.5,
      "p": 0.6174,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -4305,7 +4834,9 @@
      "rank7": 4,
      "DM": 0.0,
      "p": 0.9998,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -4317,7 +4848,9 @@
      "rank7": 7,
      "DM": 5.998,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -4335,7 +4868,9 @@
       "RMSE": 0.102,
       "MAPE": 0.3578,
       "R^2": 0.9717
-     }
+     },
+     "p_holm": 0.4928,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -4353,7 +4888,9 @@
       "RMSE": 0.103,
       "MAPE": 0.3668,
       "R^2": 0.9712
-     }
+     },
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     }
    ],
    "fecha_inicio": "2021-01-01",
@@ -4382,7 +4919,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -4394,7 +4933,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -4406,7 +4947,9 @@
      "rank7": 1,
      "DM": -0.749,
      "p": 0.4545,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -4418,7 +4961,9 @@
      "rank7": 4,
      "DM": 0.011,
      "p": 0.9911,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -4430,7 +4975,9 @@
      "rank7": 6,
      "DM": 4.975,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -4448,7 +4995,9 @@
       "RMSE": 0.1266,
       "MAPE": 0.431,
       "R^2": 0.9793
-     }
+     },
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -4466,7 +5015,9 @@
       "RMSE": 0.1573,
       "MAPE": 0.6422,
       "R^2": 0.9681
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2021-01-01",
@@ -4495,7 +5046,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -4507,7 +5060,9 @@
      "rank7": 1,
      "DM": 1.0,
      "p": 0.3181,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -4519,7 +5074,9 @@
      "rank7": 1,
      "DM": -0.243,
      "p": 0.8079,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -4531,7 +5088,9 @@
      "rank7": 4,
      "DM": 0.1,
      "p": 0.9208,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -4543,7 +5102,9 @@
      "rank7": 7,
      "DM": 5.533,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -4561,7 +5122,9 @@
       "RMSE": 0.1342,
       "MAPE": 0.4671,
       "R^2": 0.9761
-     }
+     },
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -4579,7 +5142,9 @@
       "RMSE": 0.1292,
       "MAPE": 0.4598,
       "R^2": 0.9778
-     }
+     },
+     "p_holm": 0.218,
+     "p_holm_bank": 1.0
     }
    ],
    "fecha_inicio": "2021-01-01",
@@ -4608,7 +5173,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -4620,7 +5187,9 @@
      "rank7": 1,
      "DM": -1.0,
      "p": 0.3179,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -4632,7 +5201,9 @@
      "rank7": 4,
      "DM": 0.921,
      "p": 0.3575,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -4644,7 +5215,9 @@
      "rank7": 3,
      "DM": -0.233,
      "p": 0.8156,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -4656,7 +5229,9 @@
      "rank7": 7,
      "DM": 4.822,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -4674,7 +5249,9 @@
       "RMSE": 0.1465,
       "MAPE": 0.5433,
       "R^2": 0.9712
-     }
+     },
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -4692,7 +5269,9 @@
       "RMSE": 0.1561,
       "MAPE": 0.5574,
       "R^2": 0.9673
-     }
+     },
+     "p_holm": 0.0395,
+     "p_holm_bank": 1.0
     }
    ],
    "fecha_inicio": "2021-01-01",
@@ -4721,7 +5300,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -4733,7 +5314,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -4745,7 +5328,9 @@
      "rank7": 4,
      "DM": 0.129,
      "p": 0.8974,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.948,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -4757,7 +5342,9 @@
      "rank7": 1,
      "DM": -0.717,
      "p": 0.474,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.948,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -4769,7 +5356,9 @@
      "rank7": 6,
      "DM": 5.206,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -4787,7 +5376,9 @@
       "RMSE": 0.1601,
       "MAPE": 0.6019,
       "R^2": 0.9796
-     }
+     },
+     "p_holm": 0.2979,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -4805,7 +5396,9 @@
       "RMSE": 0.1629,
       "MAPE": 0.6061,
       "R^2": 0.9788
-     }
+     },
+     "p_holm": 0.0012,
+     "p_holm_bank": 0.0528
     }
    ],
    "fecha_inicio": "2021-01-01",
@@ -4834,7 +5427,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -4846,7 +5441,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -4858,7 +5455,9 @@
      "rank7": 4,
      "DM": 0.275,
      "p": 0.7835,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.9362,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -4870,7 +5469,9 @@
      "rank7": 1,
      "DM": -0.726,
      "p": 0.4681,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.9362,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -4882,7 +5483,9 @@
      "rank7": 7,
      "DM": 6.226,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -4900,7 +5503,9 @@
       "RMSE": 0.1457,
       "MAPE": 0.5316,
       "R^2": 0.9863
-     }
+     },
+     "p_holm": 0.5379,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -4918,7 +5523,9 @@
       "RMSE": 0.1661,
       "MAPE": 0.6071,
       "R^2": 0.9821
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2021-01-01",
@@ -4947,7 +5554,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -4959,7 +5568,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -4971,7 +5582,9 @@
      "rank7": 4,
      "DM": 0.984,
      "p": 0.3255,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.651,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -4983,7 +5596,9 @@
      "rank7": 3,
      "DM": -0.229,
      "p": 0.819,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.819,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -4995,7 +5610,9 @@
      "rank7": 6,
      "DM": 6.849,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -5013,7 +5630,9 @@
       "RMSE": 0.1487,
       "MAPE": 0.5548,
       "R^2": 0.9856
-     }
+     },
+     "p_holm": 0.0009,
+     "p_holm_bank": 0.0528
     },
     {
      "Modelo": "LSTM",
@@ -5031,7 +5650,9 @@
       "RMSE": 0.188,
       "MAPE": 0.7042,
       "R^2": 0.9769
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2021-01-01",
@@ -5060,7 +5681,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -5072,7 +5695,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -5084,7 +5709,9 @@
      "rank7": 4,
      "DM": 1.424,
      "p": 0.155,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.31,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -5096,7 +5723,9 @@
      "rank7": 3,
      "DM": -1.14,
      "p": 0.2546,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.31,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -5108,7 +5737,9 @@
      "rank7": 7,
      "DM": 8.746,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -5126,7 +5757,9 @@
       "RMSE": 0.1548,
       "MAPE": 0.5825,
       "R^2": 0.985
-     }
+     },
+     "p_holm": 0.0201,
+     "p_holm_bank": 0.9246
     },
     {
      "Modelo": "LSTM",
@@ -5144,7 +5777,9 @@
       "RMSE": 0.1739,
       "MAPE": 0.6871,
       "R^2": 0.9811
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2021-01-01",
@@ -5173,7 +5808,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -5185,7 +5822,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -5197,7 +5836,9 @@
      "rank7": 1,
      "DM": -0.817,
      "p": 0.4149,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.4149,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -5209,7 +5850,9 @@
      "rank7": 4,
      "DM": 1.546,
      "p": 0.1233,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.2466,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -5221,7 +5864,9 @@
      "rank7": 6,
      "DM": 3.304,
      "p": 0.0011,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0044,
+     "p_holm_bank": 0.1793
     },
     {
      "Modelo": "RNN",
@@ -5239,7 +5884,9 @@
       "RMSE": 0.1335,
       "MAPE": 0.4669,
       "R^2": 0.977
-     }
+     },
+     "p_holm": 0.0273,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "LSTM",
@@ -5257,7 +5904,9 @@
       "RMSE": 0.1432,
       "MAPE": 0.5256,
       "R^2": 0.9735
-     }
+     },
+     "p_holm": 0.0015,
+     "p_holm_bank": 0.0528
     }
    ],
    "fecha_inicio": "2016-01-01",
@@ -5286,7 +5935,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -5298,7 +5949,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -5310,7 +5963,9 @@
      "rank7": 3,
      "DM": -0.766,
      "p": 0.4439,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.8878,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -5322,7 +5977,9 @@
      "rank7": 4,
      "DM": 0.602,
      "p": 0.5476,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.8878,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -5334,7 +5991,9 @@
      "rank7": 7,
      "DM": 3.871,
      "p": 0.0001,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0004,
+     "p_holm_bank": 0.0187
     },
     {
      "Modelo": "RNN",
@@ -5352,7 +6011,9 @@
       "RMSE": 0.1558,
       "MAPE": 0.5969,
       "R^2": 0.9674
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -5370,7 +6031,9 @@
       "RMSE": 0.1468,
       "MAPE": 0.5418,
       "R^2": 0.971
-     }
+     },
+     "p_holm": 0.078,
+     "p_holm_bank": 1.0
     }
    ],
    "fecha_inicio": "2016-01-01",
@@ -5399,7 +6062,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -5411,7 +6076,9 @@
      "rank7": 2,
      "DM": 1.0,
      "p": 0.3178,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -5423,7 +6090,9 @@
      "rank7": 1,
      "DM": -0.524,
      "p": 0.6007,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -5435,7 +6104,9 @@
      "rank7": 4,
      "DM": 0.59,
      "p": 0.5553,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -5447,7 +6118,9 @@
      "rank7": 7,
      "DM": 5.86,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -5465,7 +6138,9 @@
       "RMSE": 0.151,
       "MAPE": 0.5696,
       "R^2": 0.9852
-     }
+     },
+     "p_holm": 0.003,
+     "p_holm_bank": 0.1002
     },
     {
      "Modelo": "LSTM",
@@ -5483,7 +6158,9 @@
       "RMSE": 0.1521,
       "MAPE": 0.5661,
       "R^2": 0.985
-     }
+     },
+     "p_holm": 1.0,
+     "p_holm_bank": 1.0
     }
    ],
    "fecha_inicio": "2016-01-01",
@@ -5512,7 +6189,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -5524,7 +6203,9 @@
      "rank7": 2,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -5536,7 +6217,9 @@
      "rank7": 1,
      "DM": -1.019,
      "p": 0.3088,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.6176,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -5548,7 +6231,9 @@
      "rank7": 4,
      "DM": 0.741,
      "p": 0.4589,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.6176,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -5560,7 +6245,9 @@
      "rank7": 7,
      "DM": 8.146,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -5578,7 +6265,9 @@
       "RMSE": 0.1422,
       "MAPE": 0.5484,
       "R^2": 0.9874
-     }
+     },
+     "p_holm": 0.0008,
+     "p_holm_bank": 0.0356
     },
     {
      "Modelo": "LSTM",
@@ -5596,7 +6285,9 @@
       "RMSE": 0.1405,
       "MAPE": 0.524,
       "R^2": 0.9877
-     }
+     },
+     "p_holm": 0.0792,
+     "p_holm_bank": 1.0
     }
    ],
    "fecha_inicio": "2016-01-01",
@@ -5625,7 +6316,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -5637,7 +6330,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -5649,7 +6344,9 @@
      "rank7": 3,
      "DM": -0.261,
      "p": 0.794,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.794,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -5661,7 +6358,9 @@
      "rank7": 4,
      "DM": 2.249,
      "p": 0.0248,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0496,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -5673,7 +6372,9 @@
      "rank7": 7,
      "DM": 12.623,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -5691,7 +6392,9 @@
       "RMSE": 0.1515,
       "MAPE": 0.5822,
       "R^2": 0.9837
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -5709,7 +6412,9 @@
       "RMSE": 0.1391,
       "MAPE": 0.5246,
       "R^2": 0.9863
-     }
+     },
+     "p_holm": 0.003,
+     "p_holm_bank": 0.164
     }
    ],
    "fecha_inicio": "2016-01-01",
@@ -5738,7 +6443,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -5750,7 +6457,9 @@
      "rank7": 1,
      "DM": -1.135,
      "p": 0.2565,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.513,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -5762,7 +6471,9 @@
      "rank7": 3,
      "DM": 0.345,
      "p": 0.7303,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.7303,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -5774,7 +6485,9 @@
      "rank7": 4,
      "DM": 2.057,
      "p": 0.0399,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.1197,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -5786,7 +6499,9 @@
      "rank7": 7,
      "DM": 12.469,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -5804,7 +6519,9 @@
       "RMSE": 0.1479,
       "MAPE": 0.5816,
       "R^2": 0.9856
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -5822,7 +6539,9 @@
       "RMSE": 0.1392,
       "MAPE": 0.5479,
       "R^2": 0.9873
-     }
+     },
+     "p_holm": 0.0008,
+     "p_holm_bank": 0.0356
     }
    ],
    "fecha_inicio": "2016-01-01",
@@ -5851,7 +6570,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -5863,7 +6584,9 @@
      "rank7": 1,
      "DM": -1.0,
      "p": 0.3175,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.635,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -5875,7 +6598,9 @@
      "rank7": 3,
      "DM": 0.939,
      "p": 0.348,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.635,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -5887,7 +6612,9 @@
      "rank7": 4,
      "DM": 1.637,
      "p": 0.102,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.306,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -5899,7 +6626,9 @@
      "rank7": 7,
      "DM": 12.31,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -5917,7 +6646,9 @@
       "RMSE": 0.1623,
       "MAPE": 0.6884,
       "R^2": 0.9839
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -5935,7 +6666,9 @@
       "RMSE": 0.1362,
       "MAPE": 0.5205,
       "R^2": 0.9887
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2016-01-01",
@@ -5964,7 +6697,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -5976,7 +6711,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "n/a"
+     "veredicto": "n/a",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "Holt-Winters",
@@ -5988,7 +6725,9 @@
      "rank7": 3,
      "DM": 0.769,
      "p": 0.4418,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.4418,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -6000,7 +6739,9 @@
      "rank7": 4,
      "DM": 1.258,
      "p": 0.2086,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.4172,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -6012,7 +6753,9 @@
      "rank7": 7,
      "DM": 12.294,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -6030,7 +6773,9 @@
       "RMSE": 0.1335,
       "MAPE": 0.4962,
       "R^2": 0.9896
-     }
+     },
+     "p_holm": 0.0036,
+     "p_holm_bank": 0.1932
     },
     {
      "Modelo": "LSTM",
@@ -6048,7 +6793,9 @@
       "RMSE": 0.1455,
       "MAPE": 0.6057,
       "R^2": 0.9876
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2016-01-01",
@@ -6077,7 +6824,9 @@
      "rank7": 1,
      "DM": null,
      "p": null,
-     "veredicto": "referencia"
+     "veredicto": "referencia",
+     "p_holm": null,
+     "p_holm_bank": null
     },
     {
      "Modelo": "SARIMA",
@@ -6089,7 +6838,9 @@
      "rank7": 1,
      "DM": -1.408,
      "p": 0.1594,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.4347,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Holt-Winters",
@@ -6101,7 +6852,9 @@
      "rank7": 4,
      "DM": 1.459,
      "p": 0.1449,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.4347,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Regresión Lineal",
@@ -6113,7 +6866,9 @@
      "rank7": 3,
      "DM": 1.273,
      "p": 0.2033,
-     "veredicto": "sin diferencia"
+     "veredicto": "sin diferencia",
+     "p_holm": 0.4347,
+     "p_holm_bank": 1.0
     },
     {
      "Modelo": "Random Forest",
@@ -6125,7 +6880,9 @@
      "rank7": 7,
      "DM": 12.478,
      "p": 0.0,
-     "veredicto": "peor que Naive"
+     "veredicto": "peor que Naive",
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "RNN",
@@ -6143,7 +6900,9 @@
       "RMSE": 0.1525,
       "MAPE": 0.5955,
       "R^2": 0.9861
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     },
     {
      "Modelo": "LSTM",
@@ -6161,7 +6920,9 @@
       "RMSE": 0.147,
       "MAPE": 0.5489,
       "R^2": 0.9871
-     }
+     },
+     "p_holm": 0.0,
+     "p_holm_bank": 0.0
     }
    ],
    "fecha_inicio": "2016-01-01",
